@@ -100,11 +100,28 @@ export function createEmptyPipeline(projectName: string, stack: TechStack): Pipe
   };
 }
 
+// Agent activity — tool use, file operations, thinking, etc.
+export type ActivityKind = 'tool_use' | 'tool_result' | 'thinking' | 'text';
+
+export interface AgentActivity {
+  id: string;
+  agentId: string;
+  kind: ActivityKind;
+  /** Tool name (Read, Edit, Bash, Grep, Glob, Write, etc.) */
+  tool?: string;
+  /** Short summary — file path, command, or first ~200 chars */
+  summary: string;
+  /** Full content (tool input JSON, result text, thinking text) */
+  content?: string;
+  timestamp: number;
+}
+
 // WebSocket message types
 export type WsMessage =
   | { type: 'state'; payload: PipelineState }
   | { type: 'agent-update'; payload: Agent }
   | { type: 'agent-output'; payload: { agentId: string; chunk: string } }
+  | { type: 'agent-activity'; payload: AgentActivity }
   | { type: 'guardrail-alert'; payload: GuardrailViolation }
   | { type: 'cost-update'; payload: CostInfo };
 
@@ -112,7 +129,8 @@ export type WsCommand =
   | { action: 'spawn'; name: string; persona: Persona; stack: TechStack; model?: string; prompt?: string; permissionMode?: PermissionMode }
   | { action: 'kill'; agentId: string }
   | { action: 'send-input'; agentId: string; text: string }
-  | { action: 'get-state' };
+  | { action: 'get-state' }
+  | { action: 'run-stage'; stage: 'analyze' | 'architect' | 'plan' | 'build'; prompt?: string; parallel?: number; taskId?: string };
 
 // Guardrail types
 export interface GuardrailRule {
@@ -188,10 +206,20 @@ export interface ClaudeStreamMessage {
   is_error?: boolean;
   // assistant message wrapper (actual Claude CLI format)
   message?: {
-    content?: Array<{ type: string; text?: string }>;
+    content?: Array<{
+      type: string;
+      text?: string;
+      // tool_use fields
+      id?: string;
+      name?: string;
+      input?: Record<string, unknown>;
+    }>;
     role?: string;
     stop_reason?: string | null;
   };
+  // tool_result top-level message
+  content?: string | Array<{ type: string; text?: string }>;
+  tool_use_id?: string;
 }
 
 // Persona → stage mapping

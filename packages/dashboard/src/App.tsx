@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Wifi, WifiOff, Plus, Skull } from 'lucide-react';
+import { Wifi, WifiOff, Plus, Terminal } from 'lucide-react';
 import { useWebSocket } from './hooks/useWebSocket';
 import { TopBar } from './components/TopBar';
 import { AgentCard } from './components/AgentCard';
@@ -11,7 +11,7 @@ import { KillConfirmDialog } from './components/KillConfirmDialog';
 import type { Agent } from './types';
 
 export default function App() {
-  const { state, connected, agentOutputs, violations, sendCommand } = useWebSocket();
+  const { state, connected, agentOutputs, agentActivities, violations, sendCommand } = useWebSocket();
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [showSpawn, setShowSpawn] = useState(false);
   const [killTarget, setKillTarget] = useState<Agent | null>(null);
@@ -19,62 +19,70 @@ export default function App() {
   const selectedAgent = state?.agents.find((a) => a.id === selectedAgentId) ?? null;
 
   return (
-    <div className="h-screen flex flex-col bg-[#080808]">
-      {/* Header */}
-      <header className="flex items-center justify-between px-5 py-3 border-b border-stone-800/40 bg-[#0a0a0a]">
+    <div className="h-screen flex flex-col bg-[#0c0a09]">
+      {/* Header — terminal title bar */}
+      <header className="flex items-center justify-between px-4 py-2 border-b border-stone-800/50 bg-[#0c0a09]">
         <div className="flex items-center gap-3">
-          <Skull size={22} className="text-red-700" />
-          <h1 className="text-lg font-bold tracking-wider text-stone-200">SWARM</h1>
+          {/* Terminal window dots */}
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-red-600/80" />
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-600/60" />
+            <span className="w-2.5 h-2.5 rounded-full bg-green-600/60" />
+          </div>
+          <div className="w-px h-4 bg-stone-800/50 mx-1" />
+          <Terminal size={14} className="text-red-600" />
+          <h1 className="text-sm font-semibold tracking-[0.2em] text-stone-300 uppercase">swarm</h1>
           {state && (
-            <span className="text-sm text-stone-400 font-light">
-              {state.projectName} <span className="text-stone-500">/</span> {state.stack}
+            <span className="text-xs text-stone-500 font-light">
+              <span className="text-stone-600">//</span> {state.projectName}
+              <span className="text-stone-600">:</span>{state.stack}
             </span>
           )}
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5">
             {connected ? (
-              <Wifi size={13} className="text-emerald-700" />
+              <Wifi size={12} className="text-green-500" />
             ) : (
-              <WifiOff size={13} className="text-red-700" />
+              <WifiOff size={12} className="text-red-500" />
             )}
-            <span className={`text-xs ${connected ? 'text-emerald-700' : 'text-red-700'}`}>
-              {connected ? 'Live' : 'Offline'}
+            <span className={`text-[10px] font-medium uppercase tracking-wider ${connected ? 'text-green-500' : 'text-red-500'}`}>
+              {connected ? 'connected' : 'offline'}
             </span>
           </div>
         </div>
       </header>
 
       {!state ? (
-        <div className="flex-1 flex items-center justify-center text-stone-500">
-          <div className="text-center">
-            <Skull size={56} className="mx-auto mb-4 opacity-10" />
-            <p className="text-sm">Awaiting connection...</p>
-            <p className="text-xs mt-1 text-stone-500">swarm dashboard</p>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center text-stone-600">
+            <Terminal size={48} className="mx-auto mb-4 opacity-20" />
+            <p className="text-sm font-mono">$ swarm dashboard --connect</p>
+            <p className="text-xs mt-2 text-stone-700">awaiting connection...</p>
           </div>
         </div>
       ) : (
         <div className="flex-1 flex overflow-hidden">
-          {/* Left sidebar */}
-          <aside className="w-72 border-r border-stone-800/40 flex flex-col overflow-hidden bg-[#0a0a0a]">
+          {/* Left sidebar — agent list */}
+          <aside className="w-72 border-r border-stone-800/50 flex flex-col overflow-hidden bg-[#0e0c0b]">
             <CostPanel pipeline={state} />
 
-            <div className="border-t border-stone-800/40 flex-1 overflow-y-auto">
-              <div className="flex items-center justify-between px-4 py-2.5">
-                <h3 className="text-[11px] font-semibold text-stone-400 uppercase tracking-widest">
-                  Agents ({state.agents.length})
-                </h3>
+            <div className="border-t border-stone-800/50 flex-1 overflow-y-auto">
+              <div className="flex items-center justify-between px-3 py-2">
+                <span className="text-[10px] text-stone-500 font-medium tracking-widest uppercase">
+                  processes <span className="text-stone-600">({state.agents.length})</span>
+                </span>
                 <button
                   onClick={() => setShowSpawn(true)}
-                  className="p-1 rounded hover:bg-stone-800/50 text-stone-400 hover:text-red-500 transition-colors"
+                  className="p-1 rounded hover:bg-stone-800/50 text-stone-500 hover:text-green-500 transition-colors"
                   title="Spawn agent"
                 >
-                  <Plus size={14} />
+                  <Plus size={13} />
                 </button>
               </div>
 
-              <div className="px-3 pb-3 space-y-2">
+              <div className="px-2 pb-3 space-y-1">
                 {state.agents.map((agent) => (
                   <AgentCard
                     key={agent.id}
@@ -85,8 +93,8 @@ export default function App() {
                   />
                 ))}
                 {state.agents.length === 0 && (
-                  <p className="text-xs text-stone-500 text-center py-6">
-                    No agents spawned
+                  <p className="text-[10px] text-stone-600 text-center py-8 font-mono">
+                    no active processes
                   </p>
                 )}
               </div>
@@ -94,11 +102,11 @@ export default function App() {
           </aside>
 
           {/* Main content */}
-          <main className="flex-1 flex flex-col overflow-hidden bg-[#080808]">
-            <TopBar pipeline={state} violationCount={violations.length} />
+          <main className="flex-1 flex flex-col overflow-hidden bg-[#0c0a09]">
+            <TopBar pipeline={state} violationCount={violations.length} onRunStage={sendCommand} />
 
             {violations.length > 0 && (
-              <div className="border-b border-stone-800/40">
+              <div className="border-b border-stone-800/50">
                 <GuardrailAlerts violations={violations} />
               </div>
             )}
@@ -107,6 +115,7 @@ export default function App() {
               <OutputStream
                 agent={selectedAgent}
                 liveOutput={selectedAgentId ? agentOutputs.get(selectedAgentId) || '' : ''}
+                activities={selectedAgentId ? agentActivities.get(selectedAgentId) || [] : []}
                 onSendInput={(agentId, text) =>
                   sendCommand({ action: 'send-input', agentId, text })
                 }

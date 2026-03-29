@@ -3,7 +3,7 @@ import { writeFileSync, mkdirSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { EventEmitter } from 'node:events';
-import type { ClaudeStreamMessage, CostInfo } from '../types.js';
+import type { ClaudeStreamMessage, CostInfo, AgentActivity } from '../types.js';
 
 export interface AgentProcessConfig {
   prompt: string;
@@ -24,12 +24,21 @@ export interface AgentProcessConfig {
   interactive?: boolean;
 }
 
+export interface SubAgentInfo {
+  toolUseId: string;
+  description: string;
+  prompt: string;
+}
+
 export interface AgentProcessEvents {
   content: (text: string) => void;
   result: (data: { result: string; cost: CostInfo; sessionId: string }) => void;
   'error-output': (text: string) => void;
   exit: (code: number | null) => void;
   message: (msg: ClaudeStreamMessage) => void;
+  activity: (activity: Omit<AgentActivity, 'agentId'>) => void;
+  'sub-agent-start': (info: SubAgentInfo) => void;
+  'sub-agent-end': (info: { toolUseId: string; result: string }) => void;
 }
 
 export class AgentProcess extends EventEmitter {
@@ -37,6 +46,8 @@ export class AgentProcess extends EventEmitter {
   private buffer = '';
   private config: AgentProcessConfig;
   private tempFiles: string[] = [];
+  /** Track pending Agent tool_use IDs to correlate with tool_result */
+  private pendingSubAgents = new Map<string, SubAgentInfo>();
 
   constructor(config: AgentProcessConfig) {
     super();
@@ -255,6 +266,38 @@ export class AgentProcess extends EventEmitter {
     return args;
   }
 
+  private activityCounter = 0;
+
+  private nextActivityId(): string {
+    return `act-${this.config.sessionId.slice(0, 8)}-${++this.activityCounter}`;
+  }
+
+  /** Summarize a tool_use block for the activity feed */
+  private summarizeToolUse(name: string, input: Record<string, unknown>): string {
+    switch (name) {
+      case 'Read':
+        return `Reading ${input.file_path ?? 'file'}`;
+      case 'Edit':
+        return `Editing ${input.file_path ?? 'file'}`;
+      case 'Write':
+        return `Writing ${input.file_path ?? 'file'}`;
+      case 'Bash':
+        return `Running: ${String(input.command ?? input.description ?? '').slice(0, 120)}`;
+      case 'Grep':
+        return `Searching for "${String(input.pattern ?? '').slice(0, 60)}"${input.path ? ` in ${input.path}` : ''}`;
+      case 'Glob':
+        return `Finding files: ${input.pattern ?? ''}`;
+      case 'Agent':
+        return `Spawning sub-agent: ${input.description ?? ''}`;
+      case 'WebSearch':
+        return `Searching web: ${input.query ?? ''}`;
+      case 'WebFetch':
+        return `Fetching: ${input.url ?? ''}`;
+      default:
+        return `Using ${name}`;
+    }
+  }
+
   private parseStreamJson(data: Buffer): void {
     this.buffer += data.toString();
     const lines = this.buffer.split('\n');
@@ -274,6 +317,15 @@ export class AgentProcess extends EventEmitter {
       this.emit('message', msg);
 
       if (msg.type === 'result') {
+        // Flush any pending sub-agents — parent is done, so all sub-agents must be done
+        for (const [toolUseId] of this.pendingSubAgents) {
+          this.emit('sub-agent-end', {
+            toolUseId,
+            result: 'Completed (parent process finished)',
+          });
+        }
+        this.pendingSubAgents.clear();
+
         const cost: CostInfo = {
           totalUsd: msg.total_cost_usd ?? 0,
           inputTokens: msg.usage?.input_tokens ?? 0,
@@ -288,11 +340,97 @@ export class AgentProcess extends EventEmitter {
           sessionId: msg.session_id ?? this.config.sessionId,
         });
       } else if (msg.type === 'assistant' && msg.message?.content) {
-        // Claude CLI format: {"type":"assistant","message":{"content":[{"type":"text","text":"..."}]}}
         for (const block of msg.message.content) {
           if (block.type === 'text' && block.text) {
             this.emit('content', block.text);
+            // Also emit as text activity for the feed
+            this.emit('activity', {
+              id: this.nextActivityId(),
+              kind: 'text',
+              summary: block.text.slice(0, 200),
+              content: block.text,
+              timestamp: Date.now(),
+            });
+          } else if (block.type === 'tool_use' && block.name) {
+            const input = block.input ?? {};
+            this.emit('activity', {
+              id: this.nextActivityId(),
+              kind: 'tool_use',
+              tool: block.name,
+              summary: this.summarizeToolUse(block.name, input),
+              content: JSON.stringify(input, null, 2),
+              timestamp: Date.now(),
+            });
+
+            // Track Agent tool_use for sub-agent visibility
+            if (block.name === 'Agent' && block.id) {
+              const info: SubAgentInfo = {
+                toolUseId: block.id,
+                description: String(input.description ?? 'sub-agent'),
+                prompt: String(input.prompt ?? '').slice(0, 500),
+              };
+              this.pendingSubAgents.set(block.id, info);
+              this.emit('sub-agent-start', info);
+            }
+          } else if (block.type === 'thinking' && block.text) {
+            this.emit('activity', {
+              id: this.nextActivityId(),
+              kind: 'thinking',
+              summary: block.text.slice(0, 200),
+              content: block.text,
+              timestamp: Date.now(),
+            });
+          } else if (block.type === 'tool_result') {
+            // tool_result as content block inside assistant message
+            const resultText = block.text ?? '';
+            const toolUseId = (block as Record<string, unknown>).tool_use_id as string | undefined;
+            if (resultText) {
+              this.emit('activity', {
+                id: this.nextActivityId(),
+                kind: 'tool_result',
+                summary: resultText.slice(0, 200),
+                content: resultText.length > 200 ? resultText : undefined,
+                timestamp: Date.now(),
+              });
+            }
+            // Check if this is a sub-agent completion
+            if (toolUseId && this.pendingSubAgents.has(toolUseId)) {
+              this.pendingSubAgents.delete(toolUseId);
+              this.emit('sub-agent-end', {
+                toolUseId,
+                result: resultText.slice(0, 2000),
+              });
+            }
           }
+        }
+      } else if (msg.type === 'tool_result') {
+        // Tool result — extract text content
+        let resultText = '';
+        if (typeof msg.content === 'string') {
+          resultText = msg.content;
+        } else if (Array.isArray(msg.content)) {
+          resultText = msg.content
+            .filter((b) => b.type === 'text' && b.text)
+            .map((b) => b.text!)
+            .join('\n');
+        }
+        if (resultText) {
+          this.emit('activity', {
+            id: this.nextActivityId(),
+            kind: 'tool_result',
+            summary: resultText.slice(0, 200),
+            content: resultText.length > 200 ? resultText : undefined,
+            timestamp: Date.now(),
+          });
+        }
+
+        // Check if this is a sub-agent completion
+        if (msg.tool_use_id && this.pendingSubAgents.has(msg.tool_use_id)) {
+          this.pendingSubAgents.delete(msg.tool_use_id);
+          this.emit('sub-agent-end', {
+            toolUseId: msg.tool_use_id,
+            result: resultText.slice(0, 2000),
+          });
         }
       }
     }

@@ -1,38 +1,20 @@
-import { Bot, Clock, DollarSign, Hash, CheckCircle, XCircle, Skull, Shield, GitBranch, Crown } from 'lucide-react';
+import { Clock, DollarSign, GitBranch, Crown } from 'lucide-react';
 import type { Agent } from '../types';
 
-const STATUS_STYLES: Record<string, { color: string; bg: string; border: string }> = {
-  pending: { color: 'text-stone-400', bg: 'bg-stone-900/30', border: 'border-stone-800/30' },
-  running: { color: 'text-red-400', bg: 'bg-red-950/20', border: 'border-red-900/30' },
-  done: { color: 'text-emerald-600', bg: 'bg-stone-900/30', border: 'border-stone-800/30' },
-  error: { color: 'text-red-600', bg: 'bg-red-950/20', border: 'border-red-900/30' },
-  killed: { color: 'text-stone-500', bg: 'bg-stone-900/30', border: 'border-stone-800/30' },
-};
-
-const PERMISSION_LABELS: Record<string, string> = {
-  default: 'ask',
-  acceptEdits: 'edits',
-  bypassPermissions: 'bypass',
-  plan: 'plan',
-  auto: 'auto',
+const STATUS_INDICATOR: Record<string, { char: string; color: string }> = {
+  pending: { char: '-', color: 'text-stone-600' },
+  running: { char: '*', color: 'text-red-400' },
+  done: { char: '+', color: 'text-green-500' },
+  error: { char: 'x', color: 'text-red-500' },
+  killed: { char: '!', color: 'text-stone-500' },
 };
 
 const PERSONA_COLORS: Record<string, string> = {
-  analyst: 'bg-purple-900/60 text-purple-400',
-  architect: 'bg-blue-950/60 text-blue-400',
-  lead: 'bg-amber-950/60 text-amber-500',
-  engineer: 'bg-red-950/60 text-red-400',
+  analyst: 'text-purple-400',
+  architect: 'text-blue-400',
+  lead: 'text-amber-400',
+  engineer: 'text-red-400',
 };
-
-function StatusIcon({ status }: { status: string }) {
-  switch (status) {
-    case 'running': return <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />;
-    case 'done': return <CheckCircle size={13} className="text-emerald-600" />;
-    case 'error': return <XCircle size={13} className="text-red-600" />;
-    case 'killed': return <Skull size={13} className="text-stone-500" />;
-    default: return <span className="w-2 h-2 bg-stone-700 rounded-full" />;
-  }
-}
 
 function formatDuration(ms: number): string {
   if (ms < 1000) return `${ms}ms`;
@@ -48,82 +30,85 @@ interface AgentCardProps {
 }
 
 export function AgentCard({ agent, selected, onClick, onKill }: AgentCardProps) {
-  const style = STATUS_STYLES[agent.status] ?? STATUS_STYLES.pending;
+  const status = STATUS_INDICATOR[agent.status] ?? STATUS_INDICATOR.pending;
   const elapsed = agent.startedAt
     ? (agent.finishedAt ?? Date.now()) - agent.startedAt
     : 0;
+  const isRunning = agent.status === 'running';
 
   return (
     <div
       onClick={onClick}
-      className={`p-3 rounded-lg border cursor-pointer transition-all ${style.bg} ${
+      className={`px-2.5 py-2 rounded cursor-pointer transition-all font-mono border ${
         selected
-          ? 'border-red-800/50 gothic-glow'
-          : `${style.border} hover:border-stone-700`
+          ? 'bg-stone-900/60 border-red-900/50 glow-red'
+          : isRunning
+            ? 'bg-stone-900/30 border-stone-800/40 hover:border-stone-700/60'
+            : 'bg-transparent border-transparent hover:bg-stone-900/20 hover:border-stone-800/30'
       }`}
     >
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <Bot size={13} className={style.color} />
-          <span className="font-medium text-sm text-stone-300">{agent.name}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <StatusIcon status={agent.status} />
-          {agent.status === 'running' && (
-            <button
-              onClick={(e) => { e.stopPropagation(); onKill(); }}
-              className="text-[10px] text-red-600 hover:text-red-400 px-1.5 py-0.5 rounded bg-red-950/30 hover:bg-red-950/50 uppercase tracking-wider font-semibold"
-            >
-              Kill
-            </button>
-          )}
-        </div>
+      {/* Line 1: status + name + kill */}
+      <div className="flex items-center gap-1.5 mb-1">
+        <span className={`text-xs font-bold ${status.color}`}>[{status.char}]</span>
+        <span className={`text-xs font-medium truncate flex-1 ${
+          isRunning ? 'text-stone-200' : agent.status === 'done' ? 'text-stone-400' : 'text-stone-300'
+        }`}>
+          {agent.name}
+        </span>
+        {isRunning && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onKill(); }}
+            className="text-[9px] text-red-600 hover:text-red-400 px-1 py-0.5 rounded bg-red-950/40 hover:bg-red-950/60 uppercase tracking-wider font-semibold transition-colors"
+          >
+            kill
+          </button>
+        )}
       </div>
 
-      <div className="flex items-center gap-1.5 mb-2 flex-wrap">
-        <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${PERSONA_COLORS[agent.persona]}`}>
+      {/* Line 2: persona + badges */}
+      <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+        <span className={`text-[10px] ${PERSONA_COLORS[agent.persona] ?? 'text-stone-500'}`}>
           {agent.persona}
         </span>
+        <span className="text-stone-700">:</span>
+        <span className="text-[10px] text-stone-500">{agent.stack}</span>
         {agent.childIds && agent.childIds.length > 0 && (
-          <span className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded bg-amber-950/40 text-amber-600 font-medium">
+          <span className="flex items-center gap-0.5 text-[9px] text-amber-500">
             <Crown size={8} />
-            orchestrator ({agent.childIds.length})
+            orch({agent.childIds.length})
           </span>
         )}
         {agent.parentId && (
-          <span className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded bg-stone-800/50 text-stone-500">
+          <span className="flex items-center gap-0.5 text-[9px] text-stone-600">
             <GitBranch size={8} />
-            sub-task
+            sub
           </span>
         )}
-        <span className="text-[10px] text-stone-400">{agent.stack}</span>
-        <span className="text-[10px] text-stone-500">{agent.model}</span>
-        <span className="flex items-center gap-0.5 text-[10px] text-stone-500" title={`Permission: ${agent.permissionMode}`}>
-          <Shield size={8} />
-          {PERMISSION_LABELS[agent.permissionMode] ?? agent.permissionMode}
-        </span>
       </div>
 
-      <div className="flex items-center gap-3 text-[10px] text-stone-400 font-mono">
-        <span className="flex items-center gap-1">
-          <DollarSign size={9} />
+      {/* Line 3: cost + tokens + time */}
+      <div className="flex items-center gap-2.5 text-[10px] text-stone-500">
+        <span className="flex items-center gap-0.5 text-amber-700">
+          <DollarSign size={8} />
           {agent.cost.totalUsd.toFixed(4)}
         </span>
-        <span className="flex items-center gap-1">
-          <Hash size={9} />
-          {agent.cost.inputTokens.toLocaleString()}/{agent.cost.outputTokens.toLocaleString()}
-        </span>
+        {(agent.cost.inputTokens > 0 || agent.cost.outputTokens > 0) && (
+          <span className="text-stone-600">
+            {Math.round(agent.cost.inputTokens / 1000)}k<span className="text-stone-700">/</span>{Math.round(agent.cost.outputTokens / 1000)}k
+          </span>
+        )}
         {elapsed > 0 && (
-          <span className="flex items-center gap-1">
-            <Clock size={9} />
+          <span className="flex items-center gap-0.5">
+            <Clock size={8} />
             {formatDuration(elapsed)}
           </span>
         )}
       </div>
 
+      {/* Error line */}
       {agent.error && (
-        <div className="mt-2 text-[10px] text-red-600 truncate">
-          {agent.error}
+        <div className="mt-1 text-[10px] text-red-500 truncate">
+          err: {agent.error.slice(0, 80)}
         </div>
       )}
     </div>

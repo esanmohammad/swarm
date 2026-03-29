@@ -4,7 +4,7 @@ import { AgentProcess } from './agent-process.js';
 import { StateManager } from './state.js';
 import { CostTracker } from './cost-tracker.js';
 import { PromptLoader } from '../prompts/loader.js';
-import type { Agent, Persona, TechStack, SwarmConfig, CostInfo } from '../types.js';
+import type { Agent, Persona, TechStack, SwarmConfig, CostInfo, AgentActivity } from '../types.js';
 import { emptyCost, PERSONA_STAGE_MAP } from '../types.js';
 
 export interface SpawnOptions {
@@ -31,6 +31,8 @@ export interface SpawnOptions {
 
 export class AgentManager extends EventEmitter {
   private agents = new Map<string, { agent: Agent; process: AgentProcess }>();
+  /** Maps Claude-internal Agent tool_use_id → virtual agent id */
+  private subAgentMap = new Map<string, string>();
 
   constructor(
     private state: StateManager,
@@ -93,6 +95,13 @@ export class AgentManager extends EventEmitter {
       agent.output += chunk;
       this.emit('agent-output', { agentId: agent.id, chunk });
     });
+
+    agentProcess.on('activity', (activity) => {
+      const full: AgentActivity = { ...activity, agentId: agent.id };
+      this.emit('agent-activity', full);
+    });
+
+    this.wireSubAgentEvents(agentProcess, agent);
 
     agentProcess.on('result', ({ result, cost, sessionId: sid }) => {
       agent.status = 'done';
@@ -205,6 +214,13 @@ export class AgentManager extends EventEmitter {
       this.emit('agent-output', { agentId, chunk });
     });
 
+    resumeProcess.on('activity', (activity) => {
+      const full: AgentActivity = { ...activity, agentId };
+      this.emit('agent-activity', full);
+    });
+
+    this.wireSubAgentEvents(resumeProcess, agent);
+
     resumeProcess.on('result', ({ result, cost, sessionId: sid }) => {
       agent.status = 'done';
       // Accumulate cost
@@ -273,6 +289,87 @@ export class AgentManager extends EventEmitter {
       if (agent.name === name) return agent;
     }
     return undefined;
+  }
+
+  /**
+   * Wire sub-agent events: when an agent uses Claude's Agent tool internally,
+   * create virtual child agent entries so they appear in the dashboard sidebar.
+   */
+  private wireSubAgentEvents(process: AgentProcess, parentAgent: Agent): void {
+    process.on('sub-agent-start', (info) => {
+      const virtualId = uuid();
+      this.subAgentMap.set(info.toolUseId, virtualId);
+
+      const virtualAgent: Agent = {
+        id: virtualId,
+        name: `sub:${info.description.slice(0, 30)}`,
+        persona: 'engineer',
+        stack: parentAgent.stack,
+        status: 'running',
+        pid: null,
+        sessionId: `virtual-${info.toolUseId}`,
+        model: parentAgent.model,
+        permissionMode: parentAgent.permissionMode,
+        startedAt: Date.now(),
+        finishedAt: null,
+        cost: emptyCost(),
+        output: '',
+        error: null,
+        parentId: parentAgent.id,
+        childIds: [],
+      };
+
+      // Register as child of parent
+      if (!parentAgent.childIds.includes(virtualId)) {
+        parentAgent.childIds.push(virtualId);
+        this.state.updateAgent(parentAgent);
+      }
+
+      // Add to state
+      this.state.addAgent(virtualAgent);
+      this.emit('agent-spawned', virtualAgent);
+
+      // Emit initial activity + output so dashboard has something to show
+      const startMsg = `Spawned by ${parentAgent.name}\nTask: ${info.description}\n\nRunning...`;
+      this.emit('agent-output', { agentId: virtualId, chunk: startMsg });
+      this.emit('agent-activity', {
+        id: `vact-${virtualId}-start`,
+        agentId: virtualId,
+        kind: 'text' as const,
+        summary: `Spawned by ${parentAgent.name} — ${info.description}`,
+        content: info.prompt || undefined,
+        timestamp: Date.now(),
+      });
+    });
+
+    process.on('sub-agent-end', (info) => {
+      const virtualId = this.subAgentMap.get(info.toolUseId);
+      if (!virtualId) return;
+      this.subAgentMap.delete(info.toolUseId);
+
+      // Find the virtual agent in state and mark done
+      const stateAgents = this.state.getState().agents;
+      const virtualAgent = stateAgents.find((a) => a.id === virtualId);
+      if (virtualAgent) {
+        virtualAgent.status = 'done';
+        virtualAgent.finishedAt = Date.now();
+        virtualAgent.output = info.result;
+        this.state.updateAgent(virtualAgent);
+
+        // Emit result as output + activity so dashboard shows it
+        this.emit('agent-output', { agentId: virtualId, chunk: `\n\n--- Result ---\n${info.result}` });
+        this.emit('agent-activity', {
+          id: `vact-${virtualId}-end`,
+          agentId: virtualId,
+          kind: 'text' as const,
+          summary: info.result.slice(0, 200),
+          content: info.result,
+          timestamp: Date.now(),
+        });
+
+        this.emit('agent-done', virtualAgent);
+      }
+    });
   }
 
   /** Register a child agent under a parent orchestrator */

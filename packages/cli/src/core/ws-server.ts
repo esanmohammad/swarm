@@ -1,9 +1,10 @@
 import { watch, readFileSync, existsSync, FSWatcher } from 'node:fs';
 import { WebSocketServer, WebSocket } from 'ws';
-import type { WsMessage, WsCommand, PipelineState, Persona } from '../types.js';
+import type { WsMessage, WsCommand, PipelineState, Persona, AgentActivity } from '../types.js';
 import { StateManager } from './state.js';
 import { AgentManager } from './agent-manager.js';
-import type { Agent } from '../types.js';
+import { Pipeline } from './pipeline.js';
+import type { Agent, SwarmConfig } from '../types.js';
 
 // Non-engineer personas get tool restrictions + system enforcement
 const NON_ENGINEER_DISALLOWED_TOOLS = ['Bash', 'Edit', 'NotebookEdit'];
@@ -38,14 +39,17 @@ export class SwarmWsServer {
   private fileWatcher: FSWatcher | null = null;
   private lastStateJson = '';
   private projectCwd: string;
+  private pipeline: Pipeline;
 
   constructor(
     private state: StateManager,
     private agentManager: AgentManager,
+    config: SwarmConfig,
     projectCwd?: string,
   ) {
     // The working directory where artifacts live (REQUIREMENTS.md, etc.)
     this.projectCwd = projectCwd ?? process.cwd();
+    this.pipeline = new Pipeline(agentManager, state, config);
 
     // Subscribe to in-process state events (for agents spawned via dashboard)
     this.state.on('agent-update', (agent: Agent) => {
@@ -58,6 +62,10 @@ export class SwarmWsServer {
 
     this.agentManager.on('agent-output', (data: { agentId: string; chunk: string }) => {
       this.broadcast({ type: 'agent-output', payload: data });
+    });
+
+    this.agentManager.on('agent-activity', (activity: AgentActivity) => {
+      this.broadcast({ type: 'agent-activity', payload: activity });
     });
 
     // Broadcast errors from agents so dashboard can show them
@@ -276,6 +284,42 @@ export class SwarmWsServer {
       case 'get-state':
         this.broadcast({ type: 'state', payload: this.state.getState() });
         break;
+
+      case 'run-stage': {
+        const stageStack = this.state.getState().stack;
+        const stageOpts = { stack: stageStack, interactive: false };
+
+        console.log(`[ws] Running pipeline stage: ${cmd.stage}`);
+
+        // Run in background — don't block the WS command handler
+        (async () => {
+          try {
+            switch (cmd.stage) {
+              case 'analyze':
+                await this.pipeline.runAnalyze(cmd.prompt || 'Analyze the project', stageOpts);
+                break;
+              case 'architect':
+                await this.pipeline.runArchitect(stageOpts);
+                break;
+              case 'plan':
+                await this.pipeline.runPlan(stageOpts);
+                break;
+              case 'build':
+                await this.pipeline.runBuild({
+                  stack: stageStack,
+                  parallel: cmd.parallel ?? 3,
+                  taskId: cmd.taskId,
+                });
+                break;
+            }
+            console.log(`[ws] Pipeline stage "${cmd.stage}" complete`);
+          } catch (err) {
+            const errMsg = err instanceof Error ? err.message : String(err);
+            console.error(`[ws] Pipeline stage "${cmd.stage}" failed: ${errMsg}`);
+          }
+        })();
+        break;
+      }
     }
   }
 

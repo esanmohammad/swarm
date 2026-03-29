@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import type { PipelineState, WsMessage, WsCommand, GuardrailViolation } from '../types';
+import type { PipelineState, WsMessage, WsCommand, GuardrailViolation, AgentActivity } from '../types';
 
 const WS_URL = `ws://${window.location.hostname}:3847`;
 const RECONNECT_DELAY = 2000;
@@ -9,6 +9,7 @@ interface UseWebSocketReturn {
   state: PipelineState | null;
   connected: boolean;
   agentOutputs: Map<string, string>;
+  agentActivities: Map<string, AgentActivity[]>;
   violations: GuardrailViolation[];
   sendCommand: (cmd: WsCommand) => void;
 }
@@ -18,6 +19,7 @@ export function useWebSocket(): UseWebSocketReturn {
   const [connected, setConnected] = useState(false);
   const [violations, setViolations] = useState<GuardrailViolation[]>([]);
   const agentOutputsRef = useRef(new Map<string, string>());
+  const agentActivitiesRef = useRef(new Map<string, AgentActivity[]>());
   const [, forceUpdate] = useState(0);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectDelay = useRef(RECONNECT_DELAY);
@@ -78,6 +80,16 @@ export function useWebSocket(): UseWebSocketReturn {
             forceUpdate((n) => n + 1);
             break;
 
+          case 'agent-activity': {
+            const aid = msg.payload.agentId;
+            const existing = agentActivitiesRef.current.get(aid) || [];
+            // Keep last 200 activities per agent to avoid unbounded growth
+            const updated = [...existing, msg.payload].slice(-200);
+            agentActivitiesRef.current.set(aid, updated);
+            forceUpdate((n) => n + 1);
+            break;
+          }
+
           case 'guardrail-alert':
             setViolations((prev) => [...prev, msg.payload]);
             break;
@@ -109,6 +121,7 @@ export function useWebSocket(): UseWebSocketReturn {
     state,
     connected,
     agentOutputs: agentOutputsRef.current,
+    agentActivities: agentActivitiesRef.current,
     violations,
     sendCommand,
   };

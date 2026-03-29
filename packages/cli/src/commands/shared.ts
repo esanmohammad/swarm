@@ -23,7 +23,7 @@ export function createContext(swarmDir: string, config: SwarmConfig): SwarmConte
   const agentManager = new AgentManager(state, costTracker, promptLoader, config);
   const pipeline = new Pipeline(agentManager, state, config);
   // Pass cwd so dashboard-spawned agents run in the right directory
-  const wsServer = new SwarmWsServer(state, agentManager, process.cwd());
+  const wsServer = new SwarmWsServer(state, agentManager, config, process.cwd());
 
   const cleanup = () => {
     agentManager.killAll();
