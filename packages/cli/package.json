@@ -1,0 +1,30 @@
+{
+  "name": "@swarm/cli",
+  "version": "0.1.0",
+  "description": "Claude Agent Orchestration CLI",
+  "type": "module",
+  "bin": {
+    "swarm": "./dist/bin/swarm.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx bin/swarm.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "chalk": "^5.4.1",
+    "commander": "^13.1.0",
+    "open": "^10.1.0",
+    "ora": "^8.2.0",
+    "uuid": "^11.1.0",
+    "ws": "^8.18.0",
+    "yaml": "^2.7.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "@types/uuid": "^10.0.0",
+    "@types/ws": "^8.18.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}

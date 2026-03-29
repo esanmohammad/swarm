@@ -1,0 +1,12 @@
+{
+  "name": "swarm-orchestrator",
+  "private": true,
+  "workspaces": ["packages/*"],
+  "scripts": {
+    "build": "npm run build -w packages/cli && npm run build -w packages/dashboard",
+    "build:cli": "npm run build -w packages/cli",
+    "build:dashboard": "npm run build -w packages/dashboard",
+    "dev": "npm run dev -w packages/cli",
+    "dev:dashboard": "npm run dev -w packages/dashboard"
+  }
+}

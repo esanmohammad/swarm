@@ -1,0 +1,5 @@
+node_modules/
+dist/
+.swarm/state.json
+.swarm/logs/
+*.tsbuildinfo
