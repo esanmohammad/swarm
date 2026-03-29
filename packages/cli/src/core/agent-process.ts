@@ -8,6 +8,8 @@ import type { ClaudeStreamMessage, CostInfo } from '../types.js';
 export interface AgentProcessConfig {
   prompt: string;
   systemPrompt?: string;
+  /** Appended to the default system prompt via --append-system-prompt (harder to override) */
+  appendSystemPrompt?: string;
   model: string;
   sessionId: string;
   maxBudgetUsd?: number | null;
@@ -112,10 +114,22 @@ export class AgentProcess extends EventEmitter {
         console.log('\n' + bootstrapOutput);
       }
 
-      // Step 2: Resume the session interactively
+      // Step 2: Resume the session interactively — carry over tool restrictions
       const resumeArgs = [
         '--resume', this.config.sessionId,
       ];
+      if (this.config.disallowedTools?.length) {
+        resumeArgs.push('--disallowedTools', this.config.disallowedTools.join(','));
+      }
+      if (this.config.allowedTools?.length) {
+        resumeArgs.push('--allowedTools', this.config.allowedTools.join(','));
+      }
+      if (this.config.permissionMode) {
+        resumeArgs.push('--permission-mode', this.config.permissionMode);
+      }
+      if (this.config.appendSystemPrompt) {
+        resumeArgs.push('--append-system-prompt', this.config.appendSystemPrompt);
+      }
 
       this.proc = spawn('claude', resumeArgs, {
         cwd: this.config.cwd,
@@ -215,11 +229,14 @@ export class AgentProcess extends EventEmitter {
     if (this.config.permissionMode) {
       args.push('--permission-mode', this.config.permissionMode);
     }
+    if (this.config.appendSystemPrompt) {
+      args.push('--append-system-prompt', this.config.appendSystemPrompt);
+    }
     if (this.config.allowedTools?.length) {
-      args.push('--allowedTools', this.config.allowedTools.join(','));
+      args.push('--allowedTools', ...this.config.allowedTools);
     }
     if (this.config.disallowedTools?.length) {
-      args.push('--disallowedTools', this.config.disallowedTools.join(','));
+      args.push('--disallowedTools', ...this.config.disallowedTools);
     }
 
     return args;

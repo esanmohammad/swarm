@@ -28,6 +28,15 @@ export interface Agent {
   cost: CostInfo;
   output: string;
   error: string | null;
+  /** ID of parent orchestrator agent (for sub-engineers) */
+  parentId: string | null;
+  /** IDs of child sub-engineer agents (for orchestrator) */
+  childIds: string[];
+  /** Tool restrictions */
+  allowedTools?: string[];
+  disallowedTools?: string[];
+  /** System enforcement prompt */
+  appendSystemPrompt?: string;
 }
 
 export interface StageState {
@@ -42,6 +51,7 @@ export interface PipelineState {
   stages: Record<StageName, StageState>;
   agents: Agent[];
   totalCost: CostInfo;
+  violations: GuardrailViolation[];
   updatedAt: number;
 }
 

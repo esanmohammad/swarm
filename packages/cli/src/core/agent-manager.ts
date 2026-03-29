@@ -19,6 +19,14 @@ export interface SpawnOptions {
   interactive?: boolean;
   /** Override permission mode for this agent */
   permissionMode?: import('../types.js').PermissionMode;
+  /** ID of parent orchestrator agent (for sub-engineers) */
+  parentId?: string;
+  /** Override allowed tools for this agent */
+  allowedTools?: string[];
+  /** Override disallowed tools for this agent */
+  disallowedTools?: string[];
+  /** Appended system prompt — system-level enforcement the agent cannot ignore */
+  appendSystemPrompt?: string;
 }
 
 export class AgentManager extends EventEmitter {
@@ -59,17 +67,23 @@ export class AgentManager extends EventEmitter {
       cost: emptyCost(),
       output: '',
       error: null,
+      parentId: opts.parentId ?? null,
+      childIds: [],
+      allowedTools: opts.allowedTools,
+      disallowedTools: opts.disallowedTools,
+      appendSystemPrompt: opts.appendSystemPrompt,
     };
 
     const agentProcess = new AgentProcess({
       prompt: opts.prompt,
       systemPrompt,
+      appendSystemPrompt: opts.appendSystemPrompt,
       model: agent.model,
       sessionId,
       maxBudgetUsd: opts.maxBudgetUsd ?? this.config.maxBudgetUsd,
       permissionMode,
-      allowedTools: this.config.permissions.allowedTools,
-      disallowedTools: this.config.permissions.disallowedTools,
+      allowedTools: opts.allowedTools ?? this.config.permissions.allowedTools,
+      disallowedTools: opts.disallowedTools ?? this.config.permissions.disallowedTools,
       cwd: opts.cwd,
       interactive: opts.interactive,
     });
@@ -172,12 +186,15 @@ export class AgentManager extends EventEmitter {
     this.state.updateAgent(agent);
     this.emit('agent-output', { agentId, chunk: `\n\n> User: ${text}\n\n` });
 
-    // Spawn a new process that resumes the session
+    // Spawn a new process that resumes the session — carry over ALL restrictions
     const resumeProcess = new AgentProcess({
       prompt: text,
       model: agent.model,
       sessionId: agent.sessionId,
       permissionMode: agent.permissionMode,
+      allowedTools: agent.allowedTools,
+      disallowedTools: agent.disallowedTools,
+      appendSystemPrompt: agent.appendSystemPrompt,
       cwd: process.cwd(),
       resume: true,
     });
@@ -256,6 +273,15 @@ export class AgentManager extends EventEmitter {
       if (agent.name === name) return agent;
     }
     return undefined;
+  }
+
+  /** Register a child agent under a parent orchestrator */
+  addChild(parentId: string, childId: string): void {
+    const parent = this.agents.get(parentId);
+    if (parent && !parent.agent.childIds.includes(childId)) {
+      parent.agent.childIds.push(childId);
+      this.state.updateAgent(parent.agent);
+    }
   }
 
   waitForAgent(agentId: string): Promise<Agent> {

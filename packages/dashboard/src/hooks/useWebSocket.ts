@@ -51,6 +51,10 @@ export function useWebSocket(): UseWebSocketReturn {
         switch (msg.type) {
           case 'state':
             setState(msg.payload);
+            // Load violations from state (e.g. from evaluate command run in another terminal)
+            if (msg.payload.violations && msg.payload.violations.length > 0) {
+              setViolations(msg.payload.violations);
+            }
             break;
 
           case 'agent-update':

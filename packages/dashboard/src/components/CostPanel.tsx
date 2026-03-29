@@ -13,54 +13,54 @@ export function CostPanel({ pipeline }: { pipeline: PipelineState }) {
 
   return (
     <div className="p-4 space-y-4">
-      <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">Cost Summary</h3>
+      <h3 className="text-[11px] font-semibold text-stone-400 uppercase tracking-widest">Cost</h3>
 
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <span className="flex items-center gap-2 text-sm text-gray-400">
-            <DollarSign size={14} />
-            Total Cost
+          <span className="flex items-center gap-2 text-sm text-stone-400">
+            <DollarSign size={13} />
+            Total
           </span>
-          <span className="text-lg font-bold text-amber-400">
+          <span className="text-lg font-bold font-mono text-amber-700">
             ${totalCost.totalUsd.toFixed(4)}
           </span>
         </div>
 
-        <div className="flex items-center justify-between text-sm text-gray-500">
+        <div className="flex items-center justify-between text-xs text-stone-400">
           <span className="flex items-center gap-2">
-            <Hash size={12} />
+            <Hash size={11} />
             Tokens
           </span>
-          <span>{totalCost.inputTokens.toLocaleString()} in / {totalCost.outputTokens.toLocaleString()} out</span>
+          <span className="font-mono">{totalCost.inputTokens.toLocaleString()} / {totalCost.outputTokens.toLocaleString()}</span>
         </div>
 
         {totalCost.cacheReadTokens > 0 && (
-          <div className="text-xs text-gray-600 text-right">
-            Cache: {totalCost.cacheReadTokens.toLocaleString()} read / {totalCost.cacheWriteTokens.toLocaleString()} write
+          <div className="text-[10px] text-stone-400 text-right font-mono">
+            Cache: {totalCost.cacheReadTokens.toLocaleString()} r / {totalCost.cacheWriteTokens.toLocaleString()} w
           </div>
         )}
 
-        <div className="flex items-center justify-between text-sm text-gray-500">
+        <div className="flex items-center justify-between text-xs text-stone-400">
           <span className="flex items-center gap-2">
-            <Clock size={12} />
+            <Clock size={11} />
             API Time
           </span>
-          <span>{(totalCost.durationMs / 1000).toFixed(1)}s</span>
+          <span className="font-mono">{(totalCost.durationMs / 1000).toFixed(1)}s</span>
         </div>
       </div>
 
       {Object.keys(agentsByPersona).length > 0 && (
-        <div className="space-y-2 pt-2 border-t border-gray-800">
-          <h4 className="text-xs font-semibold text-gray-500 uppercase">By Persona</h4>
+        <div className="space-y-2 pt-3 border-t border-stone-800/40">
+          <h4 className="text-[10px] font-semibold text-stone-400 uppercase tracking-widest">By Persona</h4>
           {Object.entries(agentsByPersona).map(([persona, cost]) => (
             <div key={persona} className="space-y-1">
-              <div className="flex justify-between text-xs">
-                <span className="text-gray-400 capitalize">{persona}</span>
-                <span className="text-gray-300">${cost.toFixed(4)}</span>
+              <div className="flex justify-between text-[10px]">
+                <span className="text-stone-400 capitalize">{persona}</span>
+                <span className="text-stone-400 font-mono">${cost.toFixed(4)}</span>
               </div>
-              <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
+              <div className="h-1 bg-stone-900 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-amber-500 rounded-full transition-all"
+                  className="h-full bg-red-900/60 rounded-full transition-all"
                   style={{ width: `${(cost / maxCost) * 100}%` }}
                 />
               </div>
@@ -69,8 +69,8 @@ export function CostPanel({ pipeline }: { pipeline: PipelineState }) {
         </div>
       )}
 
-      <div className="text-xs text-gray-600 pt-2 border-t border-gray-800">
-        {agents.length} agent(s) total
+      <div className="text-[10px] text-stone-400 pt-2 border-t border-stone-800/40 font-mono">
+        {agents.length} agent{agents.length !== 1 ? 's' : ''} total
       </div>
     </div>
   );

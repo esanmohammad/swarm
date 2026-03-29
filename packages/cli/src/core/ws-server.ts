@@ -1,9 +1,36 @@
 import { watch, readFileSync, existsSync, FSWatcher } from 'node:fs';
 import { WebSocketServer, WebSocket } from 'ws';
-import type { WsMessage, WsCommand, PipelineState } from '../types.js';
+import type { WsMessage, WsCommand, PipelineState, Persona } from '../types.js';
 import { StateManager } from './state.js';
 import { AgentManager } from './agent-manager.js';
 import type { Agent } from '../types.js';
+
+// Non-engineer personas get tool restrictions + system enforcement
+const NON_ENGINEER_DISALLOWED_TOOLS = ['Bash', 'Edit', 'NotebookEdit'];
+
+const PERSONA_ENFORCEMENT: Record<string, string> = {
+  analyst: [
+    'SYSTEM ENFORCEMENT: Your output file MUST be named exactly REQUIREMENTS.md.',
+    'SYSTEM ENFORCEMENT: REQUIREMENTS.md MUST contain these sections in order: ## 0. Original Requirement, ## 1. Summary, ## 2. Scope, ## 3. Functional Requirements, ## 4. Data Requirements, ## 5. UI/UX, ## 6. Non-Functional Requirements, ## 7. Integration, ## 8. Testing, ## 9. Rollout, ## 10. Open Questions, ## 11. Change Tracking, ## 12. Appendix.',
+    'SYSTEM ENFORCEMENT: Section 3 MUST contain user stories in "As a [user] I want [thing] So that [reason]" format with Given/When/Then acceptance criteria.',
+    'SYSTEM ENFORCEMENT: Do NOT write migration plans, decision tables, or free-form documents. Follow the template exactly.',
+  ].join('\n'),
+  architect: [
+    'SYSTEM ENFORCEMENT: Your output file MUST be named exactly SPEC.md.',
+    'SYSTEM ENFORCEMENT: SPEC.md MUST contain these sections: ## Overview, ## Requirements Summary, ## Architecture (with Mermaid diagrams), ## Architecture Decision Records, ## Component/Service Architecture, ## Data Model Design, ## API Specification, ## Performance Strategy, ## Testing Strategy, ## Security, ## Implementation Checklist, ## File Structure, ## Open Questions.',
+    'SYSTEM ENFORCEMENT: Include ADR entries (ADR-1, ADR-2, etc.) and Mermaid diagrams. Follow the template exactly.',
+  ].join('\n'),
+  lead: [
+    'SYSTEM ENFORCEMENT: Your output file MUST be named exactly TASKS.md.',
+    'SYSTEM ENFORCEMENT: Every task MUST follow this format: - [ ] T001 [P] [US1] Description — `file/path.ext`',
+    'SYSTEM ENFORCEMENT: One task = one file. Every task has [P] if parallelizable, [USn] user story label, AC: acceptance criteria, and an exact file path.',
+    'SYSTEM ENFORCEMENT: Organize into phases: Setup → Foundational (GATE) → User Stories (parallel after gate) → Polish.',
+  ].join('\n'),
+};
+
+function isNonEngineer(persona: Persona): boolean {
+  return persona === 'analyst' || persona === 'architect' || persona === 'lead';
+}
 
 export class SwarmWsServer {
   private wss: WebSocketServer | null = null;
@@ -88,12 +115,20 @@ export class SwarmWsServer {
       this.lastStateJson = readFileSync(stateFile, 'utf-8');
     } catch { /* ignore */ }
 
+    // fs.watch via kqueue on macOS is unreliable — misses writes.
+    // Use both fs.watch AND polling to guarantee cross-process updates.
     this.fileWatcher = watch(stateFile, { persistent: false }, () => {
       this.debouncedFileCheck(stateFile);
     });
+
+    // Poll every 1s as fallback for missed fs.watch events
+    this.pollTimer = setInterval(() => {
+      this.checkFileForChanges(stateFile);
+    }, 1000);
   }
 
   private fileCheckTimer: ReturnType<typeof setTimeout> | null = null;
+  private pollTimer: ReturnType<typeof setInterval> | null = null;
 
   private debouncedFileCheck(stateFile: string): void {
     if (this.fileCheckTimer) return;
@@ -110,6 +145,8 @@ export class SwarmWsServer {
       this.lastStateJson = newJson;
 
       const newState: PipelineState = JSON.parse(newJson);
+      // Update the in-memory state so get-state returns fresh data
+      this.state.reloadFrom(newState);
       this.broadcast({ type: 'state', payload: newState });
     } catch {
       // File might be mid-write, ignore
@@ -134,6 +171,10 @@ export class SwarmWsServer {
       clearTimeout(this.fileCheckTimer);
       this.fileCheckTimer = null;
     }
+    if (this.pollTimer) {
+      clearInterval(this.pollTimer);
+      this.pollTimer = null;
+    }
     for (const client of this.clients) {
       client.close();
     }
@@ -151,11 +192,56 @@ export class SwarmWsServer {
     }
   }
 
+  private buildPersonaPrompt(persona: Persona, userPrompt?: string): string {
+    const task = userPrompt?.trim() || 'Analyze the project and produce your deliverable.';
+
+    const constraints: Record<string, string> = {
+      analyst: [
+        `Feature request: ${task}`,
+        '',
+        'CRITICAL: Your ONLY deliverable is REQUIREMENTS.md (exact filename).',
+        'Do NOT write code, design architecture, create tasks, or produce any other file.',
+        'REQUIREMENTS.md MUST contain sections 0-12: Original Requirement, Summary, Scope,',
+        'Functional Requirements (with user stories + Given/When/Then AC), Data Requirements,',
+        'UI/UX, Non-Functional Requirements, Integration, Testing, Rollout, Open Questions,',
+        'Change Tracking, Appendix. Do NOT skip sections — write N/A if not applicable.',
+        'Do NOT write migration plans, decision tables, or free-form documents.',
+        'Ask clarifying questions first, then produce REQUIREMENTS.md. Once done, STOP.',
+      ].join('\n'),
+      architect: [
+        `Read REQUIREMENTS.md and produce SPEC.md (exact filename).`,
+        '',
+        `Context: ${task}`,
+        '',
+        'CRITICAL: Your ONLY deliverable is SPEC.md.',
+        'Do NOT write code or create tasks.',
+        'SPEC.md MUST contain: Overview, Requirements Summary, Architecture (Mermaid diagrams),',
+        'ADRs, Component/Service Architecture, Data Model, API Specification, Performance Strategy,',
+        'Testing Strategy, Security, Implementation Checklist, File Structure, Open Questions.',
+        'Once done, STOP.',
+      ].join('\n'),
+      lead: [
+        `Read SPEC.md and produce TASKS.md (exact filename).`,
+        '',
+        `Context: ${task}`,
+        '',
+        'CRITICAL: Your ONLY deliverable is TASKS.md.',
+        'Do NOT write code or redesign architecture.',
+        'Format: - [ ] T001 [P] [US1] Description — `file/path.ext`',
+        'One task = one file. [P] for parallel tasks. [USn] user story labels.',
+        'Phases: Setup → Foundational (GATE) → User Stories (parallel) → Polish.',
+        'Once done, STOP.',
+      ].join('\n'),
+      engineer: task,
+    };
+
+    return constraints[persona] || task;
+  }
+
   private async handleCommand(cmd: WsCommand, _ws: WebSocket): Promise<void> {
     switch (cmd.action) {
       case 'spawn': {
-        const prompt = cmd.prompt?.trim()
-          || `Execute the ${cmd.persona} workflow for a ${cmd.stack} project`;
+        const prompt = this.buildPersonaPrompt(cmd.persona, cmd.prompt);
 
         console.log(`[ws] Spawning agent "${cmd.name}" (${cmd.persona}/${cmd.stack})`);
 
@@ -168,6 +254,8 @@ export class SwarmWsServer {
           cwd: this.projectCwd,
           interactive: false,
           permissionMode: cmd.permissionMode,
+          disallowedTools: isNonEngineer(cmd.persona) ? NON_ENGINEER_DISALLOWED_TOOLS : undefined,
+          appendSystemPrompt: PERSONA_ENFORCEMENT[cmd.persona],
         });
 
         console.log(`[ws] Agent "${cmd.name}" spawned (${agent.id.slice(0, 8)})`);

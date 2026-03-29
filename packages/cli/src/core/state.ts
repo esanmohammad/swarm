@@ -34,6 +34,11 @@ export class StateManager extends EventEmitter {
     return this.filePath;
   }
 
+  /** Replace in-memory state with data from disk (cross-process sync) */
+  reloadFrom(newState: PipelineState): void {
+    this.state = newState;
+  }
+
   init(projectName: string, stack: import('../types.js').TechStack): void {
     this.state = createEmptyPipeline(projectName, stack);
     this.save();

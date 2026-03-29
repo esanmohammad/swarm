@@ -9,8 +9,8 @@ export function GuardrailAlerts({ violations }: { violations: GuardrailViolation
 
   return (
     <div className="p-4 space-y-3">
-      <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wider flex items-center gap-2">
-        <AlertTriangle size={14} className="text-amber-400" />
+      <h3 className="text-[11px] font-semibold text-stone-600 uppercase tracking-widest flex items-center gap-2">
+        <AlertTriangle size={13} className="text-amber-700" />
         Guardrails ({errors.length} errors, {warnings.length} warnings)
       </h3>
 
@@ -18,23 +18,23 @@ export function GuardrailAlerts({ violations }: { violations: GuardrailViolation
         {violations.map((v, i) => (
           <div
             key={i}
-            className={`p-2 rounded text-xs ${
+            className={`p-2.5 rounded text-xs ${
               v.severity === 'error'
-                ? 'bg-red-950/50 border border-red-800'
-                : 'bg-yellow-950/50 border border-yellow-800'
+                ? 'bg-red-950/20 border border-red-900/30'
+                : 'bg-amber-950/15 border border-amber-900/25'
             }`}
           >
             <div className="flex items-center gap-1.5 mb-1">
               {v.severity === 'error' ? (
-                <XOctagon size={12} className="text-red-400" />
+                <XOctagon size={11} className="text-red-600" />
               ) : (
-                <AlertTriangle size={12} className="text-yellow-400" />
+                <AlertTriangle size={11} className="text-amber-600" />
               )}
-              <span className={v.severity === 'error' ? 'text-red-300' : 'text-yellow-300'}>
+              <span className={v.severity === 'error' ? 'text-red-400' : 'text-amber-500'}>
                 {v.message}
               </span>
             </div>
-            <div className="text-gray-600 pl-4">
+            <div className="text-stone-400 pl-4 text-[10px]">
               {v.file.split('/').pop()} &middot; {v.rule}
             </div>
           </div>

@@ -53,6 +53,15 @@ export interface Agent {
   cost: CostInfo;
   output: string;
   error: string | null;
+  /** ID of parent orchestrator agent (for sub-engineers) */
+  parentId: string | null;
+  /** IDs of child sub-engineer agents (for orchestrator) */
+  childIds: string[];
+  /** Tool restrictions (persisted so resumes carry them) */
+  allowedTools?: string[];
+  disallowedTools?: string[];
+  /** System enforcement prompt (persisted so resumes carry it) */
+  appendSystemPrompt?: string;
 }
 
 // Pipeline stage tracking
@@ -68,6 +77,7 @@ export interface PipelineState {
   stages: Record<StageName, StageState>;
   agents: Agent[];
   totalCost: CostInfo;
+  violations: GuardrailViolation[];
   updatedAt: number;
 }
 
@@ -85,6 +95,7 @@ export function createEmptyPipeline(projectName: string, stack: TechStack): Pipe
     },
     agents: [],
     totalCost: emptyCost(),
+    violations: [],
     updatedAt: Date.now(),
   };
 }
@@ -146,7 +157,7 @@ export const DEFAULT_CONFIG: SwarmConfig = {
   stack: 'react',
   model: 'opus',
   maxBudgetUsd: null,
-  promptsDir: '~/.claude/prompts',
+  promptsDir: 'bundled',
   wsPort: 3847,
   dashboardPort: 3848,
   permissions: {

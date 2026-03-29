@@ -7,7 +7,8 @@ import type { Persona, TechStack } from '../types.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // Bundled prompts shipped with the repo (prompts/ at project root)
-const BUNDLED_PROMPTS_DIR = resolve(__dirname, '..', '..', '..', '..', 'prompts');
+// From dist/src/prompts/ → 5 levels up to repo root: dist/src/prompts → dist/src → dist → packages/cli → packages → swarm
+const BUNDLED_PROMPTS_DIR = resolve(__dirname, '..', '..', '..', '..', '..', 'prompts');
 
 // Maps persona + stack to possible filenames (handles inconsistent casing)
 const PROMPT_FILENAME_MAP: Record<Persona, (stack: TechStack) => string[]> = {
@@ -21,16 +22,18 @@ const PROMPT_FILENAME_MAP: Record<Persona, (stack: TechStack) => string[]> = {
 };
 
 // Directories to search for prompts, in priority order:
-// 1. Custom dir from config (if set)
-// 2. Bundled prompts in repo (prompts/)
-// 3. ~/.claude/prompts/ (user-level)
-// 4. ~/.claude/prompt/ (architect prompts legacy location)
+// 1. Bundled prompts in repo (prompts/) — these have enforced structure templates
+// 2. Custom dir from config (if set and not "bundled")
+// 3. ~/.claude/prompts/ (user-level fallback)
+// 4. ~/.claude/prompt/ (legacy location)
+// Bundled prompts are searched first because they contain mandatory output structure
+// enforcement that user-level prompts may not have.
 function getSearchDirs(customDir?: string): string[] {
   const dirs: string[] = [];
-  if (customDir) {
+  dirs.push(BUNDLED_PROMPTS_DIR);
+  if (customDir && customDir !== 'bundled') {
     dirs.push(resolve(customDir.replace('~', homedir())));
   }
-  dirs.push(BUNDLED_PROMPTS_DIR);
   dirs.push(join(homedir(), '.claude', 'prompts'));
   dirs.push(join(homedir(), '.claude', 'prompt'));
   return dirs;
