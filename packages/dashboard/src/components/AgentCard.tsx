@@ -14,6 +14,7 @@ const PERSONA_COLORS: Record<string, string> = {
   architect: 'text-blue-400',
   lead: 'text-amber-400',
   engineer: 'text-red-400',
+  tester: 'text-green-400',
 };
 
 function formatDuration(ms: number): string {

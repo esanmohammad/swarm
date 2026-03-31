@@ -3,8 +3,9 @@ import { join } from 'node:path';
 import chalk from 'chalk';
 import { AgentManager } from './agent-manager.js';
 import { StateManager } from './state.js';
-import type { SwarmConfig, StageName, TechStack } from '../types.js';
+import type { SwarmConfig, StageName, TechStack, PlaywrightConfig, MaydayState } from '../types.js';
 import { STAGE_ARTIFACT_MAP } from '../types.js';
+import { parse as parseYaml } from 'yaml';
 
 // Non-engineer personas: block dangerous tools (Bash, Edit, NotebookEdit)
 // They can only use Read, Glob, Grep, Write. Filename is enforced via prompt + system prompt.
@@ -29,13 +30,28 @@ const LEAD_SYSTEM_ENFORCEMENT = [
   'SYSTEM ENFORCEMENT: Your output file MUST be named exactly TASKS.md.',
   'SYSTEM ENFORCEMENT: Every task MUST follow this format: - [ ] T001 [P] [US1] Description — `file/path.ext`',
   'SYSTEM ENFORCEMENT: One task = one file. Every task has [P] if parallelizable, [USn] user story label, AC: acceptance criteria, and an exact file path.',
-  'SYSTEM ENFORCEMENT: Organize into phases: Setup → Foundational (GATE) → User Stories (parallel after gate) → Polish.',
+  'SYSTEM ENFORCEMENT: Organize into phases: Setup → Foundational (GATE) → User Stories (parallel after gate) → E2E Tests (after stories) → Polish.',
   'SYSTEM ENFORCEMENT: Do NOT write free-form documents. Follow the spec-kit task format exactly.',
+].join('\n');
+
+const TESTER_SYSTEM_ENFORCEMENT = [
+  'SYSTEM ENFORCEMENT: Your output file MUST be named exactly TESTPLAN.md.',
+  'SYSTEM ENFORCEMENT: TESTPLAN.md MUST contain these sections: ## Overview, ## Test Strategy, ## E2E Test Cases, ## Authentication, ## Test Data, ## Acceptance Criteria.',
+  'SYSTEM ENFORCEMENT: Every E2E test case MUST have: ID (TC-001), title, user flow steps, expected assertions, and the target test file path under e2e/.',
+  'SYSTEM ENFORCEMENT: Do NOT write implementation code. Do NOT modify application source. Only produce TESTPLAN.md.',
+  'SYSTEM ENFORCEMENT: If Figma designs are provided, derive visual test cases (layout, responsiveness, component states) from the designs.',
 ].join('\n');
 
 interface StageOpts {
   stack?: TechStack;
   interactive?: boolean;
+  figmaUrl?: string;
+  prompt?: string;
+}
+
+/** Non-interactive agents (dashboard/headless) need 'auto' permission — they can't prompt the user. */
+function headlessPermission(interactive: boolean): 'auto' | undefined {
+  return interactive ? undefined : 'auto';
 }
 
 export class Pipeline {
@@ -49,14 +65,19 @@ export class Pipeline {
     const s = opts?.stack ?? this.config.stack;
     const interactive = opts?.interactive ?? true;
 
-    const prompt = [
+    const figmaUrl = opts?.figmaUrl;
+    const promptParts = [
       `Feature request: ${featureRequest}`,
       '',
       '⚠️ CRITICAL CONSTRAINTS — VIOLATION WILL CAUSE PIPELINE FAILURE:',
       '- Your ONLY deliverable is REQUIREMENTS.md. Do NOT create any other file.',
       '- Do NOT write implementation code under ANY circumstances. No source files, no scripts.',
       '- Do NOT design architecture, write specs, or create task breakdowns.',
-      '- Ask clarifying questions, then write REQUIREMENTS.md.',
+      ...(interactive
+        ? ['- Ask clarifying questions, then write REQUIREMENTS.md.']
+        : ['- Do NOT ask clarifying questions. You have all the context needed.',
+           '- Proceed DIRECTLY to writing REQUIREMENTS.md based on the information provided.',
+           '- Make reasonable assumptions where details are missing — document them in Section 10 (Open Questions).']),
       '- Once REQUIREMENTS.md is written, STOP IMMEDIATELY. Do not proceed to any other stage.',
       '',
       '⚠️ FILENAME — The file MUST be named exactly `REQUIREMENTS.md` in the project root.',
@@ -72,7 +93,18 @@ export class Pipeline {
       '- Do NOT deviate from the template structure. Do NOT skip sections — write "N/A" if not applicable.',
       '- Do NOT write migration plans, decision tables, or free-form documents.',
       '- This is a REQUIREMENTS document with user stories and acceptance criteria, not a technical plan.',
-    ].join('\n');
+    ];
+
+    if (figmaUrl) {
+      promptParts.push(
+        '',
+        `Figma design URL: ${figmaUrl}`,
+        'Use Figma MCP tools (get_design_context, get_screenshot) to extract UI details.',
+        'Include design insights in Section 5 (UI/UX) and derive E2E scenarios for Section 8 (Testing).',
+      );
+    }
+
+    const prompt = promptParts.join('\n');
 
     this.printStageHeader('analyze', s, interactive);
 
@@ -83,7 +115,8 @@ export class Pipeline {
       prompt,
       cwd: process.cwd(),
       interactive,
-      disallowedTools: NON_ENGINEER_DISALLOWED_TOOLS,
+      permissionMode: headlessPermission(interactive),
+      disallowedTools: figmaUrl ? undefined : NON_ENGINEER_DISALLOWED_TOOLS,
       appendSystemPrompt: ANALYST_SYSTEM_ENFORCEMENT,
     });
 
@@ -136,6 +169,7 @@ export class Pipeline {
       prompt,
       cwd: process.cwd(),
       interactive,
+      permissionMode: headlessPermission(interactive),
       disallowedTools: NON_ENGINEER_DISALLOWED_TOOLS,
       appendSystemPrompt: ARCHITECT_SYSTEM_ENFORCEMENT,
     });
@@ -155,9 +189,11 @@ export class Pipeline {
     }
 
     const spec = readFileSync(specPath, 'utf-8');
+    const userGuidance = opts?.prompt;
     const prompt = [
       'Read the SPEC.md below and produce TASKS.md.',
       '',
+      ...(userGuidance ? [`User guidance: ${userGuidance}`, ''] : []),
       '⚠️ CRITICAL CONSTRAINTS — VIOLATION WILL CAUSE PIPELINE FAILURE:',
       '- Your ONLY deliverable is TASKS.md. Do NOT create any other file.',
       '- Do NOT write implementation code under ANY circumstances. No source files, no scripts.',
@@ -171,7 +207,7 @@ export class Pipeline {
       '- One task = one file. Every task touches exactly one file.',
       '- Format: `- [ ] T001 [P] [US1] Description — \\`file/path.ts\\``',
       '- [P] marker on every parallelizable task (different files, no blocking deps).',
-      '- Phases: Setup → Foundational (GATE) → User Stories (parallel) → Polish.',
+      '- Phases: Setup → Foundational (GATE) → User Stories (parallel) → E2E Tests (after stories) → Polish.',
       '- Every task MUST have AC: acceptance criteria and an exact file path.',
       '- Do NOT deviate from the template structure.',
       '',
@@ -189,6 +225,7 @@ export class Pipeline {
       prompt,
       cwd: process.cwd(),
       interactive,
+      permissionMode: headlessPermission(interactive),
       disallowedTools: NON_ENGINEER_DISALLOWED_TOOLS,
       appendSystemPrompt: LEAD_SYSTEM_ENFORCEMENT,
     });
@@ -223,6 +260,7 @@ export class Pipeline {
         prompt,
         cwd: process.cwd(),
         interactive: false,
+        permissionMode: 'auto',
       });
 
       await this.agentManager.waitForAgent(agent.id);
@@ -243,6 +281,7 @@ export class Pipeline {
           prompt,
           cwd: process.cwd(),
           interactive: false,
+          permissionMode: 'auto',
         });
 
         await this.agentManager.waitForAgent(agent.id);
@@ -282,6 +321,7 @@ export class Pipeline {
           prompt: orchestratorPrompt,
           cwd: process.cwd(),
           interactive: false,
+          permissionMode: 'auto',
         });
 
         // Wait for orchestrator to acknowledge the plan
@@ -315,6 +355,7 @@ export class Pipeline {
                   ].join('\n'),
                   cwd: process.cwd(),
                   interactive: false,
+                  permissionMode: 'auto',
                   parentId: orchestrator.id,
                 }),
               ),
@@ -407,12 +448,185 @@ export class Pipeline {
     console.log(chalk.green(`\n[build] All tasks complete.`));
   }
 
+  async runTest(opts: { parallel?: number; stack?: TechStack; figmaUrl?: string; interactive?: boolean } = {}): Promise<void> {
+    const s = opts.stack ?? this.config.stack;
+    const interactive = opts.interactive ?? false;
+
+    this.state.updateStage('test', { status: 'running' });
+
+    const testplanPath = join(process.cwd(), 'TESTPLAN.md');
+    const pwConfig = this.buildPlaywrightContext();
+    let testerCost = 0;
+
+    // ── Phase 1: Tester persona → generate TESTPLAN.md (skip if already exists) ──
+    if (existsSync(testplanPath)) {
+      console.log(chalk.green(`\n[test] TESTPLAN.md already exists — skipping Phase 1, proceeding to test runner.\n`));
+    } else {
+      console.log(chalk.cyan(`\n[test] Phase 1: Generating test plan...\n`));
+
+      const contextParts: string[] = [];
+
+      // Gather all available artifacts
+      const reqPath = join(process.cwd(), 'REQUIREMENTS.md');
+      const specPath = join(process.cwd(), 'SPEC.md');
+      const tasksPath = join(process.cwd(), 'TASKS.md');
+
+      if (existsSync(reqPath)) {
+        contextParts.push('--- REQUIREMENTS.md ---', readFileSync(reqPath, 'utf-8'), '');
+      }
+      if (existsSync(specPath)) {
+        contextParts.push('--- SPEC.md ---', readFileSync(specPath, 'utf-8'), '');
+      }
+      if (existsSync(tasksPath)) {
+        contextParts.push('--- TASKS.md ---', readFileSync(tasksPath, 'utf-8'), '');
+      }
+
+      if (contextParts.length === 0) {
+        throw new Error('No pipeline artifacts found. Run at least `swarm analyze` first.');
+      }
+
+      const testerPromptParts = [
+        'Read the pipeline artifacts below and produce TESTPLAN.md — a comprehensive E2E test plan.',
+        '',
+        '⚠️ CRITICAL CONSTRAINTS — VIOLATION WILL CAUSE PIPELINE FAILURE:',
+        '- Your ONLY deliverable is TESTPLAN.md. Do NOT create any other file.',
+        '- Do NOT write implementation code — no test files, no scripts, no source changes.',
+        '- Do NOT modify existing artifacts (REQUIREMENTS.md, SPEC.md, TASKS.md).',
+        '- Once TESTPLAN.md is written, STOP IMMEDIATELY.',
+        '',
+        '⚠️ FILENAME — The file MUST be named exactly `TESTPLAN.md` in the project root.',
+        '',
+        '⚠️ OUTPUT FORMAT — TESTPLAN.md MUST follow this structure:',
+        '- ## Overview — what is being tested, scope',
+        '- ## Test Strategy — approach (Playwright E2E), browsers, environments',
+        '- ## Authentication — login method, storageState pattern, global setup needs',
+        '- ## Test Data — required fixtures, seed data, mock APIs',
+        '- ## E2E Test Cases — each test case with:',
+        '  - **ID**: TC-001, TC-002, etc.',
+        '  - **Title**: descriptive name',
+        '  - **User Story**: which US-n / user flow this covers',
+        '  - **Preconditions**: auth required, data needed',
+        '  - **Steps**: numbered user actions (navigate, click, fill, etc.)',
+        '  - **Expected**: specific assertions (element visible, text matches, URL changes, etc.)',
+        '  - **File**: target test file path (e.g. `e2e/user-login.spec.ts`)',
+        '- ## Acceptance Criteria — overall pass/fail criteria for the test suite',
+        '',
+        `Playwright config: testDir=${pwConfig.testDir}`,
+      ];
+
+      if (pwConfig.baseUrl) {
+        testerPromptParts.push(`Base URL: ${pwConfig.baseUrl}`);
+      }
+      if (pwConfig.authStorageState) {
+        testerPromptParts.push(`Auth storageState path: ${pwConfig.authStorageState}`);
+      }
+
+      const figmaUrl = opts.figmaUrl;
+      if (figmaUrl) {
+        testerPromptParts.push(
+          '',
+          `Figma design URL: ${figmaUrl}`,
+          'Use Figma MCP tools (get_design_context, get_screenshot) to extract UI details.',
+          'Derive visual E2E test cases from the designs: verify layout, component states,',
+          'responsiveness, and visual accuracy. Reference Figma frames/nodes in test cases.',
+        );
+      }
+
+      testerPromptParts.push('', '---', '', ...contextParts);
+
+      if (interactive) {
+        this.printStageHeader('test', s, true);
+      }
+
+      const testerAgent = await this.agentManager.spawn({
+        name: `tester-${s}`,
+        persona: 'tester',
+        stack: s,
+        prompt: testerPromptParts.join('\n'),
+        cwd: process.cwd(),
+        interactive,
+        permissionMode: headlessPermission(interactive),
+        disallowedTools: opts.figmaUrl ? undefined : NON_ENGINEER_DISALLOWED_TOOLS,
+        appendSystemPrompt: TESTER_SYSTEM_ENFORCEMENT,
+      });
+
+      await this.agentManager.waitForAgent(testerAgent.id);
+      testerCost = testerAgent.cost.totalUsd;
+
+      if (existsSync(testplanPath)) {
+        console.log(chalk.green(`\n[test] Phase 1 complete. TESTPLAN.md created.`));
+      } else {
+        console.log(chalk.yellow(`\n[test] Phase 1 complete. TESTPLAN.md not found — skipping execution phase.`));
+        this.finishStage('test', 'TESTPLAN.md');
+        return;
+      }
+    }
+
+    // ── Phase 2: Engineer → implement and run Playwright tests ──
+    console.log(chalk.cyan(`\n[test] Phase 2: Implementing and running E2E tests...\n`));
+
+    const testplan = readFileSync(testplanPath, 'utf-8');
+    const runnerPromptParts = [
+      'You are a TEST ENGINEER. Implement and run Playwright E2E tests based on TESTPLAN.md.',
+      '',
+      '⚠️ CRITICAL CONSTRAINTS:',
+      '- Do NOT modify application source code. Only create/modify test files.',
+      '- If a test fails, fix the TEST, not the application.',
+      '- If Playwright is not installed, install it first: `npm init playwright@latest` or `npx playwright install`.',
+      '',
+      'Your job:',
+      '1. Read TESTPLAN.md and implement each test case as a Playwright spec file',
+      `2. Place test files in the \`${pwConfig.testDir}/\` directory with \`.spec.ts\` extension`,
+      '3. Create playwright.config.ts if it does not exist',
+    ];
+
+    if (pwConfig.baseUrl) {
+      runnerPromptParts.push(`4. Set baseURL to: ${pwConfig.baseUrl}`);
+    }
+    if (pwConfig.authStorageState) {
+      runnerPromptParts.push(`5. Configure storageState: ${pwConfig.authStorageState}`);
+      runnerPromptParts.push('   If storageState file does not exist, create a global setup script that performs login.');
+    }
+    if (pwConfig.globalSetupScript) {
+      runnerPromptParts.push(`6. Use global setup script: ${pwConfig.globalSetupScript}`);
+    }
+
+    runnerPromptParts.push(
+      '',
+      'After implementing all tests:',
+      '- Run `npx playwright test` to execute the full suite',
+      '- If any test fails, read the error, fix the test, and re-run',
+      '- Keep iterating until all tests pass or you have exhausted debugging',
+      '- Report final results summary',
+      '',
+      '---',
+      '',
+      testplan,
+    );
+
+    const runnerAgent = await this.agentManager.spawn({
+      name: `test-runner-${s}`,
+      persona: 'engineer',
+      stack: s,
+      prompt: runnerPromptParts.join('\n'),
+      cwd: process.cwd(),
+      interactive: false,
+      permissionMode: 'auto',
+    });
+
+    await this.agentManager.waitForAgent(runnerAgent.id);
+
+    this.finishStage('test', 'TESTPLAN.md');
+    console.log(chalk.green(`\n[test] E2E tests complete. Cost: $${(testerCost + runnerAgent.cost.totalUsd).toFixed(4)}`));
+  }
+
   async runFull(featureRequest: string, opts?: StageOpts): Promise<void> {
     const stack = opts?.stack;
-    await this.runAnalyze(featureRequest, { stack, interactive: opts?.interactive ?? true });
+    await this.runAnalyze(featureRequest, { stack, interactive: opts?.interactive ?? true, figmaUrl: opts?.figmaUrl });
     await this.runArchitect({ stack, interactive: opts?.interactive ?? true });
     await this.runPlan({ stack, interactive: opts?.interactive ?? true });
     await this.runBuild({ stack });
+    await this.runTest({ stack, figmaUrl: opts?.figmaUrl });
   }
 
   private printStageHeader(stage: string, stack: TechStack, interactive: boolean): void {
@@ -556,6 +770,321 @@ export class Pipeline {
     return groups;
   }
 
+  private buildPlaywrightContext(): Required<Pick<PlaywrightConfig, 'testDir'>> & PlaywrightConfig {
+    const defaults = { testDir: 'e2e' };
+
+    // Check .swarm/playwright.config.yaml
+    const configPath = join(process.cwd(), '.swarm', 'playwright.config.yaml');
+    if (existsSync(configPath)) {
+      try {
+        const raw = readFileSync(configPath, 'utf-8');
+        const parsed = parseYaml(raw) as PlaywrightConfig | null;
+        if (parsed) {
+          return { ...defaults, ...parsed };
+        }
+      } catch {
+        // Ignore invalid YAML
+      }
+    }
+
+    // Check SwarmConfig
+    if (this.config.playwright) {
+      return { ...defaults, ...this.config.playwright };
+    }
+
+    return defaults;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // MayDay — autonomous end-to-end pipeline with fix-retest loop
+  // ═══════════════════════════════════════════════════════════════════
+
+  async runMayday(featureRequest: string, opts: {
+    stack?: TechStack;
+    maxIterations?: number;
+    figmaUrl?: string;
+    parallel?: number;
+    model?: string;
+  } = {}): Promise<void> {
+    const stack = opts.stack ?? this.config.stack;
+    const maxIterations = opts.maxIterations ?? 5;
+
+    // Apply model override for the entire mayday run
+    if (opts.model) {
+      this.config.model = opts.model;
+    }
+
+    const mayday: MaydayState = {
+      active: true,
+      featureRequest,
+      currentStage: 'analyze',
+      fixIteration: 0,
+      maxFixIterations: maxIterations,
+      lastTestOutput: null,
+      lastTestPassed: null,
+      failureCount: null,
+      fixAgentIds: [],
+      userMessages: [],
+      startedAt: Date.now(),
+      pausedAt: null,
+      error: null,
+      figmaUrl: opts.figmaUrl,
+    };
+
+    this.state.setMayday(mayday);
+
+    console.log(chalk.red.bold(`\n🚨 MAYDAY — Autonomous pipeline engaged`));
+    console.log(chalk.dim(`Feature: ${featureRequest}`));
+    console.log(chalk.dim(`Max fix iterations: ${maxIterations}\n`));
+
+    try {
+      await this.executeMaydayPipeline(stack, opts.parallel);
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      this.state.updateMayday({ active: false, error: errMsg });
+      throw err;
+    }
+  }
+
+  async resumeMayday(opts: { parallel?: number } = {}): Promise<void> {
+    const mayday = this.state.getMayday();
+    if (!mayday || !mayday.active) {
+      throw new Error('No active MayDay session to resume.');
+    }
+
+    const stack = this.state.getState().stack;
+    this.state.updateMayday({ pausedAt: null });
+
+    console.log(chalk.red.bold(`\n🚨 MAYDAY — Resuming from ${mayday.currentStage}`));
+    if (mayday.currentStage === 'fix-loop') {
+      console.log(chalk.dim(`Fix iteration: ${mayday.fixIteration}/${mayday.maxFixIterations}`));
+    }
+    console.log('');
+
+    try {
+      await this.executeMaydayPipeline(stack, opts.parallel);
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      this.state.updateMayday({ active: false, error: errMsg });
+      throw err;
+    }
+  }
+
+  private async executeMaydayPipeline(stack: TechStack, parallel?: number): Promise<void> {
+    const mayday = this.state.getMayday()!;
+    const stageOpts: StageOpts = { stack, interactive: false, figmaUrl: mayday.figmaUrl };
+
+    // Pipeline stages in order — resume from currentStage
+    const stages: StageName[] = ['analyze', 'architect', 'plan', 'build', 'test'];
+    const startIdx = stages.indexOf(mayday.currentStage as StageName);
+
+    // Run pipeline stages (or resume from where we left off)
+    if (startIdx >= 0) {
+      for (let i = startIdx; i < stages.length; i++) {
+        const stage = stages[i];
+
+        // Check if mayday was stopped
+        if (!this.state.getMayday()?.active) {
+          console.log(chalk.yellow(`\n[mayday] Stopped by user.`));
+          return;
+        }
+
+        // Consume any queued user messages and log them
+        const userMsgs = this.state.consumeMaydayMessages();
+        if (userMsgs.length > 0) {
+          console.log(chalk.magenta(`[mayday] User guidance received: ${userMsgs.join(' | ')}`));
+        }
+
+        this.state.updateMayday({ currentStage: stage });
+        console.log(chalk.red(`[mayday] ▸ ${stage}`));
+
+        switch (stage) {
+          case 'analyze':
+            await this.runAnalyze(mayday.featureRequest, stageOpts);
+            break;
+          case 'architect':
+            await this.runArchitect(stageOpts);
+            break;
+          case 'plan': {
+            const guidance = userMsgs.length > 0 ? userMsgs.join('\n') : undefined;
+            await this.runPlan({ ...stageOpts, prompt: guidance });
+            break;
+          }
+          case 'build':
+            await this.runBuild({ stack, parallel: parallel ?? 3 });
+            break;
+          case 'test':
+            await this.runTest({ stack, figmaUrl: mayday.figmaUrl });
+            break;
+        }
+      }
+    }
+
+    // After initial pipeline, enter the fix-retest loop
+    await this.maydayFixLoop(stack, parallel);
+  }
+
+  private async maydayFixLoop(stack: TechStack, parallel?: number): Promise<void> {
+    // Evaluate initial test results
+    let testResults = this.evaluateTestResults();
+    this.state.updateMayday({
+      currentStage: 'fix-loop',
+      lastTestPassed: testResults.passed,
+      lastTestOutput: testResults.output,
+      failureCount: testResults.failureCount,
+    });
+
+    if (testResults.passed) {
+      console.log(chalk.green.bold(`\n[mayday] ✓ All tests passed on first run!`));
+      this.state.updateMayday({ active: false, currentStage: 'complete' });
+      return;
+    }
+
+    const mayday = this.state.getMayday()!;
+    const maxIter = mayday.maxFixIterations;
+
+    for (let iteration = mayday.fixIteration + 1; iteration <= maxIter; iteration++) {
+      // Check if stopped
+      if (!this.state.getMayday()?.active) {
+        console.log(chalk.yellow(`\n[mayday] Stopped by user.`));
+        return;
+      }
+
+      this.state.updateMayday({ fixIteration: iteration, currentStage: 'fix-loop' });
+
+      console.log(chalk.red(`\n[mayday] Fix iteration ${iteration}/${maxIter} — ${testResults.failureCount} failure(s)`));
+
+      // Consume user messages for guidance
+      const userMsgs = this.state.consumeMaydayMessages();
+
+      // Spawn fix engineer
+      const fixPrompt = this.buildFixPrompt(testResults, userMsgs);
+
+      const fixAgent = await this.agentManager.spawn({
+        name: `fix-engineer-${iteration}`,
+        persona: 'engineer',
+        stack,
+        prompt: fixPrompt,
+        cwd: process.cwd(),
+        interactive: false,
+        permissionMode: 'auto',
+      });
+
+      this.state.updateMayday({
+        fixAgentIds: [...(this.state.getMayday()?.fixAgentIds ?? []), fixAgent.id],
+      });
+
+      await this.agentManager.waitForAgent(fixAgent.id);
+      console.log(chalk.green(`[mayday] Fix engineer done. Cost: $${fixAgent.cost.totalUsd.toFixed(4)}`));
+
+      // Re-run tests (phase 2 only — TESTPLAN.md already exists)
+      console.log(chalk.red(`[mayday] Re-running tests...`));
+      this.state.updateStage('test', { status: 'pending' });
+      await this.runTest({ stack });
+
+      // Evaluate results
+      testResults = this.evaluateTestResults();
+      this.state.updateMayday({
+        lastTestPassed: testResults.passed,
+        lastTestOutput: testResults.output,
+        failureCount: testResults.failureCount,
+      });
+
+      if (testResults.passed) {
+        console.log(chalk.green.bold(`\n[mayday] ✓ All tests passed after ${iteration} fix iteration(s)!`));
+        this.state.updateMayday({ active: false, currentStage: 'complete' });
+        return;
+      }
+    }
+
+    // Max iterations reached
+    console.log(chalk.yellow.bold(`\n[mayday] Max iterations (${maxIter}) reached. ${testResults.failureCount} test(s) still failing.`));
+    this.state.updateMayday({
+      active: false,
+      currentStage: 'complete',
+      error: `Max fix iterations reached. ${testResults.failureCount} test(s) still failing.`,
+    });
+  }
+
+  private buildFixPrompt(testResults: TestEvaluation, userMessages: string[]): string {
+    const parts = [
+      'You are a BUG FIX ENGINEER. Tests are failing after a build. Fix the bugs.',
+      '',
+      '## Test Failures (from last run):',
+      '```',
+      testResults.output?.slice(-3000) ?? 'No test output captured.',
+      '```',
+      '',
+      `Summary: ${testResults.summary}`,
+    ];
+
+    if (userMessages.length > 0) {
+      parts.push(
+        '',
+        '## User Guidance:',
+        ...userMessages.map((m) => `- ${m}`),
+      );
+    }
+
+    parts.push(
+      '',
+      '## Rules:',
+      '- Read the failing test files to understand what is expected',
+      '- Read the application code to find the bug',
+      '- Fix the APPLICATION code (not the tests, unless the test itself is clearly wrong)',
+      '- Do NOT break passing tests',
+      '- Run `npx playwright test` after fixing to verify your changes',
+      '- If you cannot fix a bug, document why in a code comment',
+      '- Focus only on the failures. Do not refactor unrelated code.',
+    );
+
+    return parts.join('\n');
+  }
+
+  private evaluateTestResults(): TestEvaluation {
+    // Find the most recent test-runner agent output
+    const agents = this.state.getState().agents;
+    const testRunner = [...agents]
+      .reverse()
+      .find((a) => a.name.startsWith('test-runner-'));
+
+    if (!testRunner) {
+      return { passed: false, failureCount: null, summary: 'No test runner output found.', output: null };
+    }
+
+    const output = testRunner.output;
+    return this.parseTestOutput(output);
+  }
+
+  private parseTestOutput(output: string): TestEvaluation {
+    if (!output) {
+      return { passed: false, failureCount: null, summary: 'Empty test output.', output: null };
+    }
+
+    // Playwright patterns
+    const passedMatch = output.match(/(\d+)\s+passed/);
+    const failedMatch = output.match(/(\d+)\s+failed/);
+
+    const passedCount = passedMatch ? parseInt(passedMatch[1], 10) : 0;
+    const failedCount = failedMatch ? parseInt(failedMatch[1], 10) : 0;
+
+    // Also check for generic failure indicators
+    const hasGenericFail = /(?:FAIL|Error:|✗|AssertionError|expect\(.*\)\.to)/i.test(output);
+
+    const passed = failedCount === 0 && !hasGenericFail && passedCount > 0;
+
+    const summary = passedCount > 0 || failedCount > 0
+      ? `${passedCount} passed, ${failedCount} failed`
+      : hasGenericFail
+        ? 'Test failures detected (non-Playwright output)'
+        : 'Could not parse test results';
+
+    // Truncate output for storage
+    const truncated = output.length > 5000 ? output.slice(-5000) : output;
+
+    return { passed, failureCount: failedCount || (hasGenericFail ? -1 : 0), summary, output: truncated };
+  }
+
   private chunk<T>(arr: T[], size: number): T[][] {
     const chunks: T[][] = [];
     for (let i = 0; i < arr.length; i += size) {
@@ -563,4 +1092,11 @@ export class Pipeline {
     }
     return chunks;
   }
+}
+
+interface TestEvaluation {
+  passed: boolean;
+  failureCount: number | null;
+  summary: string;
+  output: string | null;
 }

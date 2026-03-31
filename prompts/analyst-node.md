@@ -49,6 +49,8 @@ Before asking questions, gather context:
 3. **Scan related code** (if touching existing functionality): Patterns (route->controller->service->repo), API contracts, DB schemas, middleware chains.
 4. **Note context sources**: State which documents informed your analysis.
 
+5. **Figma designs** (if URL provided): Use Figma MCP tools (`get_design_context`, `get_screenshot`) to extract UI specs. Include component structure in Section 5 (UI/UX) and derive E2E test scenarios for Section 8 (Testing).
+
 ---
 
 ## Phase 2: Clarification
@@ -209,7 +211,12 @@ CREATE TABLE features (id UUID PRIMARY KEY /* define shape */);
 | [Name] | [This] | [Other] | [Schema] |
 
 ## 8. Testing
-**Unit**: [ ] [Service] | **Integration**: [ ] [API flow] | **E2E**: [ ] [Critical path]
+**Unit**: [ ] [Service] | **Integration**: [ ] [API flow]
+**E2E Scenarios** (Playwright):
+  - [ ] E2E-1: [Flow name] — Steps: [navigate, interact, verify]
+  - [ ] E2E-2: [Flow name] — Steps: [navigate, interact, verify]
+  - **Auth required**: [yes/no — describe login method]
+  - **Figma reference**: [node/frame if from Figma]
 
 ## 9. Rollout
 **Flag**: `[name]` (disabled) | **Plan**: migration → code (off) → canary → GA | **Rollback**: [Strategy]

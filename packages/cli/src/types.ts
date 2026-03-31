@@ -4,14 +4,14 @@ export type AgentStatus = 'pending' | 'running' | 'done' | 'error' | 'killed';
 // Claude CLI permission modes
 export type PermissionMode = 'default' | 'acceptEdits' | 'bypassPermissions' | 'plan' | 'auto';
 
-// The four personas
-export type Persona = 'analyst' | 'architect' | 'lead' | 'engineer';
+// The five personas
+export type Persona = 'analyst' | 'architect' | 'lead' | 'engineer' | 'tester';
 
 // Supported tech stacks
 export type TechStack = 'react' | 'node' | 'go';
 
 // Pipeline stage names
-export type StageName = 'analyze' | 'architect' | 'plan' | 'build' | 'evaluate';
+export type StageName = 'analyze' | 'architect' | 'plan' | 'build' | 'test' | 'evaluate';
 
 export interface CostInfo {
   totalUsd: number;
@@ -71,6 +71,24 @@ export interface StageState {
   artifact: string | null;
 }
 
+// MayDay autonomous pipeline state
+export interface MaydayState {
+  active: boolean;
+  featureRequest: string;
+  currentStage: StageName | 'fix-loop' | 'complete';
+  fixIteration: number;
+  maxFixIterations: number;
+  lastTestOutput: string | null;
+  lastTestPassed: boolean | null;
+  failureCount: number | null;
+  fixAgentIds: string[];
+  userMessages: string[];
+  startedAt: number;
+  pausedAt: number | null;
+  error: string | null;
+  figmaUrl?: string;
+}
+
 export interface PipelineState {
   projectName: string;
   stack: TechStack;
@@ -79,6 +97,7 @@ export interface PipelineState {
   totalCost: CostInfo;
   violations: GuardrailViolation[];
   updatedAt: number;
+  mayday?: MaydayState;
 }
 
 export function createEmptyPipeline(projectName: string, stack: TechStack): PipelineState {
@@ -91,6 +110,7 @@ export function createEmptyPipeline(projectName: string, stack: TechStack): Pipe
       architect: emptyStage(),
       plan: emptyStage(),
       build: emptyStage(),
+      test: emptyStage(),
       evaluate: emptyStage(),
     },
     agents: [],
@@ -130,7 +150,10 @@ export type WsCommand =
   | { action: 'kill'; agentId: string }
   | { action: 'send-input'; agentId: string; text: string }
   | { action: 'get-state' }
-  | { action: 'run-stage'; stage: 'analyze' | 'architect' | 'plan' | 'build'; prompt?: string; parallel?: number; taskId?: string };
+  | { action: 'run-stage'; stage: 'analyze' | 'architect' | 'plan' | 'build' | 'test'; prompt?: string; parallel?: number; taskId?: string; figmaUrl?: string; baseUrl?: string; authStorageState?: string }
+  | { action: 'run-mayday'; prompt: string; maxIterations?: number; figmaUrl?: string; parallel?: number; resume?: boolean; model?: string }
+  | { action: 'mayday-input'; text: string }
+  | { action: 'mayday-stop' };
 
 // Guardrail types
 export interface GuardrailRule {
@@ -155,6 +178,13 @@ export interface GuardrailViolation {
 }
 
 // .swarm/config.yaml shape
+export interface PlaywrightConfig {
+  baseUrl?: string;
+  authStorageState?: string;
+  globalSetupScript?: string;
+  testDir?: string;
+}
+
 export interface SwarmConfig {
   projectName: string;
   stack: TechStack;
@@ -168,6 +198,7 @@ export interface SwarmConfig {
     disallowedTools?: string[];
     permissionMode?: string;
   };
+  playwright?: PlaywrightConfig;
 }
 
 export const DEFAULT_CONFIG: SwarmConfig = {
@@ -228,6 +259,7 @@ export const PERSONA_STAGE_MAP: Record<Persona, StageName> = {
   architect: 'architect',
   lead: 'plan',
   engineer: 'build',
+  tester: 'test',
 };
 
 // Stage → expected artifact
@@ -236,5 +268,6 @@ export const STAGE_ARTIFACT_MAP: Record<StageName, string | null> = {
   architect: 'SPEC.md',
   plan: 'TASKS.md',
   build: null,
+  test: 'TESTPLAN.md',
   evaluate: null,
 };

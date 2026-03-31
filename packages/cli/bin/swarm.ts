@@ -6,10 +6,12 @@ import { registerAnalyze } from '../src/commands/analyze.js';
 import { registerArchitect } from '../src/commands/architect.js';
 import { registerPlan } from '../src/commands/plan.js';
 import { registerBuild } from '../src/commands/build.js';
+import { registerTest } from '../src/commands/test.js';
 import { registerEvaluate } from '../src/commands/evaluate.js';
 import { registerStatus } from '../src/commands/status.js';
 import { registerAgent } from '../src/commands/agent.js';
 import { registerDashboard } from '../src/commands/dashboard.js';
+import { registerMayday } from '../src/commands/mayday.js';
 
 const program = new Command();
 
@@ -24,9 +26,11 @@ registerAnalyze(program);
 registerArchitect(program);
 registerPlan(program);
 registerBuild(program);
+registerTest(program);
 registerEvaluate(program);
 registerStatus(program);
 registerAgent(program);
 registerDashboard(program);
+registerMayday(program);
 
 program.parse();

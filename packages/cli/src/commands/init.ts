@@ -64,6 +64,20 @@ export function registerInit(program: Command): void {
       const state = createEmptyPipeline(projectName, stack);
       writeFileSync(join(swarmDir, 'state.json'), JSON.stringify(state, null, 2));
 
+      // Write Playwright config scaffold
+      writeFileSync(
+        join(swarmDir, 'playwright.config.yaml'),
+        [
+          '# Playwright E2E testing configuration for swarm test stage',
+          '# Uncomment and configure as needed:',
+          '# baseUrl: http://localhost:3000',
+          '# authStorageState: .auth/storageState.json',
+          '# globalSetupScript: e2e/global-setup.ts',
+          '# testDir: e2e',
+          '',
+        ].join('\n'),
+      );
+
       // Write .gitignore for state
       writeFileSync(join(swarmDir, '.gitignore'), 'state.json\nlogs/\n');
 

@@ -1,10 +1,12 @@
-import { watch, readFileSync, existsSync, FSWatcher } from 'node:fs';
+import { watch, readFileSync, writeFileSync, existsSync, FSWatcher } from 'node:fs';
+import { join } from 'node:path';
 import { WebSocketServer, WebSocket } from 'ws';
+import { stringify as toYaml, parse as parseYaml } from 'yaml';
 import type { WsMessage, WsCommand, PipelineState, Persona, AgentActivity } from '../types.js';
 import { StateManager } from './state.js';
 import { AgentManager } from './agent-manager.js';
 import { Pipeline } from './pipeline.js';
-import type { Agent, SwarmConfig } from '../types.js';
+import type { Agent, SwarmConfig, PlaywrightConfig } from '../types.js';
 
 // Non-engineer personas get tool restrictions + system enforcement
 const NON_ENGINEER_DISALLOWED_TOOLS = ['Bash', 'Edit', 'NotebookEdit'];
@@ -25,12 +27,30 @@ const PERSONA_ENFORCEMENT: Record<string, string> = {
     'SYSTEM ENFORCEMENT: Your output file MUST be named exactly TASKS.md.',
     'SYSTEM ENFORCEMENT: Every task MUST follow this format: - [ ] T001 [P] [US1] Description — `file/path.ext`',
     'SYSTEM ENFORCEMENT: One task = one file. Every task has [P] if parallelizable, [USn] user story label, AC: acceptance criteria, and an exact file path.',
-    'SYSTEM ENFORCEMENT: Organize into phases: Setup → Foundational (GATE) → User Stories (parallel after gate) → Polish.',
+    'SYSTEM ENFORCEMENT: Organize into phases: Setup → Foundational (GATE) → User Stories (parallel after gate) → E2E Tests (after stories) → Polish.',
+  ].join('\n'),
+  tester: [
+    'SYSTEM ENFORCEMENT: Your output file MUST be named exactly TESTPLAN.md.',
+    'SYSTEM ENFORCEMENT: TESTPLAN.md MUST contain these sections: ## Overview, ## Test Strategy, ## E2E Test Cases, ## Authentication, ## Test Data, ## Acceptance Criteria.',
+    'SYSTEM ENFORCEMENT: Every E2E test case MUST have: ID (TC-001), title, user flow steps, expected assertions, and the target test file path under e2e/.',
+    'SYSTEM ENFORCEMENT: Do NOT write implementation code. Do NOT modify application source. Only produce TESTPLAN.md.',
   ].join('\n'),
 };
 
+/** Ensure all expected stages exist in state loaded from disk (handles schema migrations). */
+function migrateState(state: PipelineState): PipelineState {
+  const emptyStage = () => ({ status: 'pending' as const, agentIds: [] as string[], artifact: null });
+  const expectedStages = ['analyze', 'architect', 'plan', 'build', 'test', 'evaluate'] as const;
+  for (const stage of expectedStages) {
+    if (!state.stages[stage]) {
+      (state.stages as Record<string, unknown>)[stage] = emptyStage();
+    }
+  }
+  return state;
+}
+
 function isNonEngineer(persona: Persona): boolean {
-  return persona === 'analyst' || persona === 'architect' || persona === 'lead';
+  return persona === 'analyst' || persona === 'architect' || persona === 'lead' || persona === 'tester';
 }
 
 export class SwarmWsServer {
@@ -152,7 +172,7 @@ export class SwarmWsServer {
       if (newJson === this.lastStateJson) return;
       this.lastStateJson = newJson;
 
-      const newState: PipelineState = JSON.parse(newJson);
+      const newState: PipelineState = migrateState(JSON.parse(newJson));
       // Update the in-memory state so get-state returns fresh data
       this.state.reloadFrom(newState);
       this.broadcast({ type: 'state', payload: newState });
@@ -166,7 +186,7 @@ export class SwarmWsServer {
     if (!stateFile || !existsSync(stateFile)) return null;
     try {
       const raw = readFileSync(stateFile, 'utf-8');
-      return JSON.parse(raw);
+      return migrateState(JSON.parse(raw));
     } catch {
       return null;
     }
@@ -214,7 +234,9 @@ export class SwarmWsServer {
         'UI/UX, Non-Functional Requirements, Integration, Testing, Rollout, Open Questions,',
         'Change Tracking, Appendix. Do NOT skip sections — write N/A if not applicable.',
         'Do NOT write migration plans, decision tables, or free-form documents.',
-        'Ask clarifying questions first, then produce REQUIREMENTS.md. Once done, STOP.',
+        'Do NOT ask clarifying questions — you are running autonomously.',
+        'Proceed DIRECTLY to writing REQUIREMENTS.md. Make reasonable assumptions where details are missing.',
+        'Document assumptions in Section 10 (Open Questions). Once done, STOP.',
       ].join('\n'),
       architect: [
         `Read REQUIREMENTS.md and produce SPEC.md (exact filename).`,
@@ -237,7 +259,19 @@ export class SwarmWsServer {
         'Do NOT write code or redesign architecture.',
         'Format: - [ ] T001 [P] [US1] Description — `file/path.ext`',
         'One task = one file. [P] for parallel tasks. [USn] user story labels.',
-        'Phases: Setup → Foundational (GATE) → User Stories (parallel) → Polish.',
+        'Phases: Setup → Foundational (GATE) → User Stories (parallel) → E2E Tests (after stories) → Polish.',
+        'Once done, STOP.',
+      ].join('\n'),
+      tester: [
+        `Read pipeline artifacts and produce TESTPLAN.md (exact filename).`,
+        '',
+        `Context: ${task}`,
+        '',
+        'CRITICAL: Your ONLY deliverable is TESTPLAN.md.',
+        'Do NOT write implementation code or test files. Do NOT modify application source.',
+        'TESTPLAN.md MUST contain: Overview, Test Strategy, E2E Test Cases (TC-001 format',
+        'with steps + assertions + file paths), Authentication, Test Data, Acceptance Criteria.',
+        'If Figma URL is provided, derive visual test cases from the designs.',
         'Once done, STOP.',
       ].join('\n'),
       engineer: task,
@@ -296,13 +330,16 @@ export class SwarmWsServer {
           try {
             switch (cmd.stage) {
               case 'analyze':
-                await this.pipeline.runAnalyze(cmd.prompt || 'Analyze the project', stageOpts);
+                if (!cmd.prompt?.trim()) {
+                  throw new Error('Analyze stage requires a feature request prompt. Describe what to analyze.');
+                }
+                await this.pipeline.runAnalyze(cmd.prompt.trim(), { ...stageOpts, figmaUrl: cmd.figmaUrl });
                 break;
               case 'architect':
                 await this.pipeline.runArchitect(stageOpts);
                 break;
               case 'plan':
-                await this.pipeline.runPlan(stageOpts);
+                await this.pipeline.runPlan({ ...stageOpts, prompt: cmd.prompt?.trim() });
                 break;
               case 'build':
                 await this.pipeline.runBuild({
@@ -311,6 +348,18 @@ export class SwarmWsServer {
                   taskId: cmd.taskId,
                 });
                 break;
+              case 'test': {
+                // Write auth/url config to .swarm/playwright.config.yaml if provided
+                if (cmd.baseUrl || cmd.authStorageState) {
+                  this.writePlaywrightConfig(cmd.baseUrl, cmd.authStorageState);
+                }
+                await this.pipeline.runTest({
+                  stack: stageStack,
+                  parallel: cmd.parallel ?? 2,
+                  figmaUrl: cmd.figmaUrl,
+                });
+                break;
+              }
             }
             console.log(`[ws] Pipeline stage "${cmd.stage}" complete`);
           } catch (err) {
@@ -320,7 +369,88 @@ export class SwarmWsServer {
         })();
         break;
       }
+
+      case 'run-mayday': {
+        const stageStack = this.state.getState().stack;
+
+        if (cmd.resume) {
+          console.log(`[ws] Resuming MayDay session`);
+        } else {
+          if (!cmd.prompt?.trim()) {
+            throw new Error('MayDay requires a feature request prompt.');
+          }
+          console.log(`[ws] Starting MayDay: ${cmd.prompt.slice(0, 80)}`);
+        }
+
+        (async () => {
+          try {
+            if (cmd.resume) {
+              await this.pipeline.resumeMayday({ parallel: cmd.parallel });
+            } else {
+              await this.pipeline.runMayday(cmd.prompt, {
+                stack: stageStack,
+                maxIterations: cmd.maxIterations,
+                figmaUrl: cmd.figmaUrl,
+                parallel: cmd.parallel,
+                model: cmd.model,
+              });
+            }
+            console.log(`[ws] MayDay complete`);
+          } catch (err) {
+            const errMsg = err instanceof Error ? err.message : String(err);
+            console.error(`[ws] MayDay failed: ${errMsg}`);
+          }
+        })();
+        break;
+      }
+
+      case 'mayday-input': {
+        if (!cmd.text?.trim()) break;
+        console.log(`[ws] MayDay user input: ${cmd.text.slice(0, 80)}`);
+        this.state.pushMaydayMessage(cmd.text.trim());
+        break;
+      }
+
+      case 'mayday-stop': {
+        console.log(`[ws] Stopping MayDay`);
+        const mayday = this.state.getMayday();
+        if (mayday?.active) {
+          this.state.updateMayday({ active: false, pausedAt: Date.now() });
+          // Kill all running agents
+          for (const agent of this.state.getState().agents) {
+            if (agent.status === 'running') {
+              this.agentManager.kill(agent.id);
+            }
+          }
+        }
+        break;
+      }
     }
+  }
+
+  /** Write/merge baseUrl and authStorageState into .swarm/playwright.config.yaml */
+  private writePlaywrightConfig(baseUrl?: string, authStorageState?: string): void {
+    const configPath = join(this.projectCwd, '.swarm', 'playwright.config.yaml');
+    let existing: PlaywrightConfig = {};
+
+    // Read existing config if present
+    if (existsSync(configPath)) {
+      try {
+        const raw = readFileSync(configPath, 'utf-8');
+        const parsed = parseYaml(raw);
+        if (parsed && typeof parsed === 'object') {
+          existing = parsed;
+        }
+      } catch { /* ignore */ }
+    }
+
+    // Merge new values
+    if (baseUrl) existing.baseUrl = baseUrl;
+    if (authStorageState) existing.authStorageState = authStorageState;
+    if (!existing.testDir) existing.testDir = 'e2e';
+
+    writeFileSync(configPath, toYaml(existing));
+    console.log(`[ws] Updated .swarm/playwright.config.yaml`);
   }
 
   get port(): number | undefined {

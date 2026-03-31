@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { EventEmitter } from 'node:events';
-import type { PipelineState, Agent, StageName, StageState, CostInfo } from '../types.js';
+import type { PipelineState, Agent, StageName, StageState, CostInfo, MaydayState } from '../types.js';
 import { createEmptyPipeline, emptyCost, addCosts } from '../types.js';
 
 export class StateManager extends EventEmitter {
@@ -18,6 +18,14 @@ export class StateManager extends EventEmitter {
       try {
         const raw = readFileSync(this.filePath, 'utf-8');
         this.state = JSON.parse(raw);
+        // Migrate: ensure all expected stages exist (e.g. 'test' added later)
+        const emptyStage = (): StageState => ({ status: 'pending', agentIds: [], artifact: null });
+        const expectedStages: StageName[] = ['analyze', 'architect', 'plan', 'build', 'test', 'evaluate'];
+        for (const stage of expectedStages) {
+          if (!this.state.stages[stage]) {
+            this.state.stages[stage] = emptyStage();
+          }
+        }
       } catch {
         this.state = createEmptyPipeline('unknown', 'react');
       }
@@ -62,8 +70,9 @@ export class StateManager extends EventEmitter {
     // Remove all finished agents (done, error, killed)
     this.state.agents = [];
 
-    // Reset stage agentIds since those agents no longer exist
+    // Reset all stages to pending since we're starting fresh
     for (const stage of Object.values(this.state.stages)) {
+      stage.status = 'pending';
       stage.agentIds = [];
     }
 
@@ -109,6 +118,43 @@ export class StateManager extends EventEmitter {
     this.state.updatedAt = Date.now();
     this.scheduleSave();
     this.emit('state-change', this.state);
+  }
+
+  getMayday(): MaydayState | undefined {
+    return this.state.mayday;
+  }
+
+  updateMayday(update: Partial<MaydayState>): void {
+    if (!this.state.mayday) return;
+    Object.assign(this.state.mayday, update);
+    this.state.updatedAt = Date.now();
+    this.scheduleSave();
+    this.emit('state-change', this.state);
+  }
+
+  setMayday(mayday: MaydayState | undefined): void {
+    this.state.mayday = mayday;
+    this.state.updatedAt = Date.now();
+    this.scheduleSave();
+    this.emit('state-change', this.state);
+  }
+
+  /** Push a user message into the mayday queue */
+  pushMaydayMessage(text: string): void {
+    if (!this.state.mayday) return;
+    this.state.mayday.userMessages.push(text);
+    this.state.updatedAt = Date.now();
+    this.scheduleSave();
+    this.emit('state-change', this.state);
+  }
+
+  /** Consume and clear all queued mayday user messages */
+  consumeMaydayMessages(): string[] {
+    if (!this.state.mayday) return [];
+    const msgs = [...this.state.mayday.userMessages];
+    this.state.mayday.userMessages = [];
+    this.scheduleSave();
+    return msgs;
   }
 
   private recalcTotalCost(): void {

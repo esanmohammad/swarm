@@ -56,7 +56,8 @@ Do NOT write free-form task lists, migration plans, or prose documents.
 3. `## Phase 1: Setup` — go.mod, dependencies
 4. `## Phase 2: Foundational` — domain models, errors, ports, DTOs, migrations (GATE — blocks all stories)
 5. `## Phase 3+: [User Story N]` — one phase per user story, parallelizable after gate
-6. `## Final Phase: Polish` — DI wiring, security, observability, docs
+6. `## E2E Test Phase` — Playwright E2E tests for complete user flows (after all stories)
+7. `## Final Phase: Polish` — DI wiring, security, observability, docs
 
 **Rules:** One task = one file. Every task has `[P]` if parallelizable. Every task has `[USn]` label. Every task has a file path.
 
@@ -102,6 +103,7 @@ Phase 2: Foundational — Domain models, error types, port interfaces, DTOs, con
                         ⬇ GATE: No user story work until Phase 2 is complete
 Phase 3+: User Stories — One phase per user story, ordered by priority (P1 → P2 → P3)
                          All user story phases can run IN PARALLEL after the gate
+E2E Tests:             — Playwright E2E tests after all user stories complete
 Final: Polish          — DI wiring, security audit, observability, docs, benchmarks
 ```
 
@@ -186,6 +188,15 @@ Final: Polish          — DI wiring, security audit, observability, docs, bench
 
 [Same structure...]
 
+## E2E Test Phase (after all user stories, before Polish)
+
+- [ ] T018 [P] [E2E] [US1] Feature CRUD E2E test — `e2e/feature-crud.spec.ts`
+  - AC: Create, read, update feature via API, verify responses
+  - Depends on: T011
+- [ ] T019 [P] [E2E] [US2] Feature lifecycle E2E test — `e2e/feature-lifecycle.spec.ts`
+  - AC: Full lifecycle flow via API endpoints
+  - Depends on: [Phase 4 tasks]
+
 ## Final Phase: Polish
 
 - [ ] T020 DI wiring — `cmd/server/main.go`
@@ -198,6 +209,27 @@ Final: Polish          — DI wiring, security audit, observability, docs, bench
 - [ ] T023 Security audit — run govulncheck, input validation review
 - [ ] T024 API docs — `docs/openapi.yaml`
 ```
+
+---
+
+## E2E Test Tasks
+
+E2E tests exercise complete user flows via Playwright. Add an E2E Test Phase after all user story phases and before Polish.
+
+**E2E task format:**
+```
+- [ ] T050 [P] [E2E] [US1,US2] Description — `e2e/test-name.spec.ts`
+  - AC: Test scenario with expected assertions
+  - Depends on: T020, T030
+```
+
+**Rules:**
+- Every E2E task gets the `[E2E]` marker
+- May reference multiple `[USn]` labels (cross-story flows)
+- File paths under `e2e/` directory, `.spec.ts` extension
+- Each task tests ONE user flow
+- If auth is required, note it in AC
+- Always depends on the implementation tasks it exercises
 
 ---
 

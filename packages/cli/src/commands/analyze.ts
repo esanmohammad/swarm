@@ -14,6 +14,7 @@ export function registerAnalyze(program: Command): void {
     .option('-s, --stack <stack>', 'Tech stack override (react, node, go)')
     .option('-m, --model <model>', 'Model override (sonnet, opus, haiku)')
     .option('-f, --file', 'Treat argument as a file path to read')
+    .option('--figma <url>', 'Figma design URL to pass to the analyst')
     .option('--no-interactive', 'Run in single-shot mode (no conversation)')
     .action(async (featureRequest: string, opts) => {
       const swarmDir = requireSwarmDir();
@@ -36,7 +37,7 @@ export function registerAnalyze(program: Command): void {
       if (interactive) {
         // Interactive mode: no spinner, Claude takes over the terminal
         try {
-          await pipeline.runAnalyze(prompt, { stack, interactive: true });
+          await pipeline.runAnalyze(prompt, { stack, interactive: true, figmaUrl: opts.figma });
         } catch (err) {
           console.error(chalk.red(err instanceof Error ? err.message : String(err)));
           process.exit(1);
@@ -47,7 +48,7 @@ export function registerAnalyze(program: Command): void {
         // Non-interactive: single-shot with spinner
         const spinner = ora('Running analyst...').start();
         try {
-          await pipeline.runAnalyze(prompt, { stack, interactive: false });
+          await pipeline.runAnalyze(prompt, { stack, interactive: false, figmaUrl: opts.figma });
           spinner.succeed('Analysis complete');
         } catch (err) {
           spinner.fail('Analysis failed');

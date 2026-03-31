@@ -19,6 +19,7 @@ const PROMPT_FILENAME_MAP: Record<Persona, (stack: TechStack) => string[]> = {
   },
   lead: (stack) => [`Software-lead-${stack}.md`, `software-lead-${stack}.md`],
   engineer: (stack) => [`Software-engineer-${stack}.md`, `software-engineer-${stack}.md`],
+  tester: (stack) => [`test-engineer-${stack}.md`, `Test-engineer-${stack}.md`],
 };
 
 // Directories to search for prompts, in priority order:
@@ -80,7 +81,7 @@ export class PromptLoader {
 
   listAvailable(): Array<{ persona: Persona; stack: TechStack; path: string }> {
     const results: Array<{ persona: Persona; stack: TechStack; path: string }> = [];
-    const personas: Persona[] = ['analyst', 'architect', 'lead', 'engineer'];
+    const personas: Persona[] = ['analyst', 'architect', 'lead', 'engineer', 'tester'];
     const stacks: TechStack[] = ['react', 'node', 'go'];
 
     for (const persona of personas) {

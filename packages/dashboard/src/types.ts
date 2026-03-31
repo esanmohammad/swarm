@@ -1,8 +1,8 @@
 export type AgentStatus = 'pending' | 'running' | 'done' | 'error' | 'killed';
 export type PermissionMode = 'default' | 'acceptEdits' | 'bypassPermissions' | 'plan' | 'auto';
-export type Persona = 'analyst' | 'architect' | 'lead' | 'engineer';
+export type Persona = 'analyst' | 'architect' | 'lead' | 'engineer' | 'tester';
 export type TechStack = 'react' | 'node' | 'go';
-export type StageName = 'analyze' | 'architect' | 'plan' | 'build' | 'evaluate';
+export type StageName = 'analyze' | 'architect' | 'plan' | 'build' | 'test' | 'evaluate';
 
 export interface CostInfo {
   totalUsd: number;
@@ -45,6 +45,24 @@ export interface StageState {
   artifact: string | null;
 }
 
+// MayDay autonomous pipeline state
+export interface MaydayState {
+  active: boolean;
+  featureRequest: string;
+  currentStage: StageName | 'fix-loop' | 'complete';
+  fixIteration: number;
+  maxFixIterations: number;
+  lastTestOutput: string | null;
+  lastTestPassed: boolean | null;
+  failureCount: number | null;
+  fixAgentIds: string[];
+  userMessages: string[];
+  startedAt: number;
+  pausedAt: number | null;
+  error: string | null;
+  figmaUrl?: string;
+}
+
 export interface PipelineState {
   projectName: string;
   stack: TechStack;
@@ -53,6 +71,7 @@ export interface PipelineState {
   totalCost: CostInfo;
   violations: GuardrailViolation[];
   updatedAt: number;
+  mayday?: MaydayState;
 }
 
 export interface GuardrailViolation {
@@ -89,4 +108,7 @@ export type WsCommand =
   | { action: 'kill'; agentId: string }
   | { action: 'send-input'; agentId: string; text: string }
   | { action: 'get-state' }
-  | { action: 'run-stage'; stage: 'analyze' | 'architect' | 'plan' | 'build'; prompt?: string; parallel?: number; taskId?: string };
+  | { action: 'run-stage'; stage: 'analyze' | 'architect' | 'plan' | 'build' | 'test'; prompt?: string; parallel?: number; taskId?: string; figmaUrl?: string; baseUrl?: string; authStorageState?: string }
+  | { action: 'run-mayday'; prompt: string; maxIterations?: number; figmaUrl?: string; parallel?: number; resume?: boolean; model?: string }
+  | { action: 'mayday-input'; text: string }
+  | { action: 'mayday-stop' };

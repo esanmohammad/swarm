@@ -21,6 +21,7 @@ const DEFAULT_RULES: GuardrailRule[] = [
       { type: 'section-exists', value: 'Open Questions', message: 'Missing "10. Open Questions" section', severity: 'warning' },
       { type: 'pattern-match', value: 'As a .+ I want .+ So that', message: 'No user stories found (As a/I want/So that format)', severity: 'warning' },
       { type: 'pattern-match', value: 'Given .+ [Ww]hen .+ [Tt]hen', message: 'No Given/When/Then acceptance criteria found', severity: 'warning' },
+      { type: 'pattern-match', value: 'E2E', message: 'No E2E scenarios in Testing section', severity: 'warning' },
     ],
   },
   {
@@ -56,6 +57,22 @@ const DEFAULT_RULES: GuardrailRule[] = [
       { type: 'section-exists', value: 'Dependencies & Execution Order', message: 'Missing "Dependencies & Execution Order" section', severity: 'warning' },
       { type: 'section-exists', value: 'Phase', message: 'No Phase sections found — tasks should be organized into phases' },
       { type: 'pattern-match', value: '`[^`]+\\.[a-z]{1,4}`', message: 'No file paths found — every task should reference a specific file', severity: 'warning' },
+      { type: 'pattern-match', value: '\\[E2E\\]', message: 'No [E2E] test tasks found', severity: 'warning' },
+      { type: 'pattern-match', value: 'e2e/.*\\.spec\\.ts', message: 'No E2E test file paths found', severity: 'warning' },
+    ],
+  },
+  {
+    name: 'TESTPLAN.md structure',
+    target: 'TESTPLAN.md',
+    checks: [
+      { type: 'section-exists', value: 'Overview', message: 'Missing "Overview" section' },
+      { type: 'section-exists', value: 'Test Strategy', message: 'Missing "Test Strategy" section' },
+      { type: 'section-exists', value: 'E2E Test Cases', message: 'Missing "E2E Test Cases" section' },
+      { type: 'section-exists', value: 'Authentication', message: 'Missing "Authentication" section', severity: 'warning' },
+      { type: 'section-exists', value: 'Test Data', message: 'Missing "Test Data" section', severity: 'warning' },
+      { type: 'section-exists', value: 'Acceptance Criteria', message: 'Missing "Acceptance Criteria" section', severity: 'warning' },
+      { type: 'pattern-match', value: 'TC-\\d{3}', message: 'No test case IDs found (TC-001 pattern)' },
+      { type: 'pattern-match', value: 'e2e/.*\\.spec\\.ts', message: 'No E2E test file paths found', severity: 'warning' },
     ],
   },
 ];

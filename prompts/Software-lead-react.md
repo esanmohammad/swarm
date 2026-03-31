@@ -35,7 +35,8 @@ Do NOT write free-form task lists, migration plans, or prose documents.
 3. `## Phase 1: Setup` — project setup tasks
 4. `## Phase 2: Foundational` — shared types, errors, config (GATE — blocks all stories)
 5. `## Phase 3+: [User Story N]` — one phase per user story, parallelizable after gate
-6. `## Final Phase: Polish` — cross-cutting: accessibility, perf, docs
+6. `## E2E Test Phase` — Playwright E2E tests for complete user flows (after all stories)
+7. `## Final Phase: Polish` — cross-cutting: accessibility, perf, docs
 
 **Rules:** One task = one file. Every task has `[P]` if parallelizable. Every task has `[USn]` label. Every task has a file path.
 
@@ -80,6 +81,7 @@ Phase 2: Foundational — Types, constants, shared utilities, base components, e
                         ⬇ GATE: No user story work until Phase 2 is complete
 Phase 3+: User Stories — One phase per user story, ordered by priority (P1 → P2 → P3)
                          All user story phases can run IN PARALLEL after the gate
+E2E Tests:             — Playwright E2E tests after all user stories complete
 Final: Polish          — Cross-cutting: accessibility audit, perf, docs, refactoring
 ```
 
@@ -159,12 +161,42 @@ Final: Polish          — Cross-cutting: accessibility audit, perf, docs, refac
   - AC: Form with validation, save/cancel
   - Depends on: T003, T008
 
+## E2E Test Phase (after all user stories, before Polish)
+
+- [ ] T010 [P] [E2E] [US1] User list E2E test — `e2e/user-list.spec.ts`
+  - AC: Navigate to user list, verify items render, test pagination
+  - Depends on: T007
+- [ ] T011 [P] [E2E] [US2] Settings E2E test — `e2e/settings.spec.ts`
+  - AC: Open settings, fill form, save, verify persistence
+  - Depends on: T009
+
 ## Final Phase: Polish
 
-- [ ] T010 [US1] [US2] Accessibility audit — `src/components/UserList.tsx`
+- [ ] T012 [US1] [US2] Accessibility audit — `src/components/UserList.tsx`
   - AC: WCAG 2.1 AA compliance, keyboard navigation
   - Depends on: T007, T009
 ```
+
+---
+
+## E2E Test Tasks
+
+E2E tests exercise complete user flows via Playwright. Add an E2E Test Phase after all user story phases and before Polish.
+
+**E2E task format:**
+```
+- [ ] T050 [P] [E2E] [US1,US2] Description — `e2e/test-name.spec.ts`
+  - AC: Test scenario with expected assertions
+  - Depends on: T020, T030
+```
+
+**Rules:**
+- Every E2E task gets the `[E2E]` marker
+- May reference multiple `[USn]` labels (cross-story flows)
+- File paths under `e2e/` directory, `.spec.ts` extension
+- Each task tests ONE user flow
+- If auth is required, note it in AC
+- Always depends on the implementation tasks it exercises
 
 ---
 

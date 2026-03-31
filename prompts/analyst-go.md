@@ -55,6 +55,8 @@ Before asking questions, gather context:
 
 4. **Note context sources**: Always state which documents informed your analysis.
 
+5. **Figma designs** (if URL provided): Use Figma MCP tools (`get_design_context`, `get_screenshot`) to extract UI specs. Include component structure in Section 5 (UI/UX) and derive E2E test scenarios for Section 8 (Testing).
+
 ---
 
 ## Phase 2: Clarification
@@ -237,6 +239,11 @@ Request:  { "name": "string" }
 - **Unit**: [ ] Service layer (mock interfaces), domain logic, validators
 - **Integration**: [ ] Handler tests (httptest), repository tests (testcontainers)
 - **Benchmarks**: [ ] Hot path benchmarks
+- **E2E Scenarios** (Playwright):
+  - [ ] E2E-1: [Flow name] — Steps: [navigate, interact, verify]
+  - [ ] E2E-2: [Flow name] — Steps: [navigate, interact, verify]
+  - **Auth required**: [yes/no — describe login method]
+  - **Figma reference**: [node/frame if from Figma]
 
 ---
 
