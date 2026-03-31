@@ -21,14 +21,14 @@ export function CostPanel({ pipeline }: { pipeline: PipelineState }) {
     <div className="px-3 py-3 font-mono">
       {/* Total cost — prominent */}
       <div className="flex items-center justify-between mb-2">
-        <span className="text-[10px] text-stone-500 uppercase tracking-widest">cost</span>
+        <span className="text-[10px] text-stone-300 uppercase tracking-widest">cost</span>
         <span className="text-sm font-semibold text-amber-500 tabular-nums">
           ${totalCost.totalUsd.toFixed(4)}
         </span>
       </div>
 
       {/* Token breakdown */}
-      <div className="text-[10px] text-stone-500 space-y-0.5 mb-3">
+      <div className="text-[10px] text-stone-400 space-y-0.5 mb-3">
         <div className="flex justify-between">
           <span>in</span>
           <span className="text-stone-400 tabular-nums">{totalCost.inputTokens.toLocaleString()}</span>
@@ -57,10 +57,10 @@ export function CostPanel({ pipeline }: { pipeline: PipelineState }) {
           {Object.entries(agentsByPersona).map(([persona, cost]) => (
             <div key={persona}>
               <div className="flex justify-between text-[10px] mb-0.5">
-                <span className="text-stone-500">{persona}</span>
+                <span className="text-stone-400">{persona}</span>
                 <span className="text-stone-400 tabular-nums">${cost.toFixed(4)}</span>
               </div>
-              <div className="h-1 bg-stone-900 rounded-full overflow-hidden">
+              <div className="h-1 bg-stone-800 rounded-full overflow-hidden">
                 <div
                   className={`h-full rounded-full transition-all ${PERSONA_BAR_COLORS[persona] ?? 'bg-stone-700'}`}
                   style={{ width: `${(cost / maxCost) * 100}%` }}

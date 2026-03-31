@@ -2,11 +2,11 @@ import { Clock, DollarSign, GitBranch, Crown } from 'lucide-react';
 import type { Agent } from '../types';
 
 const STATUS_INDICATOR: Record<string, { char: string; color: string }> = {
-  pending: { char: '-', color: 'text-stone-600' },
+  pending: { char: '-', color: 'text-stone-400' },
   running: { char: '*', color: 'text-red-400' },
   done: { char: '+', color: 'text-green-500' },
   error: { char: 'x', color: 'text-red-500' },
-  killed: { char: '!', color: 'text-stone-500' },
+  killed: { char: '!', color: 'text-stone-400' },
 };
 
 const PERSONA_COLORS: Record<string, string> = {
@@ -44,8 +44,8 @@ export function AgentCard({ agent, selected, onClick, onKill }: AgentCardProps) 
         selected
           ? 'bg-stone-900/60 border-red-900/50 glow-red'
           : isRunning
-            ? 'bg-stone-900/30 border-stone-800/40 hover:border-stone-700/60'
-            : 'bg-transparent border-transparent hover:bg-stone-900/20 hover:border-stone-800/30'
+            ? 'bg-stone-900/30 border-stone-800/40 hover:border-stone-600/60'
+            : 'bg-transparent border-transparent hover:bg-stone-800/20 hover:border-stone-700/30'
       }`}
     >
       {/* Line 1: status + name + kill */}
@@ -71,8 +71,8 @@ export function AgentCard({ agent, selected, onClick, onKill }: AgentCardProps) 
         <span className={`text-[10px] ${PERSONA_COLORS[agent.persona] ?? 'text-stone-500'}`}>
           {agent.persona}
         </span>
-        <span className="text-stone-700">:</span>
-        <span className="text-[10px] text-stone-500">{agent.stack}</span>
+        <span className="text-stone-500">:</span>
+        <span className="text-[10px] text-stone-400">{agent.stack}</span>
         {agent.childIds && agent.childIds.length > 0 && (
           <span className="flex items-center gap-0.5 text-[9px] text-amber-500">
             <Crown size={8} />
@@ -80,7 +80,7 @@ export function AgentCard({ agent, selected, onClick, onKill }: AgentCardProps) 
           </span>
         )}
         {agent.parentId && (
-          <span className="flex items-center gap-0.5 text-[9px] text-stone-600">
+          <span className="flex items-center gap-0.5 text-[9px] text-stone-400">
             <GitBranch size={8} />
             sub
           </span>
@@ -88,14 +88,14 @@ export function AgentCard({ agent, selected, onClick, onKill }: AgentCardProps) 
       </div>
 
       {/* Line 3: cost + tokens + time */}
-      <div className="flex items-center gap-2.5 text-[10px] text-stone-500">
-        <span className="flex items-center gap-0.5 text-amber-700">
+      <div className="flex items-center gap-2.5 text-[10px] text-stone-400">
+        <span className="flex items-center gap-0.5 text-amber-500">
           <DollarSign size={8} />
           {agent.cost.totalUsd.toFixed(4)}
         </span>
         {(agent.cost.inputTokens > 0 || agent.cost.outputTokens > 0) && (
-          <span className="text-stone-600">
-            {Math.round(agent.cost.inputTokens / 1000)}k<span className="text-stone-700">/</span>{Math.round(agent.cost.outputTokens / 1000)}k
+          <span className="text-stone-400">
+            {Math.round(agent.cost.inputTokens / 1000)}k<span className="text-stone-500">/</span>{Math.round(agent.cost.outputTokens / 1000)}k
           </span>
         )}
         {elapsed > 0 && (

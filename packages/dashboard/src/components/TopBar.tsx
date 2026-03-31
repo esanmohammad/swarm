@@ -105,7 +105,7 @@ export function TopBar({ pipeline, violationCount, onRunStage }: TopBarProps) {
     <div className="px-4 py-3 border-b border-stone-800/50 bg-[#0e0c0b]">
       {/* Pipeline stages — terminal-style breadcrumb */}
       <div className="flex items-center gap-0.5 mb-2.5 font-mono">
-        <span className="text-stone-600 text-xs mr-1">$</span>
+        <span className="text-stone-400 text-xs mr-1">$</span>
         {STAGES.map((stage, i) => {
           const s = stages[stage.key];
           const isActive = s.status === 'running';
@@ -126,20 +126,20 @@ export function TopBar({ pipeline, violationCount, onRunStage }: TopBarProps) {
                       : isError
                         ? 'text-red-600/70'
                         : canRun
-                          ? 'text-stone-500 hover:text-stone-300 hover:bg-stone-800/30 cursor-pointer'
-                          : 'text-stone-600'
+                          ? 'text-stone-400 hover:text-stone-300 hover:bg-stone-800 cursor-pointer'
+                          : 'text-stone-400'
                 }`}
               >
                 {isActive && <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />}
-                {isDone && <span className="text-green-600 text-[10px]">+</span>}
-                {isError && <span className="text-red-600 text-[10px]">x</span>}
+                {isDone && <span className="text-green-500 text-[10px]">+</span>}
+                {isError && <span className="text-red-500 text-[10px]">x</span>}
                 {stage.label}
                 {canRun && !isActive && (
-                  <Play size={8} className="text-stone-700 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <Play size={8} className="text-stone-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                 )}
               </button>
               {i < STAGES.length - 1 && (
-                <ChevronRight size={10} className="text-stone-700 mx-0.5" />
+                <ChevronRight size={10} className="text-stone-500 mx-0.5" />
               )}
             </div>
           );
@@ -223,7 +223,7 @@ export function TopBar({ pipeline, violationCount, onRunStage }: TopBarProps) {
                 if (e.key === 'Escape') { setShowMaydayPrompt(false); setMaydayInput(''); setFigmaInput(''); }
               }}
               placeholder="describe the feature to build end-to-end..."
-              className="flex-1 px-2 py-1.5 bg-transparent border-b border-red-800/50 text-sm text-stone-200 placeholder-stone-500 focus:border-red-600 focus:outline-none"
+              className="flex-1 px-2 py-1.5 bg-transparent border-b border-red-800/50 text-sm text-stone-200 placeholder-stone-400 focus:border-red-600 focus:outline-none"
               autoFocus
             />
             <button
@@ -235,13 +235,13 @@ export function TopBar({ pipeline, violationCount, onRunStage }: TopBarProps) {
                 setFigmaInput('');
               }}
               disabled={!maydayInput.trim()}
-              className="px-3 py-1 text-xs text-red-400 hover:text-red-300 disabled:text-stone-700 font-bold transition-colors"
+              className="px-3 py-1 text-xs text-red-400 hover:text-red-300 disabled:text-stone-500 font-bold transition-colors"
             >
               [launch]
             </button>
             <button
               onClick={() => { setShowMaydayPrompt(false); setMaydayInput(''); setFigmaInput(''); }}
-              className="text-xs text-stone-500 hover:text-stone-300 transition-colors"
+              className="text-xs text-stone-400 hover:text-stone-300 transition-colors"
             >
               [esc]
             </button>
@@ -257,7 +257,7 @@ export function TopBar({ pipeline, violationCount, onRunStage }: TopBarProps) {
                   className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
                     maydayModelInput === m
                       ? 'bg-red-950/60 text-red-300 border border-red-700/50'
-                      : 'text-stone-500 hover:text-stone-300 border border-stone-700/30 hover:border-stone-600/50'
+                      : 'text-stone-400 hover:text-stone-300 border border-stone-600/30 hover:border-stone-500/50'
                   }`}
                 >
                   {m}
@@ -281,7 +281,7 @@ export function TopBar({ pipeline, violationCount, onRunStage }: TopBarProps) {
                 }
               }}
               placeholder="figma.com/design/... (optional)"
-              className="flex-1 px-2 py-1.5 bg-transparent border-b border-stone-700/50 text-sm text-stone-300 placeholder-stone-600 focus:border-purple-700 focus:outline-none"
+              className="flex-1 px-2 py-1.5 bg-transparent border-b border-stone-600/50 text-sm text-stone-300 placeholder-stone-400 focus:border-purple-700 focus:outline-none"
             />
           </div>
         </div>
@@ -305,7 +305,7 @@ export function TopBar({ pipeline, violationCount, onRunStage }: TopBarProps) {
                 if (e.key === 'Escape') { setShowMaydayMsg(false); setMaydayMsgInput(''); }
               }}
               placeholder="send guidance to the running mayday pipeline..."
-              className="flex-1 px-2 py-1.5 bg-transparent border-b border-amber-800/50 text-sm text-stone-200 placeholder-stone-500 focus:border-amber-600 focus:outline-none"
+              className="flex-1 px-2 py-1.5 bg-transparent border-b border-amber-800/50 text-sm text-stone-200 placeholder-stone-400 focus:border-amber-600 focus:outline-none"
               autoFocus
             />
             <button
@@ -316,13 +316,13 @@ export function TopBar({ pipeline, violationCount, onRunStage }: TopBarProps) {
                 setShowMaydayMsg(false);
               }}
               disabled={!maydayMsgInput.trim()}
-              className="px-3 py-1 text-xs text-amber-400 hover:text-amber-300 disabled:text-stone-700 font-bold transition-colors"
+              className="px-3 py-1 text-xs text-amber-400 hover:text-amber-300 disabled:text-stone-500 font-bold transition-colors"
             >
               [send]
             </button>
             <button
               onClick={() => { setShowMaydayMsg(false); setMaydayMsgInput(''); }}
-              className="text-xs text-stone-500 hover:text-stone-300 transition-colors"
+              className="text-xs text-stone-400 hover:text-stone-300 transition-colors"
             >
               [esc]
             </button>
@@ -341,19 +341,19 @@ export function TopBar({ pipeline, violationCount, onRunStage }: TopBarProps) {
               onChange={(e) => setPromptInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handlePromptSubmit()}
               placeholder="describe the feature..."
-              className="flex-1 px-2 py-1 bg-transparent border-b border-stone-800 text-xs text-stone-300 placeholder-stone-600 focus:border-red-800 focus:outline-none"
+              className="flex-1 px-2 py-1 bg-transparent border-b border-stone-800 text-xs text-stone-300 placeholder-stone-400 focus:border-red-800 focus:outline-none"
               autoFocus
             />
             <button
               onClick={handlePromptSubmit}
               disabled={!promptInput.trim()}
-              className="px-2 py-1 text-[10px] text-green-500 hover:text-green-400 disabled:text-stone-700 font-medium transition-colors"
+              className="px-2 py-1 text-[10px] text-green-500 hover:text-green-400 disabled:text-stone-500 font-medium transition-colors"
             >
               [enter]
             </button>
             <button
               onClick={() => { setShowPromptFor(null); setPromptInput(''); setFigmaInput(''); }}
-              className="text-[10px] text-stone-600 hover:text-stone-400 transition-colors"
+              className="text-[10px] text-stone-400 hover:text-stone-300 transition-colors"
             >
               [esc]
             </button>
@@ -366,7 +366,7 @@ export function TopBar({ pipeline, violationCount, onRunStage }: TopBarProps) {
               onChange={(e) => setFigmaInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handlePromptSubmit()}
               placeholder="figma url (optional)"
-              className="flex-1 px-2 py-1 bg-transparent border-b border-stone-800/50 text-xs text-stone-400 placeholder-stone-700 focus:border-purple-800 focus:outline-none"
+              className="flex-1 px-2 py-1 bg-transparent border-b border-stone-800/50 text-xs text-stone-400 placeholder-stone-400 focus:border-purple-800 focus:outline-none"
             />
           </div>
         </div>
@@ -383,19 +383,19 @@ export function TopBar({ pipeline, violationCount, onRunStage }: TopBarProps) {
               onChange={(e) => setPromptInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handlePromptSubmit()}
               placeholder="guidance for task breakdown (e.g. priorities, constraints)..."
-              className="flex-1 px-2 py-1 bg-transparent border-b border-stone-800 text-xs text-stone-300 placeholder-stone-600 focus:border-blue-800 focus:outline-none"
+              className="flex-1 px-2 py-1 bg-transparent border-b border-stone-800 text-xs text-stone-300 placeholder-stone-400 focus:border-blue-800 focus:outline-none"
               autoFocus
             />
             <button
               onClick={handlePromptSubmit}
               disabled={!promptInput.trim()}
-              className="px-2 py-1 text-[10px] text-green-500 hover:text-green-400 disabled:text-stone-700 font-medium transition-colors"
+              className="px-2 py-1 text-[10px] text-green-500 hover:text-green-400 disabled:text-stone-500 font-medium transition-colors"
             >
               [enter]
             </button>
             <button
               onClick={() => { setShowPromptFor(null); setPromptInput(''); }}
-              className="text-[10px] text-stone-600 hover:text-stone-400 transition-colors"
+              className="text-[10px] text-stone-400 hover:text-stone-300 transition-colors"
             >
               [esc]
             </button>
@@ -408,14 +408,14 @@ export function TopBar({ pipeline, violationCount, onRunStage }: TopBarProps) {
         <div className="mb-2.5 space-y-1.5 font-mono">
           <div className="flex items-center gap-2">
             <span className="text-cyan-500 text-xs w-3 text-right">{'>'}</span>
-            <span className="text-stone-600 text-[10px] w-12">url</span>
+            <span className="text-stone-400 text-[10px] w-12">url</span>
             <input
               type="text"
               value={baseUrlInput}
               onChange={(e) => setBaseUrlInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handlePromptSubmit()}
               placeholder="https://app-staging.example.com"
-              className="flex-1 px-2 py-1 bg-transparent border-b border-stone-800 text-xs text-stone-300 placeholder-stone-700 focus:border-cyan-800 focus:outline-none"
+              className="flex-1 px-2 py-1 bg-transparent border-b border-stone-800 text-xs text-stone-300 placeholder-stone-400 focus:border-cyan-800 focus:outline-none"
               autoFocus
             />
             <button
@@ -426,69 +426,69 @@ export function TopBar({ pipeline, violationCount, onRunStage }: TopBarProps) {
             </button>
             <button
               onClick={() => { setShowPromptFor(null); setFigmaInput(''); setBaseUrlInput(''); setAuthStateInput(''); }}
-              className="text-[10px] text-stone-600 hover:text-stone-400 transition-colors"
+              className="text-[10px] text-stone-400 hover:text-stone-300 transition-colors"
             >
               [esc]
             </button>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-amber-500 text-xs w-3 text-right">{'~'}</span>
-            <span className="text-stone-600 text-[10px] w-12">auth</span>
+            <span className="text-stone-400 text-[10px] w-12">auth</span>
             <input
               type="text"
               value={authStateInput}
               onChange={(e) => setAuthStateInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handlePromptSubmit()}
               placeholder=".auth/storageState.json"
-              className="flex-1 px-2 py-1 bg-transparent border-b border-stone-800/50 text-xs text-stone-400 placeholder-stone-700 focus:border-amber-800 focus:outline-none"
+              className="flex-1 px-2 py-1 bg-transparent border-b border-stone-800/50 text-xs text-stone-400 placeholder-stone-400 focus:border-amber-800 focus:outline-none"
             />
           </div>
           <div className="flex items-center gap-2">
             <span className="text-purple-500 text-xs w-3 text-right">{'~'}</span>
-            <span className="text-stone-600 text-[10px] w-12">figma</span>
+            <span className="text-stone-400 text-[10px] w-12">figma</span>
             <input
               type="text"
               value={figmaInput}
               onChange={(e) => setFigmaInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handlePromptSubmit()}
               placeholder="figma.com/design/... (optional)"
-              className="flex-1 px-2 py-1 bg-transparent border-b border-stone-800/50 text-xs text-stone-400 placeholder-stone-700 focus:border-purple-800 focus:outline-none"
+              className="flex-1 px-2 py-1 bg-transparent border-b border-stone-800/50 text-xs text-stone-400 placeholder-stone-400 focus:border-purple-800 focus:outline-none"
             />
           </div>
         </div>
       )}
 
       {/* Stats — terminal-style info line */}
-      <div className="flex items-center gap-4 text-[10px] font-mono text-stone-500">
+      <div className="flex items-center gap-4 text-[10px] font-mono text-stone-400">
         <span>
           {running > 0 && <span className="text-red-400">{running} running</span>}
-          {running > 0 && (done > 0 || errored > 0) && <span className="text-stone-700"> | </span>}
-          {done > 0 && <span className="text-green-600">{done} done</span>}
-          {done > 0 && errored > 0 && <span className="text-stone-700"> | </span>}
-          {errored > 0 && <span className="text-red-600">{errored} err</span>}
-          {agents.length === 0 && <span className="text-stone-600">idle</span>}
+          {running > 0 && (done > 0 || errored > 0) && <span className="text-stone-500"> | </span>}
+          {done > 0 && <span className="text-green-500">{done} done</span>}
+          {done > 0 && errored > 0 && <span className="text-stone-500"> | </span>}
+          {errored > 0 && <span className="text-red-500">{errored} err</span>}
+          {agents.length === 0 && <span className="text-stone-400">idle</span>}
         </span>
 
-        <span className="text-stone-700">|</span>
+        <span className="text-stone-500">|</span>
 
-        <span className="flex items-center gap-1 text-amber-600">
+        <span className="flex items-center gap-1 text-amber-500">
           <DollarSign size={9} />
           {totalCost.totalUsd.toFixed(4)}
         </span>
 
         {(totalCost.inputTokens > 0 || totalCost.outputTokens > 0) && (
           <>
-            <span className="text-stone-700">|</span>
-            <span className="text-stone-500" title={`${totalCost.inputTokens.toLocaleString()} in / ${totalCost.outputTokens.toLocaleString()} out`}>
-              {formatTokens(totalCost.inputTokens)}<span className="text-stone-700">/</span>{formatTokens(totalCost.outputTokens)} tok
+            <span className="text-stone-500">|</span>
+            <span className="text-stone-400" title={`${totalCost.inputTokens.toLocaleString()} in / ${totalCost.outputTokens.toLocaleString()} out`}>
+              {formatTokens(totalCost.inputTokens)}<span className="text-stone-500">/</span>{formatTokens(totalCost.outputTokens)} tok
             </span>
           </>
         )}
 
         {totalCost.durationMs > 0 && (
           <>
-            <span className="text-stone-700">|</span>
-            <span className="flex items-center gap-1 text-stone-500">
+            <span className="text-stone-500">|</span>
+            <span className="flex items-center gap-1 text-stone-400">
               <Clock size={9} />
               {formatDuration(totalCost.durationMs)}
             </span>

@@ -102,6 +102,7 @@ export type WsMessage =
   | { type: 'agent-update'; payload: Agent }
   | { type: 'agent-output'; payload: { agentId: string; chunk: string } }
   | { type: 'agent-activity'; payload: AgentActivity }
+  | { type: 'agent-logs'; payload: { agentId: string; output: string; activities: AgentActivity[] } }
   | { type: 'guardrail-alert'; payload: GuardrailViolation }
   | { type: 'cost-update'; payload: CostInfo };
 

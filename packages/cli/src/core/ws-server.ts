@@ -1,4 +1,4 @@
-import { watch, readFileSync, writeFileSync, existsSync, FSWatcher } from 'node:fs';
+import { watch, readFileSync, writeFileSync, existsSync, readdirSync, FSWatcher } from 'node:fs';
 import { join } from 'node:path';
 import { WebSocketServer, WebSocket } from 'ws';
 import { stringify as toYaml, parse as parseYaml } from 'yaml';
@@ -121,8 +121,12 @@ export class SwarmWsServer {
 
       // Send current state on connect — read fresh from disk
       const freshState = this.readStateFromDisk();
-      const msg: WsMessage = { type: 'state', payload: freshState ?? this.state.getState() };
+      const currentState = freshState ?? this.state.getState();
+      const msg: WsMessage = { type: 'state', payload: currentState };
       ws.send(JSON.stringify(msg));
+
+      // Send historical logs for all agents in state
+      this.sendHistoricalLogs(ws, currentState);
 
       ws.on('message', async (data) => {
         try {
@@ -202,6 +206,48 @@ export class SwarmWsServer {
       return migrateState(JSON.parse(raw));
     } catch {
       return null;
+    }
+  }
+
+  /** Read .swarm/logs/{agentId}.jsonl files and send historical output/activities to a newly connected client. */
+  private sendHistoricalLogs(ws: WebSocket, currentState: PipelineState): void {
+    const logsDir = join(this.state.getFilePath(), '..', 'logs');
+    if (!existsSync(logsDir)) return;
+
+    for (const agent of currentState.agents) {
+      const logPath = join(logsDir, `${agent.id}.jsonl`);
+      if (!existsSync(logPath)) continue;
+
+      try {
+        const raw = readFileSync(logPath, 'utf-8');
+        const lines = raw.split('\n').filter((l) => l.trim());
+
+        let output = '';
+        const activities: AgentActivity[] = [];
+
+        for (const line of lines) {
+          try {
+            const entry = JSON.parse(line);
+            if (entry.type === 'output' && typeof entry.chunk === 'string') {
+              output += entry.chunk;
+            } else if (entry.type === 'activity' && entry.activity) {
+              activities.push(entry.activity as AgentActivity);
+            }
+          } catch {
+            // Skip malformed lines
+          }
+        }
+
+        if (output || activities.length > 0) {
+          const logMsg: WsMessage = {
+            type: 'agent-logs',
+            payload: { agentId: agent.id, output, activities },
+          };
+          ws.send(JSON.stringify(logMsg));
+        }
+      } catch {
+        // Non-critical — skip if file can't be read
+      }
     }
   }
 

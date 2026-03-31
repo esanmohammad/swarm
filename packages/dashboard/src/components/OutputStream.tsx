@@ -44,14 +44,14 @@ function ActivityItem({ activity, index }: { activity: AgentActivity; index: num
 
   if (isText) {
     return (
-      <div className="group hover:bg-stone-900/20 transition-colors">
+      <div className="group hover:bg-stone-800/20 transition-colors">
         <div className="flex items-start px-3 py-1">
-          <span className="text-[9px] text-stone-700 w-7 shrink-0 text-right pr-2 pt-0.5 tabular-nums select-none">{lineNum}</span>
-          <span className="text-stone-700 w-1 shrink-0 mr-2 pt-0.5">|</span>
+          <span className="text-[9px] text-stone-500 w-7 shrink-0 text-right pr-2 pt-0.5 tabular-nums select-none">{lineNum}</span>
+          <span className="text-stone-500 w-1 shrink-0 mr-2 pt-0.5">|</span>
           <div className="flex-1 min-w-0">
             <pre className="text-xs text-stone-300 whitespace-pre-wrap break-words leading-relaxed">
               {activity.summary}
-              {hasExpandableContent && !expanded && <span className="text-stone-600">...</span>}
+              {hasExpandableContent && !expanded && <span className="text-stone-400">...</span>}
             </pre>
             {expanded && activity.content && (
               <pre className="text-xs text-stone-400 whitespace-pre-wrap break-words mt-1">{activity.content}</pre>
@@ -60,7 +60,7 @@ function ActivityItem({ activity, index }: { activity: AgentActivity; index: num
           {hasExpandableContent && (
             <button
               onClick={() => setExpanded(!expanded)}
-              className="shrink-0 p-0.5 text-stone-600 hover:text-stone-400 ml-1"
+              className="shrink-0 p-0.5 text-stone-400 hover:text-stone-300 ml-1"
             >
               {expanded ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
             </button>
@@ -74,30 +74,30 @@ function ActivityItem({ activity, index }: { activity: AgentActivity; index: num
   const Icon = meta.icon;
 
   return (
-    <div className="group hover:bg-stone-900/20 transition-colors">
+    <div className="group hover:bg-stone-800/20 transition-colors">
       <button
         onClick={() => hasExpandableContent && setExpanded(!expanded)}
         className={`w-full flex items-start px-3 py-1 text-left ${
           hasExpandableContent ? 'cursor-pointer' : 'cursor-default'
         }`}
       >
-        <span className="text-[9px] text-stone-700 w-7 shrink-0 text-right pr-2 pt-0.5 tabular-nums select-none">{lineNum}</span>
-        <span className="text-stone-700 w-1 shrink-0 mr-2 pt-0.5">|</span>
+        <span className="text-[9px] text-stone-500 w-7 shrink-0 text-right pr-2 pt-0.5 tabular-nums select-none">{lineNum}</span>
+        <span className="text-stone-500 w-1 shrink-0 mr-2 pt-0.5">|</span>
         <Icon size={11} className={`${meta.color} shrink-0 mt-0.5 mr-1.5`} />
         <span className={`text-[10px] font-semibold ${meta.color} shrink-0 mr-2 mt-px tracking-wider`}>
           {meta.prefix}
         </span>
         <span className="text-xs text-stone-400 truncate flex-1">{activity.summary}</span>
-        <span className="text-[9px] text-stone-700 shrink-0 ml-2 tabular-nums">{time}</span>
+        <span className="text-[9px] text-stone-500 shrink-0 ml-2 tabular-nums">{time}</span>
         {hasExpandableContent && (
-          <span className="shrink-0 text-stone-600 ml-1">
+          <span className="shrink-0 text-stone-400 ml-1">
             {expanded ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
           </span>
         )}
       </button>
       {expanded && activity.content && (
         <div className="pl-12 pr-3 pb-1.5">
-          <pre className="text-[10px] text-stone-500 whitespace-pre-wrap break-words max-h-48 overflow-auto bg-[#0a0908] rounded px-2 py-1.5 border border-stone-800/30 leading-relaxed">
+          <pre className="text-[10px] text-stone-400 whitespace-pre-wrap break-words max-h-48 overflow-auto bg-[#0a0908] rounded px-2 py-1.5 border border-stone-800/30 leading-relaxed">
             {activity.content}
           </pre>
         </div>
@@ -147,7 +147,7 @@ export function OutputStream({ agent, liveOutput, activities, onSendInput }: Out
   if (!agent) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="text-center text-stone-600 font-mono">
+        <div className="text-center text-stone-400 font-mono">
           <Terminal size={32} className="mx-auto mb-3 opacity-15" />
           <p className="text-xs">select a process to view output</p>
         </div>
@@ -172,12 +172,12 @@ export function OutputStream({ agent, liveOutput, activities, onSendInput }: Out
       {/* Terminal header */}
       <div className="flex items-center justify-between px-3 py-1.5 border-b border-stone-800/50 bg-[#0e0c0b]">
         <div className="flex items-center gap-2 text-xs">
-          <Terminal size={11} className="text-stone-600" />
+          <Terminal size={11} className="text-stone-400" />
           <span className="text-stone-300">{agent.name}</span>
-          <span className="text-stone-600">::</span>
-          <span className="text-stone-500">{agent.persona}</span>
-          <span className="text-stone-700">/</span>
-          <span className="text-stone-500">{agent.stack}</span>
+          <span className="text-stone-400">::</span>
+          <span className="text-stone-400">{agent.persona}</span>
+          <span className="text-stone-500">/</span>
+          <span className="text-stone-400">{agent.stack}</span>
         </div>
         <div className="flex items-center gap-2">
           {/* View mode toggle */}
@@ -187,7 +187,7 @@ export function OutputStream({ agent, liveOutput, activities, onSendInput }: Out
               className={`px-2 py-0.5 rounded-l border transition-colors ${
                 viewMode === 'activity'
                   ? 'bg-stone-800/50 text-stone-300 border-stone-700/50'
-                  : 'text-stone-600 border-stone-800/40 hover:text-stone-400'
+                  : 'text-stone-400 border-stone-700/40 hover:text-stone-300'
               }`}
             >
               log
@@ -197,7 +197,7 @@ export function OutputStream({ agent, liveOutput, activities, onSendInput }: Out
               className={`px-2 py-0.5 rounded-r border-t border-r border-b transition-colors ${
                 viewMode === 'raw'
                   ? 'bg-stone-800/50 text-stone-300 border-stone-700/50'
-                  : 'text-stone-600 border-stone-800/40 hover:text-stone-400'
+                  : 'text-stone-400 border-stone-700/40 hover:text-stone-300'
               }`}
             >
               raw
@@ -209,7 +209,7 @@ export function OutputStream({ agent, liveOutput, activities, onSendInput }: Out
               live
             </span>
           )}
-          <span className="text-[9px] text-stone-700 tabular-nums">{agent.id.slice(0, 8)}</span>
+          <span className="text-[9px] text-stone-500 tabular-nums">{agent.id.slice(0, 8)}</span>
         </div>
       </div>
 
@@ -226,7 +226,7 @@ export function OutputStream({ agent, liveOutput, activities, onSendInput }: Out
                 <ActivityItem key={activity.id} activity={activity} index={i} />
               ))
             ) : isRunning ? (
-              <div className="flex items-center gap-2 px-3 py-4 text-stone-600">
+              <div className="flex items-center gap-2 px-3 py-4 text-stone-400">
                 <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
                 <span className="text-xs">awaiting output...</span>
                 <span className="terminal-cursor text-red-500">_</span>
@@ -236,14 +236,14 @@ export function OutputStream({ agent, liveOutput, activities, onSendInput }: Out
                 <pre className="whitespace-pre-wrap break-words text-stone-300">{baseOutput}</pre>
               </div>
             ) : (
-              <div className="px-3 py-4 text-stone-600 text-xs italic">
+              <div className="px-3 py-4 text-stone-400 text-xs italic">
                 no output
               </div>
             )}
 
             {/* User messages */}
             {localMessages.map((msg, i) => (
-              <div key={`local-${i}`} className="px-3 py-1.5 hover:bg-stone-900/20">
+              <div key={`local-${i}`} className="px-3 py-1.5 hover:bg-stone-800/20">
                 <div className="flex items-start gap-2">
                   <span className="text-green-600 font-bold text-xs shrink-0">{'>'}</span>
                   <pre className="text-xs whitespace-pre-wrap break-words text-green-400/80">{msg}</pre>
@@ -251,7 +251,7 @@ export function OutputStream({ agent, liveOutput, activities, onSendInput }: Out
               </div>
             ))}
             {isRunning && localMessages.length > 0 && (
-              <div className="px-3 py-1.5 text-stone-600 text-xs">
+              <div className="px-3 py-1.5 text-stone-400 text-xs">
                 <span className="terminal-cursor text-red-500">_</span>
               </div>
             )}
@@ -278,7 +278,7 @@ export function OutputStream({ agent, liveOutput, activities, onSendInput }: Out
                 )}
               </>
             ) : (
-              <span className="text-stone-600 italic">
+              <span className="text-stone-400 italic">
                 {isRunning ? 'awaiting output...' : 'no output'}
               </span>
             )}
@@ -299,12 +299,12 @@ export function OutputStream({ agent, liveOutput, activities, onSendInput }: Out
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder={isRunning ? 'send input...' : 'resume session...'}
-            className="flex-1 bg-transparent text-xs text-stone-300 placeholder-stone-600 focus:outline-none"
+            className="flex-1 bg-transparent text-xs text-stone-300 placeholder-stone-400 focus:outline-none"
           />
           <button
             type="submit"
             disabled={!input.trim()}
-            className="p-1 rounded text-stone-600 hover:text-green-500 disabled:text-stone-800 transition-colors shrink-0"
+            className="p-1 rounded text-stone-400 hover:text-green-500 disabled:text-stone-600 transition-colors shrink-0"
             title="Send (Enter)"
           >
             <Send size={12} />

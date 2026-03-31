@@ -98,6 +98,25 @@ export function useWebSocket(): UseWebSocketReturn {
             break;
           }
 
+          case 'agent-logs': {
+            const { agentId: logAgentId, output: logOutput, activities: logActivities } = msg.payload;
+            if (logOutput) {
+              // Prepend historical output (only if we don't already have content for this agent)
+              const current = agentOutputsRef.current.get(logAgentId) || '';
+              if (!current) {
+                agentOutputsRef.current.set(logAgentId, logOutput);
+              }
+            }
+            if (logActivities && logActivities.length > 0) {
+              const currentActs = agentActivitiesRef.current.get(logAgentId) || [];
+              if (currentActs.length === 0) {
+                agentActivitiesRef.current.set(logAgentId, logActivities.slice(-200));
+              }
+            }
+            forceUpdate((n) => n + 1);
+            break;
+          }
+
           case 'guardrail-alert':
             setViolations((prev) => [...prev, msg.payload]);
             break;

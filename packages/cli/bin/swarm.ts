@@ -12,6 +12,7 @@ import { registerStatus } from '../src/commands/status.js';
 import { registerAgent } from '../src/commands/agent.js';
 import { registerDashboard } from '../src/commands/dashboard.js';
 import { registerMayday } from '../src/commands/mayday.js';
+import { registerDoctor } from '../src/commands/doctor.js';
 
 const program = new Command();
 
@@ -32,5 +33,6 @@ registerStatus(program);
 registerAgent(program);
 registerDashboard(program);
 registerMayday(program);
+registerDoctor(program);
 
 program.parse();

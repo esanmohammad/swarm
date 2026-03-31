@@ -42,6 +42,15 @@ export class StateManager extends EventEmitter {
     return this.filePath;
   }
 
+  /** Returns the path to .swarm/logs/, creating it on first call. */
+  getLogsDir(): string {
+    const logsDir = join(this.swarmDir, 'logs');
+    if (!existsSync(logsDir)) {
+      mkdirSync(logsDir, { recursive: true });
+    }
+    return logsDir;
+  }
+
   /** Replace in-memory state with data from disk (cross-process sync) */
   reloadFrom(newState: PipelineState): void {
     this.state = newState;

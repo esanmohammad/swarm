@@ -1,4 +1,6 @@
 import { EventEmitter } from 'node:events';
+import { appendFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { v4 as uuid } from 'uuid';
 import { AgentProcess } from './agent-process.js';
 import { StateManager } from './state.js';
@@ -33,6 +35,17 @@ export class AgentManager extends EventEmitter {
   private agents = new Map<string, { agent: Agent; process: AgentProcess }>();
   /** Maps Claude-internal Agent tool_use_id → virtual agent id */
   private subAgentMap = new Map<string, string>();
+
+  /** Append a JSONL log entry for an agent to .swarm/logs/{agentId}.jsonl */
+  private appendLog(agentId: string, entry: Record<string, unknown>): void {
+    try {
+      const logsDir = this.state.getLogsDir();
+      const logPath = join(logsDir, `${agentId}.jsonl`);
+      appendFileSync(logPath, JSON.stringify(entry) + '\n');
+    } catch {
+      // Non-critical — don't crash if logging fails
+    }
+  }
 
   constructor(
     private state: StateManager,
@@ -101,11 +114,13 @@ export class AgentManager extends EventEmitter {
     agentProcess.on('content', (chunk) => {
       agent.output += chunk;
       this.emit('agent-output', { agentId: agent.id, chunk });
+      this.appendLog(agent.id, { type: 'output', timestamp: Date.now(), chunk });
     });
 
     agentProcess.on('activity', (activity) => {
       const full: AgentActivity = { ...activity, agentId: agent.id };
       this.emit('agent-activity', full);
+      this.appendLog(agent.id, { type: 'activity', timestamp: Date.now(), activity: full });
     });
 
     this.wireSubAgentEvents(agentProcess, agent);
@@ -200,7 +215,9 @@ export class AgentManager extends EventEmitter {
     agent.status = 'running';
     agent.finishedAt = null;
     this.state.updateAgent(agent);
-    this.emit('agent-output', { agentId, chunk: `\n\n> User: ${text}\n\n` });
+    const userChunk = `\n\n> User: ${text}\n\n`;
+    this.emit('agent-output', { agentId, chunk: userChunk });
+    this.appendLog(agentId, { type: 'output', timestamp: Date.now(), chunk: userChunk });
 
     // Spawn a new process that resumes the session — carry over ALL restrictions
     const resumeProcess = new AgentProcess({
@@ -219,11 +236,13 @@ export class AgentManager extends EventEmitter {
     resumeProcess.on('content', (chunk) => {
       agent.output += chunk;
       this.emit('agent-output', { agentId, chunk });
+      this.appendLog(agentId, { type: 'output', timestamp: Date.now(), chunk });
     });
 
     resumeProcess.on('activity', (activity) => {
       const full: AgentActivity = { ...activity, agentId };
       this.emit('agent-activity', full);
+      this.appendLog(agentId, { type: 'activity', timestamp: Date.now(), activity: full });
     });
 
     this.wireSubAgentEvents(resumeProcess, agent);
@@ -251,7 +270,9 @@ export class AgentManager extends EventEmitter {
       if (!agent.error) agent.error = '';
       agent.error += errText;
       // Also show errors in the output stream so dashboard user can see them
-      this.emit('agent-output', { agentId, chunk: `\n[stderr] ${errText}` });
+      const errChunk = `\n[stderr] ${errText}`;
+      this.emit('agent-output', { agentId, chunk: errChunk });
+      this.appendLog(agentId, { type: 'output', timestamp: Date.now(), chunk: errChunk });
     });
 
     resumeProcess.on('exit', (code) => {

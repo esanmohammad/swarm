@@ -8,6 +8,7 @@ import { OutputStream } from './components/OutputStream';
 import { GuardrailAlerts } from './components/GuardrailAlerts';
 import { SpawnDialog } from './components/SpawnDialog';
 import { KillConfirmDialog } from './components/KillConfirmDialog';
+import { EmptyState } from './components/EmptyState';
 import type { Agent } from './types';
 
 export default function App() {
@@ -17,6 +18,10 @@ export default function App() {
   const [killTarget, setKillTarget] = useState<Agent | null>(null);
 
   const selectedAgent = state?.agents.find((a) => a.id === selectedAgentId) ?? null;
+  const allStagesPending = state
+    ? Object.values(state.stages).every((s) => s.status === 'pending')
+    : false;
+  const showEmptyState = state !== null && state.agents.length === 0 && allStagesPending;
 
   // Update browser tab title with project name
   useEffect(() => {
@@ -40,8 +45,8 @@ export default function App() {
             swarm{state ? <span className="text-red-500">-{state.projectName}</span> : ''}
           </h1>
           {state && (
-            <span className="text-xs text-stone-500 font-light">
-              <span className="text-stone-600">:</span>{state.stack}
+            <span className="text-xs text-stone-400 font-light">
+              <span className="text-stone-400">:</span>{state.stack}
             </span>
           )}
         </div>
@@ -62,10 +67,10 @@ export default function App() {
 
       {!state ? (
         <div className="flex-1 flex items-center justify-center">
-          <div className="text-center text-stone-600">
+          <div className="text-center text-stone-400">
             <Terminal size={48} className="mx-auto mb-4 opacity-20" />
             <p className="text-sm font-mono">$ swarm dashboard --connect</p>
-            <p className="text-xs mt-2 text-stone-700">awaiting connection...</p>
+            <p className="text-xs mt-2 text-stone-400">awaiting connection...</p>
           </div>
         </div>
       ) : (
@@ -76,12 +81,12 @@ export default function App() {
 
             <div className="border-t border-stone-800/50 flex-1 overflow-y-auto">
               <div className="flex items-center justify-between px-3 py-2">
-                <span className="text-[10px] text-stone-500 font-medium tracking-widest uppercase">
-                  processes <span className="text-stone-600">({state.agents.length})</span>
+                <span className="text-[10px] text-stone-400 font-medium tracking-widest uppercase">
+                  processes <span className="text-stone-400">({state.agents.length})</span>
                 </span>
                 <button
                   onClick={() => setShowSpawn(true)}
-                  className="p-1 rounded hover:bg-stone-800/50 text-stone-500 hover:text-green-500 transition-colors"
+                  className="p-1 rounded hover:bg-stone-800 text-stone-400 hover:text-green-500 transition-colors"
                   title="Spawn agent"
                 >
                   <Plus size={13} />
@@ -99,7 +104,7 @@ export default function App() {
                   />
                 ))}
                 {state.agents.length === 0 && (
-                  <p className="text-[10px] text-stone-600 text-center py-8 font-mono">
+                  <p className="text-[10px] text-stone-400 text-center py-8 font-mono">
                     no active processes
                   </p>
                 )}
@@ -118,14 +123,18 @@ export default function App() {
             )}
 
             <div className="flex-1 overflow-hidden">
-              <OutputStream
-                agent={selectedAgent}
-                liveOutput={selectedAgentId ? agentOutputs.get(selectedAgentId) || '' : ''}
-                activities={selectedAgentId ? agentActivities.get(selectedAgentId) || [] : []}
-                onSendInput={(agentId, text) =>
-                  sendCommand({ action: 'send-input', agentId, text })
-                }
-              />
+              {showEmptyState ? (
+                <EmptyState sendCommand={sendCommand} />
+              ) : (
+                <OutputStream
+                  agent={selectedAgent}
+                  liveOutput={selectedAgentId ? agentOutputs.get(selectedAgentId) || '' : ''}
+                  activities={selectedAgentId ? agentActivities.get(selectedAgentId) || [] : []}
+                  onSendInput={(agentId, text) =>
+                    sendCommand({ action: 'send-input', agentId, text })
+                  }
+                />
+              )}
             </div>
           </main>
         </div>
