@@ -35,43 +35,43 @@
 
 ## Tier 1 — MVP Launch Requirements
 
-- [ ] **P1-01 — Zero-Config Entry Point**
+- [x] **P1-01 — Zero-Config Entry Point**
   `swarm "build a login page"` should auto-detect stack, auto-init `.swarm/` if missing, and run MayDay. No manual `swarm init` required for the happy path.
   _Files: `bin/swarm.ts`, `commands/mayday.ts`, `core/config.ts`_
 
-- [ ] **P1-02 — Cost Estimation Before Run**
+- [x] **P1-02 — Cost Estimation Before Run**
   Before starting a pipeline or MayDay, estimate cost based on stage count and model. Display "Estimated cost: ~$8-12. Proceed? [Y/n]" in CLI. Show estimate in dashboard prompt form.
   _Files: `pipeline.ts`, `commands/mayday.ts`, `TopBar.tsx`_
 
-- [ ] **P1-03 — Git Branch + Auto-Commit Per Stage**
+- [x] **P1-03 — Git Branch + Auto-Commit Per Stage**
   Create a feature branch on MayDay start (`swarm/feature-name`). Auto-commit after each stage completes with a descriptive message. User can review with `git log`/`git diff`.
   _Files: `pipeline.ts`, `commands/mayday.ts`_
 
-- [ ] **P1-04 — Progress Indicators**
+- [x] **P1-04 — Progress Indicators**
   CLI: Show elapsed time, current agent tool use, and running cost during pipeline stages. Dashboard: Add elapsed timer per stage, current tool indicator, and stage-level progress bar.
   _Files: `pipeline.ts`, `TopBar.tsx`, `AgentCard.tsx`_
 
-- [ ] **P1-05 — Fix WCAG Color Contrast**
+- [x] **P1-05 — Fix WCAG Color Contrast**
   Audit all `text-stone-500/600/700` usages. Replace with `text-stone-300/400` to meet 4.5:1 ratio on dark backgrounds. Fix placeholder colors. Bump minimum text size to 11px.
   _Files: `App.tsx`, `TopBar.tsx`, `AgentCard.tsx`, `OutputStream.tsx`, `CostPanel.tsx`_
 
-- [ ] **P1-06 — Session Persistence**
+- [x] **P1-06 — Session Persistence**
   Persist agent output and activity logs to `.swarm/logs/{agentId}.jsonl` on disk. Load on dashboard connect/refresh. Survive browser refresh without data loss.
   _Files: `agent-manager.ts`, `ws-server.ts`, `useWebSocket.ts`, `state.ts`_
 
-- [ ] **P1-07 — Onboarding Empty State**
+- [x] **P1-07 — Onboarding Empty State**
   When dashboard has no agents: show a guided panel explaining the pipeline, what each stage does, expected artifacts, and a "Start with MayDay" CTA. Add tooltips to stage buttons.
   _Files: `App.tsx`, new component `EmptyState.tsx`_
 
-- [ ] **P1-08 — Pre-Flight Checks (`swarm doctor`)**
+- [x] **P1-08 — Pre-Flight Checks (`swarm doctor`)**
   New command that verifies: claude CLI installed and on PATH, claude authenticated, Node.js version, disk space, .swarm/ exists. Run automatically before first agent spawn.
   _Files: new `commands/doctor.ts`, `bin/swarm.ts`, `agent-manager.ts`_
 
-- [ ] **P1-09 — Stage Skipping / Selective Re-Run**
+- [x] **P1-09 — Stage Skipping / Selective Re-Run**
   Allow `swarm mayday --from build` to skip analyze/architect/plan if artifacts exist. Dashboard: allow clicking a specific stage to re-run only that stage. Validate prerequisite artifacts.
   _Files: `pipeline.ts`, `commands/mayday.ts`, `ws-server.ts`, `TopBar.tsx`_
 
-- [ ] **P1-10 — Idempotency Guards**
+- [x] **P1-10 — Idempotency Guards**
   Before spawning a stage agent, check if the stage is already running or complete. Prevent duplicate spawns from dashboard double-clicks. Add "stage already complete, re-run?" confirmation.
   _Files: `pipeline.ts`, `ws-server.ts`, `TopBar.tsx`_
 
@@ -170,7 +170,7 @@
 | Tier | Total | Done | Remaining |
 |------|-------|------|-----------|
 | Tier 0 — Safety | 6 | 6 | 0 |
-| Tier 1 — MVP | 10 | 0 | 10 |
+| Tier 1 — MVP | 10 | 10 | 0 |
 | Tier 2 — Competitive | 10 | 0 | 10 |
 | Tier 3 — Growth | 10 | 0 | 10 |
-| **Total** | **36** | **6** | **30** |
+| **Total** | **36** | **16** | **20** |
