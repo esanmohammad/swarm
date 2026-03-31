@@ -2,7 +2,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { createInterface } from 'node:readline';
 import chalk from 'chalk';
 import type { Command } from 'commander';
-import type { TechStack } from '../types.js';
+import type { TechStack, StageName } from '../types.js';
 import { loadConfig, requireSwarmDir, autoDetectStack, autoInit } from '../core/config.js';
 import { createContext } from './shared.js';
 import { Pipeline } from '../core/pipeline.js';
@@ -35,6 +35,7 @@ export function registerMayday(program: Command): void {
     .option('-f, --file', 'Treat argument as a file path to read')
     .option('--resume', 'Resume a previously interrupted MayDay session')
     .option('-y, --yes', 'Skip cost confirmation prompt')
+    .option('--from <stage>', 'Skip stages before this one (analyze, architect, plan, build, test)')
     .option('--no-git', 'Skip git branch creation and auto-commits')
     .action(async (featureRequest: string | undefined, opts) => {
       let swarmDir: string;
@@ -100,6 +101,7 @@ export function registerMayday(program: Command): void {
           figmaUrl: opts.figma,
           parallel: parseInt(opts.parallel, 10),
           maxFixBudgetUsd: fixBudget,
+          fromStage: opts.from as StageName | undefined,
         });
       } catch (err) {
         console.error(chalk.red(err instanceof Error ? err.message : String(err)));

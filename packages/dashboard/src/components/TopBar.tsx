@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { DollarSign, Clock, AlertTriangle, Play, ChevronRight, Siren, Square, MessageSquare } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { DollarSign, Clock, AlertTriangle, Play, ChevronRight, Siren, Square, MessageSquare, RotateCw } from 'lucide-react';
 import type { PipelineState, StageName, WsCommand } from '../types';
 
 const COST_PER_STAGE: Record<string, { low: number; high: number }> = {
@@ -38,6 +38,14 @@ function formatDuration(ms: number): string {
   return `${(ms / 60000).toFixed(1)}m`;
 }
 
+function formatElapsed(ms: number): string {
+  const totalSec = Math.floor(ms / 1000);
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+}
+
 interface TopBarProps {
   pipeline: PipelineState;
   violationCount: number;
@@ -56,6 +64,14 @@ export function TopBar({ pipeline, violationCount, onRunStage }: TopBarProps) {
   const [maydayModelInput, setMaydayModelInput] = useState('opus');
   const [maydayMsgInput, setMaydayMsgInput] = useState('');
   const [showMaydayMsg, setShowMaydayMsg] = useState(false);
+
+  const [, setTick] = useState(0);
+  const hasRunningStage = Object.values(stages).some((s) => s.status === 'running');
+  useEffect(() => {
+    if (!hasRunningStage) return;
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [hasRunningStage]);
 
   const running = agents.filter((a) => a.status === 'running').length;
   const done = agents.filter((a) => a.status === 'done').length;
@@ -126,7 +142,9 @@ export function TopBar({ pipeline, violationCount, onRunStage }: TopBarProps) {
           const isActive = s.status === 'running';
           const isDone = s.status === 'done';
           const isError = s.status === 'error';
+          const isSkipped = s.status === 'skipped';
           const canRun = stage.runnable && !isActive && onRunStage;
+          const canRerun = isDone && stage.runnable && onRunStage;
 
           return (
             <div key={stage.key} className="flex items-center">
@@ -140,17 +158,35 @@ export function TopBar({ pipeline, violationCount, onRunStage }: TopBarProps) {
                       ? 'text-green-500/80 hover:text-green-400'
                       : isError
                         ? 'text-red-600/70'
-                        : canRun
-                          ? 'text-stone-400 hover:text-stone-300 hover:bg-stone-800 cursor-pointer'
-                          : 'text-stone-400'
+                        : isSkipped
+                          ? 'text-stone-500/50 line-through'
+                          : canRun
+                            ? 'text-stone-400 hover:text-stone-300 hover:bg-stone-800 cursor-pointer'
+                            : 'text-stone-400'
                 }`}
               >
                 {isActive && <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />}
                 {isDone && <span className="text-green-500 text-[10px]">+</span>}
                 {isError && <span className="text-red-500 text-[10px]">x</span>}
+                {isSkipped && <span className="text-stone-500 text-[10px]">-</span>}
                 {stage.label}
-                {canRun && !isActive && (
+                {isActive && s.startedAt && (
+                  <span className="text-[9px] text-stone-400 ml-0.5">{formatElapsed(Date.now() - s.startedAt)}</span>
+                )}
+                {canRun && !isActive && !isDone && (
                   <Play size={8} className="text-stone-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                )}
+                {canRerun && (
+                  <span
+                    className="opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRunStage?.({ action: 'run-stage', stage: stage.key as 'analyze' | 'architect' | 'plan' | 'build' | 'test' });
+                    }}
+                    title={`Re-run ${stage.label}`}
+                  >
+                    <RotateCw size={9} className="text-green-500/50 hover:text-green-400" />
+                  </span>
                 )}
               </button>
               {i < STAGES.length - 1 && (

@@ -194,7 +194,7 @@ export class Pipeline {
       appendSystemPrompt: ANALYST_SYSTEM_ENFORCEMENT,
     });
 
-    this.state.updateStage('analyze', { status: 'running' });
+    this.state.updateStage('analyze', { status: 'running', startedAt: Date.now() });
     await this.waitForAgentWithBudgetCheck(agent.id);
     this.finishStage('analyze', 'REQUIREMENTS.md');
   }
@@ -248,7 +248,7 @@ export class Pipeline {
       appendSystemPrompt: ARCHITECT_SYSTEM_ENFORCEMENT,
     });
 
-    this.state.updateStage('architect', { status: 'running' });
+    this.state.updateStage('architect', { status: 'running', startedAt: Date.now() });
     await this.waitForAgentWithBudgetCheck(agent.id);
     this.finishStage('architect', 'SPEC.md');
   }
@@ -304,7 +304,7 @@ export class Pipeline {
       appendSystemPrompt: LEAD_SYSTEM_ENFORCEMENT,
     });
 
-    this.state.updateStage('plan', { status: 'running' });
+    this.state.updateStage('plan', { status: 'running', startedAt: Date.now() });
     await this.waitForAgentWithBudgetCheck(agent.id);
     this.finishStage('plan', 'TASKS.md');
   }
@@ -320,7 +320,7 @@ export class Pipeline {
     const tasks = readFileSync(tasksPath, 'utf-8');
     const maxParallel = opts.parallel ?? 3;
 
-    this.state.updateStage('build', { status: 'running' });
+    this.state.updateStage('build', { status: 'running', startedAt: Date.now() });
 
     // Single task mode — no orchestrator needed
     if (opts.taskId) {
@@ -526,7 +526,7 @@ export class Pipeline {
     const s = opts.stack ?? this.config.stack;
     const interactive = opts.interactive ?? false;
 
-    this.state.updateStage('test', { status: 'running' });
+    this.state.updateStage('test', { status: 'running', startedAt: Date.now() });
 
     const testplanPath = join(process.cwd(), 'TESTPLAN.md');
     const pwConfig = this.buildPlaywrightContext();
@@ -723,6 +723,27 @@ export class Pipeline {
   }
 
   /**
+   * Validate that required artifacts exist when skipping stages via --from.
+   * Each stage depends on artifacts from prior stages.
+   */
+  private validateSkippedArtifacts(fromStage: StageName): void {
+    const stages: StageName[] = ['analyze', 'architect', 'plan', 'build', 'test'];
+    const fromIdx = stages.indexOf(fromStage);
+
+    // Check that all artifacts from stages before fromStage exist
+    for (let i = 0; i < fromIdx; i++) {
+      const stage = stages[i];
+      const artifact = STAGE_ARTIFACT_MAP[stage];
+      if (artifact && !existsSync(join(process.cwd(), artifact))) {
+        throw new Error(
+          `Cannot skip to "${fromStage}": required artifact "${artifact}" from "${stage}" stage not found. ` +
+          `Run the earlier stages first or provide the artifact manually.`
+        );
+      }
+    }
+  }
+
+  /**
    * Parse TASKS.md into execution groups. Supports two formats:
    *
    * 1. Spec-kit format (preferred): `- [ ] T001 [P] [US1] description — \`file.ts\``
@@ -880,6 +901,7 @@ export class Pipeline {
     parallel?: number;
     model?: string;
     maxFixBudgetUsd?: number | null;
+    fromStage?: StageName;
   } = {}): Promise<void> {
     const stack = opts.stack ?? this.config.stack;
     const maxIterations = opts.maxIterations ?? 5;
@@ -889,10 +911,21 @@ export class Pipeline {
       this.config.model = opts.model;
     }
 
+    // Validate fromStage if provided
+    const fromStage = opts.fromStage;
+    if (fromStage) {
+      const validStages: StageName[] = ['analyze', 'architect', 'plan', 'build', 'test'];
+      if (!validStages.includes(fromStage)) {
+        throw new Error(`Invalid --from stage: "${fromStage}". Must be one of: ${validStages.join(', ')}`);
+      }
+      // Validate that required artifacts exist for skipped stages
+      this.validateSkippedArtifacts(fromStage);
+    }
+
     const mayday: MaydayState = {
       active: true,
       featureRequest,
-      currentStage: 'analyze',
+      currentStage: fromStage ?? 'analyze',
       fixIteration: 0,
       maxFixIterations: maxIterations,
       lastTestOutput: null,
@@ -908,6 +941,16 @@ export class Pipeline {
     };
 
     this.state.setMayday(mayday);
+
+    // Mark skipped stages
+    if (fromStage) {
+      const stages: StageName[] = ['analyze', 'architect', 'plan', 'build', 'test'];
+      const fromIdx = stages.indexOf(fromStage);
+      for (let i = 0; i < fromIdx; i++) {
+        this.state.updateStage(stages[i], { status: 'skipped' });
+      }
+      console.log(chalk.dim(`Skipping stages before "${fromStage}"`));
+    }
 
     console.log(chalk.red.bold(`\n🚨 MAYDAY — Autonomous pipeline engaged`));
     console.log(chalk.dim(`Feature: ${featureRequest}`));

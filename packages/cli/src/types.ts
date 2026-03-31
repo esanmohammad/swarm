@@ -69,6 +69,7 @@ export interface StageState {
   status: 'pending' | 'running' | 'done' | 'error' | 'skipped';
   agentIds: string[];
   artifact: string | null;
+  startedAt?: number;
 }
 
 // MayDay autonomous pipeline state
@@ -154,7 +155,7 @@ export type WsCommand =
   | { action: 'send-input'; agentId: string; text: string }
   | { action: 'get-state' }
   | { action: 'run-stage'; stage: 'analyze' | 'architect' | 'plan' | 'build' | 'test'; prompt?: string; parallel?: number; taskId?: string; figmaUrl?: string; baseUrl?: string; authStorageState?: string }
-  | { action: 'run-mayday'; prompt: string; maxIterations?: number; figmaUrl?: string; parallel?: number; resume?: boolean; model?: string; maxFixBudgetUsd?: number | null }
+  | { action: 'run-mayday'; prompt: string; maxIterations?: number; figmaUrl?: string; parallel?: number; resume?: boolean; model?: string; maxFixBudgetUsd?: number | null; fromStage?: StageName }
   | { action: 'mayday-input'; text: string }
   | { action: 'mayday-stop' };
 

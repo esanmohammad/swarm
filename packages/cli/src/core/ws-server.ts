@@ -382,6 +382,13 @@ export class SwarmWsServer {
         const stageStack = this.state.getState().stack;
         const stageOpts = { stack: stageStack, interactive: false };
 
+        // Allow re-running a stage that's already 'done' — reset to 'pending' first
+        const currentStageState = this.state.getState().stages[cmd.stage];
+        if (currentStageState?.status === 'done') {
+          this.state.updateStage(cmd.stage as import('../types.js').StageName, { status: 'pending' });
+          console.log(`[ws] Reset stage "${cmd.stage}" from done to pending for re-run`);
+        }
+
         console.log(`[ws] Running pipeline stage: ${cmd.stage}`);
 
         // Run in background — don't block the WS command handler
@@ -453,6 +460,7 @@ export class SwarmWsServer {
                 parallel: cmd.parallel,
                 model: cmd.model,
                 maxFixBudgetUsd: cmd.maxFixBudgetUsd !== undefined ? cmd.maxFixBudgetUsd : 15,
+                fromStage: cmd.fromStage,
               });
             }
             console.log(`[ws] MayDay complete`);

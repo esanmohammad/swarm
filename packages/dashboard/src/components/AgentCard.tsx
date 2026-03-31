@@ -1,5 +1,6 @@
-import { Clock, DollarSign, GitBranch, Crown } from 'lucide-react';
-import type { Agent } from '../types';
+import { useState, useEffect } from 'react';
+import { Clock, DollarSign, GitBranch, Crown, Wrench } from 'lucide-react';
+import type { Agent, AgentActivity } from '../types';
 
 const STATUS_INDICATOR: Record<string, { char: string; color: string }> = {
   pending: { char: '-', color: 'text-stone-400' },
@@ -23,19 +24,39 @@ function formatDuration(ms: number): string {
   return `${(ms / 60000).toFixed(1)}m`;
 }
 
+function formatElapsed(ms: number): string {
+  const totalSec = Math.floor(ms / 1000);
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+}
+
 interface AgentCardProps {
   agent: Agent;
   selected: boolean;
   onClick: () => void;
   onKill: () => void;
+  latestActivity?: AgentActivity;
 }
 
-export function AgentCard({ agent, selected, onClick, onKill }: AgentCardProps) {
+export function AgentCard({ agent, selected, onClick, onKill, latestActivity }: AgentCardProps) {
   const status = STATUS_INDICATOR[agent.status] ?? STATUS_INDICATOR.pending;
+  const isRunning = agent.status === 'running';
+
+  // Live elapsed timer for running agents
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (!isRunning) return;
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [isRunning]);
+
   const elapsed = agent.startedAt
     ? (agent.finishedAt ?? Date.now()) - agent.startedAt
     : 0;
-  const isRunning = agent.status === 'running';
+
+  const currentTool = isRunning && latestActivity?.kind === 'tool_use' ? latestActivity.tool : undefined;
 
   return (
     <div
@@ -101,10 +122,18 @@ export function AgentCard({ agent, selected, onClick, onKill }: AgentCardProps) 
         {elapsed > 0 && (
           <span className="flex items-center gap-0.5">
             <Clock size={8} />
-            {formatDuration(elapsed)}
+            {isRunning ? formatElapsed(elapsed) : formatDuration(elapsed)}
           </span>
         )}
       </div>
+
+      {/* Current tool for running agents */}
+      {isRunning && currentTool && (
+        <div className="flex items-center gap-1 mt-1 text-[10px] text-stone-400">
+          <Wrench size={8} className="text-stone-500" />
+          <span className="truncate">{currentTool}</span>
+        </div>
+      )}
 
       {/* Error line */}
       {agent.error && (
