@@ -2,6 +2,21 @@ import { useState } from 'react';
 import { DollarSign, Clock, AlertTriangle, Play, ChevronRight, Siren, Square, MessageSquare } from 'lucide-react';
 import type { PipelineState, StageName, WsCommand } from '../types';
 
+const COST_PER_STAGE: Record<string, { low: number; high: number }> = {
+  opus:   { low: 2,   high: 4 },
+  sonnet: { low: 0.5, high: 1.5 },
+  haiku:  { low: 0.1, high: 0.3 },
+};
+
+function estimateMaydayCost(model: string): { low: number; high: number } {
+  const rates = COST_PER_STAGE[model] ?? { low: 1, high: 3 };
+  const stages = 6; // 5 stages + fix iterations
+  return {
+    low:  Math.round(rates.low * stages * 100) / 100,
+    high: Math.round(rates.high * stages * 100) / 100,
+  };
+}
+
 const STAGES: { key: StageName; label: string; artifact: string; runnable: boolean }[] = [
   { key: 'analyze', label: 'analyze', artifact: 'REQUIREMENTS.md', runnable: true },
   { key: 'architect', label: 'architect', artifact: 'SPEC.md', runnable: true },
@@ -264,6 +279,9 @@ export function TopBar({ pipeline, violationCount, onRunStage }: TopBarProps) {
                 </button>
               ))}
             </div>
+            <span className="text-[10px] text-stone-500 ml-2">
+              Estimated: ~${estimateMaydayCost(maydayModelInput).low.toFixed(2)}-${estimateMaydayCost(maydayModelInput).high.toFixed(2)}
+            </span>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-purple-400 text-sm">{'~'}</span>

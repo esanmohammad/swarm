@@ -1,5 +1,6 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { execSync } from 'node:child_process';
 import chalk from 'chalk';
 import { AgentManager } from './agent-manager.js';
 import { StateManager } from './state.js';
@@ -56,6 +57,7 @@ function headlessPermission(interactive: boolean): 'auto' | undefined {
 
 export class Pipeline {
   private budgetExceeded = false;
+  gitEnabled = true;
 
   constructor(
     private agentManager: AgentManager,
@@ -84,6 +86,52 @@ export class Pipeline {
         );
       }
       throw err;
+    }
+  }
+
+  private slugify(text: string): string {
+    return text
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 40);
+  }
+
+  private createFeatureBranch(featureRequest: string): void {
+    if (!this.gitEnabled) return;
+    const slug = this.slugify(featureRequest);
+    const branch = `swarm/${slug}`;
+    try {
+      execSync(`git checkout -b ${branch}`, { stdio: 'pipe', cwd: process.cwd() });
+      console.log(chalk.dim(`[git] Created branch: ${branch}`));
+    } catch {
+      // Branch may already exist — try checking it out
+      try {
+        execSync(`git checkout ${branch}`, { stdio: 'pipe', cwd: process.cwd() });
+        console.log(chalk.dim(`[git] Switched to existing branch: ${branch}`));
+      } catch {
+        console.log(chalk.dim(`[git] Could not create/switch branch: ${branch} — continuing on current branch`));
+      }
+    }
+  }
+
+  private autoCommitStage(stage: StageName, artifact: string | null): void {
+    if (!this.gitEnabled) return;
+    const messages: Record<StageName, string> = {
+      analyze: 'Generated REQUIREMENTS.md',
+      architect: 'Generated SPEC.md',
+      plan: 'Generated TASKS.md',
+      build: 'Built implementation',
+      test: 'Generated TESTPLAN.md',
+      evaluate: 'Completed evaluation',
+    };
+    const msg = messages[stage] ?? `Completed ${stage}`;
+    try {
+      execSync('git add -A', { stdio: 'pipe', cwd: process.cwd() });
+      execSync(`git commit -m "[swarm:${stage}] ${msg}"`, { stdio: 'pipe', cwd: process.cwd() });
+      console.log(chalk.dim(`[git] Committed: [swarm:${stage}] ${msg}`));
+    } catch {
+      // Nothing to commit is OK
     }
   }
 
@@ -902,6 +950,9 @@ export class Pipeline {
     const mayday = this.state.getMayday()!;
     const stageOpts: StageOpts = { stack, interactive: false, figmaUrl: mayday.figmaUrl };
 
+    // Create a feature branch for this mayday run
+    this.createFeatureBranch(mayday.featureRequest);
+
     // Pipeline stages in order — resume from currentStage
     const stages: StageName[] = ['analyze', 'architect', 'plan', 'build', 'test'];
     const startIdx = stages.indexOf(mayday.currentStage as StageName);
@@ -945,6 +996,9 @@ export class Pipeline {
             await this.runTest({ stack, figmaUrl: mayday.figmaUrl });
             break;
         }
+
+        // Auto-commit after each stage completes
+        this.autoCommitStage(stage, STAGE_ARTIFACT_MAP[stage]);
       }
     }
 
@@ -1128,6 +1182,23 @@ export class Pipeline {
       chunks.push(arr.slice(i, i + size));
     }
     return chunks;
+  }
+
+  /**
+   * Estimate cost for a pipeline run based on model and number of stages.
+   * Returns a { low, high } range in USD.
+   */
+  static estimateCost(stageCount: number, model: string): { low: number; high: number } {
+    const perStage: Record<string, { low: number; high: number }> = {
+      opus:   { low: 2,    high: 4 },
+      sonnet: { low: 0.5,  high: 1.5 },
+      haiku:  { low: 0.1,  high: 0.3 },
+    };
+    const rates = perStage[model] ?? { low: 1, high: 3 };
+    return {
+      low:  Math.round(rates.low * stageCount * 100) / 100,
+      high: Math.round(rates.high * stageCount * 100) / 100,
+    };
   }
 }
 
