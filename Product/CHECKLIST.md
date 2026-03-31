@@ -87,11 +87,11 @@
   Show files changed per agent with inline diff view. Parse agent activity for Edit/Write tool calls, extract file paths and changes. Add a "Changes" tab alongside activity/raw output.
   _Files: new component `DiffViewer.tsx`, `OutputStream.tsx`_
 
-- [ ] **P2-03 — Additional Tech Stacks**
+- [x] **P2-03 — Additional Tech Stacks**
   Add Python, Rust, Swift, and a "custom" stack option. Create prompt templates for each. Allow user-defined prompt directories per stack.
   _Files: `types.ts` (TechStack), new `prompts/*.md`, `loader.ts`, `TopBar.tsx`, `SpawnDialog.tsx`_
 
-- [ ] **P2-04 — VS Code Extension**
+- [x] **P2-04 — VS Code Extension**
   Extension that: shows pipeline status in sidebar, allows running stages from command palette, displays agent output in VS Code panel, opens diffs in editor.
   _Files: new `packages/vscode/` package_
 
@@ -111,11 +111,11 @@
   Add: `Cmd+N` spawn agent, `Up/Down` cycle agents, `Cmd+K` kill selected, `Cmd+Enter` run next stage, `Cmd+L` toggle log/raw view, `Esc` close dialogs.
   _Files: `App.tsx`, all dialog components_
 
-- [ ] **P2-09 — Browser Notifications**
+- [x] **P2-09 — Browser Notifications**
   Send browser notification when: agent finishes, agent errors, pipeline completes, guardrail violation, MayDay fix iteration starts. Respect notification permissions.
   _Files: `useWebSocket.ts`, `App.tsx`_
 
-- [ ] **P2-10 — Log Export & Copy**
+- [x] **P2-10 — Log Export & Copy**
   Add "Copy output" and "Export log" buttons to OutputStream. Export as `.txt` (raw) or `.json` (structured activities). Copy selected agent output to clipboard.
   _Files: `OutputStream.tsx`_
 
@@ -171,6 +171,6 @@
 |------|-------|------|-----------|
 | Tier 0 — Safety | 6 | 6 | 0 |
 | Tier 1 — MVP | 10 | 10 | 0 |
-| Tier 2 — Competitive | 10 | 0 | 10 |
+| Tier 2 — Competitive | 10 | 4 | 6 |
 | Tier 3 — Growth | 10 | 0 | 10 |
-| **Total** | **36** | **16** | **20** |
+| **Total** | **36** | **20** | **16** |
