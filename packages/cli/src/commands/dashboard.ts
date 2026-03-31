@@ -3,6 +3,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
+import { randomBytes } from 'node:crypto';
 import chalk from 'chalk';
 import open from 'open';
 import type { Command } from 'commander';
@@ -19,11 +20,15 @@ export function registerDashboard(program: Command): void {
       const config = loadConfig();
       const { state, wsServer, cleanup } = createContext(swarmDir, config);
 
-      // Clean up agents from previous sessions
+      // Kill any orphaned claude processes from previous sessions, then clean state
+      state.killOrphanProcesses();
       state.cleanupStaleAgents();
 
-      // Start WebSocket server
-      wsServer.start(config.wsPort);
+      // Generate auth token for WebSocket connections
+      const wsToken = randomBytes(32).toString('hex');
+
+      // Start WebSocket server with auth token
+      wsServer.start(config.wsPort, wsToken);
       console.log(chalk.dim(`WebSocket server on ws://localhost:${config.wsPort}`));
 
       // Try to serve built dashboard
@@ -36,7 +41,7 @@ export function registerDashboard(program: Command): void {
         const rawHtml = readFileSync(dashboardIndex, 'utf-8');
         const injectedHtml = rawHtml.replace(
           '<head>',
-          `<head><script>window.__SWARM_WS_PORT__=${config.wsPort};</script>`,
+          `<head><script>window.__SWARM_WS_PORT__=${config.wsPort};window.__SWARM_WS_TOKEN__="${wsToken}";</script>`,
         );
 
         // Serve static dashboard

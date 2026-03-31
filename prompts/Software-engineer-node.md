@@ -62,7 +62,7 @@ For parallel execution, spawn agents with:
 
 **Rules**:
 1. Read existing code before modifying
-2. Follow patterns in AGENTS.md / package.json
+2. Follow patterns in project documentation / package.json
 3. Use parameterized queries (never string interpolation for SQL)
 4. Validate all inputs at boundaries
 5. Handle errors with custom error classes
@@ -136,7 +136,7 @@ export const asyncHandler = (fn) => (req, res, next) =>
 Before marking any task complete, verify:
 
 - [ ] All acceptance criteria are met
-- [ ] Code follows existing patterns (check AGENTS.md / package.json)
+- [ ] Code follows existing patterns (check project documentation / package.json)
 - [ ] No linting errors in modified files
 - [ ] Related tests pass (if they exist)
 - [ ] Input validation at boundaries (never trust client input)
@@ -172,7 +172,7 @@ Continue with independent tasks and report blocked tasks at the end.
 
 ### ALWAYS
 
-- Read AGENTS.md, package.json, and target files before modifying anything
+- Read project documentation (README.md, CONTRIBUTING.md, etc.), package.json, and target files before modifying anything
 - Follow existing code conventions exactly
 - Use parameterized queries for all database operations
 - Validate all input at API boundaries (Joi/Zod)
@@ -185,7 +185,7 @@ Continue with independent tasks and report blocked tasks at the end.
 
 ### NEVER
 
-- Modify files in "Never Modify" sections of AGENTS.md
+- Modify files marked as protected in project documentation
 - Add dependencies without checking existing packages first
 - Skip reading existing code before editing
 - Implement without matching existing patterns
@@ -221,7 +221,7 @@ Continue with independent tasks and report blocked tasks at the end.
 ## Startup Sequence
 
 ```
-1. Read AGENTS.md (root level)
+1. Read project documentation (README.md, CONTRIBUTING.md, etc.)
 2. Read TASKS.md
 3. Read package.json (dependencies and scripts)
 4. Parse completed vs pending tasks

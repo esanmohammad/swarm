@@ -16,6 +16,7 @@
 | 06 | [MayDay Autonomous Pipeline](./06-mayday-autonomous-pipeline.md) | Autonomous end-to-end pipeline, fix-retest loop, cross-session resume, user input system |
 | 07 | [State Management](./07-state-management.md) | Persistence, debounced writes, cross-process sync, cost tracking, cleanup |
 | 08 | [Persona & Prompt System](./08-persona-and-prompt-system.md) | 5 personas, prompt resolution, system enforcement, tool restrictions, guardrails |
+| 09 | [Product Analysis — Pre-Launch Audit](./09-product-analysis.md) | UI/UX audit, market fit, technical reliability, real-world scenarios, 35-item action list |
 
 ---
 

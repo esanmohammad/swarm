@@ -55,11 +55,37 @@ function headlessPermission(interactive: boolean): 'auto' | undefined {
 }
 
 export class Pipeline {
+  private budgetExceeded = false;
+
   constructor(
     private agentManager: AgentManager,
     private state: StateManager,
     private config: SwarmConfig,
-  ) {}
+  ) {
+    // Track budget exceeded so we can surface a clear error from waitForAgent rejections
+    this.agentManager.on('budget-exceeded', () => {
+      this.budgetExceeded = true;
+    });
+  }
+
+  /**
+   * Wraps agentManager.waitForAgent to surface a clear budget error
+   * when agents are killed due to budget enforcement.
+   */
+  private async waitForAgentWithBudgetCheck(agentId: string): Promise<import('../types.js').Agent> {
+    try {
+      return await this.waitForAgentWithBudgetCheck(agentId);
+    } catch (err) {
+      if (this.budgetExceeded) {
+        const budget = this.config.maxBudgetUsd ?? 0;
+        throw new Error(
+          `Budget limit of $${budget} exceeded. All agents killed. ` +
+          `Use maxBudgetUsd in .swarm/config.yaml to adjust the limit.`
+        );
+      }
+      throw err;
+    }
+  }
 
   async runAnalyze(featureRequest: string, opts?: StageOpts): Promise<void> {
     const s = opts?.stack ?? this.config.stack;
@@ -121,7 +147,7 @@ export class Pipeline {
     });
 
     this.state.updateStage('analyze', { status: 'running' });
-    await this.agentManager.waitForAgent(agent.id);
+    await this.waitForAgentWithBudgetCheck(agent.id);
     this.finishStage('analyze', 'REQUIREMENTS.md');
   }
 
@@ -175,7 +201,7 @@ export class Pipeline {
     });
 
     this.state.updateStage('architect', { status: 'running' });
-    await this.agentManager.waitForAgent(agent.id);
+    await this.waitForAgentWithBudgetCheck(agent.id);
     this.finishStage('architect', 'SPEC.md');
   }
 
@@ -231,7 +257,7 @@ export class Pipeline {
     });
 
     this.state.updateStage('plan', { status: 'running' });
-    await this.agentManager.waitForAgent(agent.id);
+    await this.waitForAgentWithBudgetCheck(agent.id);
     this.finishStage('plan', 'TASKS.md');
   }
 
@@ -263,7 +289,7 @@ export class Pipeline {
         permissionMode: 'auto',
       });
 
-      await this.agentManager.waitForAgent(agent.id);
+      await this.waitForAgentWithBudgetCheck(agent.id);
       console.log(chalk.green(`\n[build] Task ${opts.taskId} complete. Cost: $${agent.cost.totalUsd.toFixed(4)}`));
     } else {
       const groups = this.parseTaskGroups(tasks);
@@ -284,7 +310,7 @@ export class Pipeline {
           permissionMode: 'auto',
         });
 
-        await this.agentManager.waitForAgent(agent.id);
+        await this.waitForAgentWithBudgetCheck(agent.id);
         console.log(chalk.green(`\n[build] Complete. Cost: $${agent.cost.totalUsd.toFixed(4)}`));
       } else {
         // === Orchestrator pattern ===
@@ -325,7 +351,7 @@ export class Pipeline {
         });
 
         // Wait for orchestrator to acknowledge the plan
-        await this.agentManager.waitForAgent(orchestrator.id);
+        await this.waitForAgentWithBudgetCheck(orchestrator.id);
         console.log(chalk.green(`[build] Orchestrator ready. Spawning sub-engineers...\n`));
 
         // 2. Spawn sub-engineers phase by phase
@@ -368,7 +394,7 @@ export class Pipeline {
 
             // Wait for batch to complete
             const results = await Promise.allSettled(
-              subEngineers.map((a) => this.agentManager.waitForAgent(a.id)),
+              subEngineers.map((a) => this.waitForAgentWithBudgetCheck(a.id)),
             );
 
             // Collect results
@@ -431,7 +457,7 @@ export class Pipeline {
         ].join('\n');
 
         await this.agentManager.sendInput(orchestrator.id, finalSummary);
-        await this.agentManager.waitForAgent(orchestrator.id);
+        await this.waitForAgentWithBudgetCheck(orchestrator.id);
 
         console.log(chalk.green(`[build] Orchestrator integration review complete.`));
 
@@ -550,7 +576,7 @@ export class Pipeline {
         appendSystemPrompt: TESTER_SYSTEM_ENFORCEMENT,
       });
 
-      await this.agentManager.waitForAgent(testerAgent.id);
+      await this.waitForAgentWithBudgetCheck(testerAgent.id);
       testerCost = testerAgent.cost.totalUsd;
 
       if (existsSync(testplanPath)) {
@@ -614,7 +640,7 @@ export class Pipeline {
       permissionMode: 'auto',
     });
 
-    await this.agentManager.waitForAgent(runnerAgent.id);
+    await this.waitForAgentWithBudgetCheck(runnerAgent.id);
 
     this.finishStage('test', 'TESTPLAN.md');
     console.log(chalk.green(`\n[test] E2E tests complete. Cost: $${(testerCost + runnerAgent.cost.totalUsd).toFixed(4)}`));
@@ -805,6 +831,7 @@ export class Pipeline {
     figmaUrl?: string;
     parallel?: number;
     model?: string;
+    maxFixBudgetUsd?: number | null;
   } = {}): Promise<void> {
     const stack = opts.stack ?? this.config.stack;
     const maxIterations = opts.maxIterations ?? 5;
@@ -829,6 +856,7 @@ export class Pipeline {
       pausedAt: null,
       error: null,
       figmaUrl: opts.figmaUrl,
+      maxFixBudgetUsd: opts.maxFixBudgetUsd !== undefined ? opts.maxFixBudgetUsd : 15,
     };
 
     this.state.setMayday(mayday);
@@ -950,6 +978,15 @@ export class Pipeline {
         return;
       }
 
+      // Check cumulative cost before each fix iteration
+      const totalCost = this.state.getState().totalCost.totalUsd;
+      const maxFixBudget = this.state.getMayday()?.maxFixBudgetUsd;
+      if (maxFixBudget !== null && maxFixBudget !== undefined && totalCost >= maxFixBudget) {
+        console.log(chalk.red.bold(`\n[mayday] Fix budget exhausted ($${totalCost.toFixed(2)} >= $${maxFixBudget}). Stopping.`));
+        this.state.updateMayday({ active: false, error: `Fix budget limit reached: $${totalCost.toFixed(2)}` });
+        return;
+      }
+
       this.state.updateMayday({ fixIteration: iteration, currentStage: 'fix-loop' });
 
       console.log(chalk.red(`\n[mayday] Fix iteration ${iteration}/${maxIter} — ${testResults.failureCount} failure(s)`));
@@ -974,7 +1011,7 @@ export class Pipeline {
         fixAgentIds: [...(this.state.getMayday()?.fixAgentIds ?? []), fixAgent.id],
       });
 
-      await this.agentManager.waitForAgent(fixAgent.id);
+      await this.waitForAgentWithBudgetCheck(fixAgent.id);
       console.log(chalk.green(`[mayday] Fix engineer done. Cost: $${fixAgent.cost.totalUsd.toFixed(4)}`));
 
       // Re-run tests (phase 2 only — TESTPLAN.md already exists)

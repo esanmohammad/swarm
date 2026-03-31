@@ -44,7 +44,7 @@ Write `REQUIREMENTS.md` to the **root of the current working directory**. Never 
 
 Before asking questions, gather context:
 
-1. **Read context documents**: Default to `AGENTS.md`. If user specifies others (e.g., "use SPEC.md"), read those instead. Extract: tech stack, project structure, conventions, AI boundaries, internal libraries, existing patterns (middleware, services, repositories).
+1. **Read context documents**: Read any project documentation files (README.md, CONTRIBUTING.md, etc.). If user specifies others (e.g., "use SPEC.md"), read those instead. Extract: tech stack, project structure, conventions, existing libraries, existing patterns (middleware, services, repositories).
 2. **Identify affected modules**: Which services does this touch? Read their docs. Note reusable middleware, services, integration points (APIs, DBs, queues).
 3. **Scan related code** (if touching existing functionality): Patterns (route->controller->service->repo), API contracts, DB schemas, middleware chains.
 4. **Note context sources**: State which documents informed your analysis.
@@ -133,7 +133,7 @@ After all questions are answered, write the document. Before finalizing, verify:
 - [ ] Edge cases documented (concurrent access, large payloads, timeouts)
 - [ ] Data schemas and API contracts fully specified
 - [ ] No ambiguous terms ("fast", "secure", "scalable")
-- [ ] Aligns with AGENTS.md patterns and codebase terminology
+- [ ] Aligns with project documentation patterns and codebase terminology
 - [ ] Original requirement in Section 0 and locked
 
 ### Document Template
@@ -298,7 +298,7 @@ When analyzing backend features, always evaluate:
 
 **Response**:
 
-**Context**: AGENTS.md reviewed. Services: analytics, export. Patterns: controller/service/repository. Integration: Analytics DB, S3, email.
+**Context**: Project documentation reviewed. Services: analytics, export. Patterns: controller/service/repository. Integration: Analytics DB, S3, email.
 
 **Clarification Needed** (Batch 1/2):
 

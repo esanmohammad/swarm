@@ -15,6 +15,7 @@ export function registerMayday(program: Command): void {
     .option('-p, --parallel <n>', 'Max parallel agents', '3')
     .option('-n, --max-iterations <n>', 'Max fix-retest iterations', '5')
     .option('--figma <url>', 'Figma design URL')
+    .option('--fix-budget <amount>', 'Max USD to spend on fix iterations (default: 15, "none" for no limit)', '15')
     .option('-f, --file', 'Treat argument as a file path to read')
     .option('--resume', 'Resume a previously interrupted MayDay session')
     .action(async (featureRequest: string | undefined, opts) => {
@@ -52,11 +53,14 @@ export function registerMayday(program: Command): void {
           prompt = readFileSync(featureRequest, 'utf-8');
         }
 
+        const fixBudget = opts.fixBudget === 'none' ? null : (parseFloat(opts.fixBudget) || 15);
+
         await pipeline.runMayday(prompt, {
           stack,
           maxIterations: parseInt(opts.maxIterations, 10),
           figmaUrl: opts.figma,
           parallel: parseInt(opts.parallel, 10),
+          maxFixBudgetUsd: fixBudget,
         });
       } catch (err) {
         console.error(chalk.red(err instanceof Error ? err.message : String(err)));

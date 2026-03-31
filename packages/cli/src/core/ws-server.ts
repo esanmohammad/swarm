@@ -60,6 +60,7 @@ export class SwarmWsServer {
   private lastStateJson = '';
   private projectCwd: string;
   private pipeline: Pipeline;
+  private authToken: string | null = null;
 
   constructor(
     private state: StateManager,
@@ -100,10 +101,22 @@ export class SwarmWsServer {
     });
   }
 
-  start(port: number): void {
+  start(port: number, token?: string): void {
+    this.authToken = token ?? null;
     this.wss = new WebSocketServer({ port });
 
-    this.wss.on('connection', (ws) => {
+    this.wss.on('connection', (ws, req) => {
+      // Validate auth token if one was configured
+      if (this.authToken) {
+        const url = new URL(req.url || '/', `http://localhost:${port}`);
+        const clientToken = url.searchParams.get('token');
+        if (clientToken !== this.authToken) {
+          console.error('[ws] Rejected unauthenticated connection');
+          ws.close(4001, 'Unauthorized');
+          return;
+        }
+      }
+
       this.clients.add(ws);
 
       // Send current state on connect — read fresh from disk
@@ -393,6 +406,7 @@ export class SwarmWsServer {
                 figmaUrl: cmd.figmaUrl,
                 parallel: cmd.parallel,
                 model: cmd.model,
+                maxFixBudgetUsd: cmd.maxFixBudgetUsd !== undefined ? cmd.maxFixBudgetUsd : 15,
               });
             }
             console.log(`[ws] MayDay complete`);

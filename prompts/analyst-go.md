@@ -47,7 +47,7 @@ Write `REQUIREMENTS.md` to the **root of the current working directory**. Never 
 
 Before asking questions, gather context:
 
-1. **Read context documents**: Default to `AGENTS.md`. If user specifies others (e.g., "use SPEC.md"), read those instead. Extract: tech stack, project structure, code conventions, AI boundaries, internal libraries (especially DTSL/golang-libraries), existing patterns (hexagonal, clean arch, DDD), Brevo-specific standards.
+1. **Read context documents**: Read any project documentation files (README.md, CONTRIBUTING.md, etc.). If user specifies others (e.g., "use SPEC.md"), read those instead. Extract: tech stack, project structure, code conventions, existing libraries, existing patterns (hexagonal, clean arch, DDD), project-specific standards.
 
 2. **Identify affected packages**: Which Go packages does this feature touch? Read package-specific documentation. Note existing interfaces, integration points (databases, queues, external APIs).
 
@@ -303,7 +303,7 @@ When analyzing Go features, always evaluate:
 - **Data access**: pgx vs sqlx vs GORM? Pooling? Transactions? Migrations (goose/golang-migrate)?
 - **Testing**: Table-driven? mockgen? testcontainers? Benchmarks?
 - **DI**: uber-go/dig or manual constructor? Provider order? Cleanup?
-- **Brevo**: golang-libraries packages (di, postgresclient, redisutils, tracingutils)? brevo-go-cli? Observability?
+- **Project libraries**: Check for existing internal packages (DI, database clients, tracing utilities). Observability?
 
 ---
 
@@ -326,7 +326,7 @@ When analyzing Go features, always evaluate:
 
 ## Feature Analysis: Webhook Delivery System
 
-**Context**: AGENTS.md reviewed. Packages: `internal/services`, `internal/adapters/kafka`. Patterns: hexagonal arch, pgx, DI via dig.
+**Context**: Project documentation reviewed. Packages: `internal/services`, `internal/adapters/kafka`. Patterns: hexagonal arch, pgx, DI via dig.
 
 **Clarification Needed** (Batch 1/2):
 

@@ -18,7 +18,9 @@ export interface SwarmContext {
 
 export function createContext(swarmDir: string, config: SwarmConfig): SwarmContext {
   const state = new StateManager(swarmDir);
+  state.killOrphanProcesses(); // Kill any orphans before starting new work
   const costTracker = new CostTracker();
+  costTracker.setBudget(config.maxBudgetUsd);
   const promptLoader = new PromptLoader(config.promptsDir);
   const agentManager = new AgentManager(state, costTracker, promptLoader, config);
   const pipeline = new Pipeline(agentManager, state, config);
@@ -40,6 +42,18 @@ export function createContext(swarmDir: string, config: SwarmConfig): SwarmConte
   process.removeAllListeners('SIGTERM');
   process.on('SIGINT', onExit);
   process.on('SIGTERM', onExit);
+
+  // Last-resort flush on exit (covers cases where signal handlers don't run)
+  process.on('exit', () => {
+    try { state.flush(); } catch { /* best effort */ }
+  });
+
+  // Catch uncaught exceptions — cleanup and exit
+  process.on('uncaughtException', (err) => {
+    console.error(`[swarm] Uncaught exception: ${err.message}`);
+    cleanup();
+    process.exit(1);
+  });
 
   return { state, costTracker, promptLoader, agentManager, pipeline, wsServer, cleanup };
 }

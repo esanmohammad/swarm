@@ -87,6 +87,8 @@ export interface MaydayState {
   pausedAt: number | null;
   error: string | null;
   figmaUrl?: string;
+  /** Maximum total USD to spend on fix iterations before aborting */
+  maxFixBudgetUsd: number | null;
 }
 
 export interface PipelineState {
@@ -151,7 +153,7 @@ export type WsCommand =
   | { action: 'send-input'; agentId: string; text: string }
   | { action: 'get-state' }
   | { action: 'run-stage'; stage: 'analyze' | 'architect' | 'plan' | 'build' | 'test'; prompt?: string; parallel?: number; taskId?: string; figmaUrl?: string; baseUrl?: string; authStorageState?: string }
-  | { action: 'run-mayday'; prompt: string; maxIterations?: number; figmaUrl?: string; parallel?: number; resume?: boolean; model?: string }
+  | { action: 'run-mayday'; prompt: string; maxIterations?: number; figmaUrl?: string; parallel?: number; resume?: boolean; model?: string; maxFixBudgetUsd?: number | null }
   | { action: 'mayday-input'; text: string }
   | { action: 'mayday-stop' };
 
@@ -205,7 +207,7 @@ export const DEFAULT_CONFIG: SwarmConfig = {
   projectName: 'my-project',
   stack: 'react',
   model: 'opus',
-  maxBudgetUsd: null,
+  maxBudgetUsd: 20,
   promptsDir: 'bundled',
   wsPort: 3847,
   dashboardPort: 3848,

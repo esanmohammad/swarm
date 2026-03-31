@@ -41,6 +41,13 @@ export class AgentManager extends EventEmitter {
     private config: SwarmConfig,
   ) {
     super();
+
+    // Listen for aggregate budget exceeded — kill all agents immediately
+    this.costTracker.on('budget-exceeded', (total: CostInfo) => {
+      console.error(`[agent-manager] Budget limit of $${this.costTracker.getBudget()} exceeded (spent $${total.totalUsd.toFixed(4)}). Killing all agents.`);
+      this.killAll();
+      this.emit('budget-exceeded', total);
+    });
   }
 
   async spawn(opts: SpawnOptions): Promise<Agent> {

@@ -6,7 +6,10 @@ import type { PipelineState, WsMessage, WsCommand, GuardrailViolation, AgentActi
 const wsPort = (window as unknown as Record<string, unknown>).__SWARM_WS_PORT__
   ?? (parseInt(new URLSearchParams(window.location.search).get('wsPort') || '', 10)
   || (window.location.port ? parseInt(window.location.port, 10) - 1 : 3847));
-const WS_URL = `ws://${window.location.hostname}:${wsPort}`;
+const wsToken = (window as unknown as Record<string, unknown>).__SWARM_WS_TOKEN__ as string | undefined;
+const WS_URL = wsToken
+  ? `ws://${window.location.hostname}:${wsPort}?token=${wsToken}`
+  : `ws://${window.location.hostname}:${wsPort}`;
 const RECONNECT_DELAY = 2000;
 const MAX_RECONNECT_DELAY = 30000;
 

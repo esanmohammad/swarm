@@ -4,10 +4,28 @@ import { emptyCost, addCosts } from '../types.js';
 
 export class CostTracker extends EventEmitter {
   private costs = new Map<string, CostInfo>();
+  private budgetUsd: number | null = null;
+
+  setBudget(usd: number | null): void {
+    this.budgetUsd = usd;
+  }
+
+  isOverBudget(): boolean {
+    if (this.budgetUsd === null) return false;
+    return this.getTotal().totalUsd >= this.budgetUsd;
+  }
+
+  getBudget(): number | null {
+    return this.budgetUsd;
+  }
 
   record(agentId: string, cost: CostInfo): void {
     this.costs.set(agentId, cost);
-    this.emit('cost-update', this.getTotal());
+    const total = this.getTotal();
+    this.emit('cost-update', total);
+    if (this.budgetUsd !== null && total.totalUsd >= this.budgetUsd) {
+      this.emit('budget-exceeded', total);
+    }
   }
 
   getAgentCost(agentId: string): CostInfo {

@@ -323,7 +323,7 @@ lib/package-name/src/
 ├── components/
 │   └── FeatureName/
 │       ├── FeatureName.jsx
-│       ├── FeatureName.module.less
+│       ├── FeatureName.module.css
 │       ├── FeatureName.test.jsx
 │       └── index.js
 ├── hooks/

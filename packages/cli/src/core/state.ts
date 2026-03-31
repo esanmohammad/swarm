@@ -1,7 +1,7 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { EventEmitter } from 'node:events';
-import type { PipelineState, Agent, StageName, StageState, CostInfo, MaydayState } from '../types.js';
+import type { PipelineState, Agent, StageName, StageState, MaydayState } from '../types.js';
 import { createEmptyPipeline, emptyCost, addCosts } from '../types.js';
 
 export class StateManager extends EventEmitter {
@@ -50,6 +50,34 @@ export class StateManager extends EventEmitter {
   init(projectName: string, stack: import('../types.js').TechStack): void {
     this.state = createEmptyPipeline(projectName, stack);
     this.save();
+  }
+
+  /**
+   * Kill OS processes for agents that are still marked as running/pending.
+   * These are orphans from a previous swarm session that crashed.
+   * Should be called before cleanupStaleAgents().
+   */
+  killOrphanProcesses(): void {
+    for (const agent of this.state.agents) {
+      if ((agent.status === 'running' || agent.status === 'pending') && agent.pid) {
+        try {
+          // signal 0 = existence check, throws if process doesn't exist
+          process.kill(agent.pid, 0);
+          // Process is alive — kill it
+          console.log(`[state] Killing orphaned process PID ${agent.pid} (agent: ${agent.name})`);
+          process.kill(agent.pid, 'SIGTERM');
+          // Schedule SIGKILL as fallback
+          const pid = agent.pid;
+          setTimeout(() => {
+            try {
+              process.kill(pid, 'SIGKILL');
+            } catch { /* already dead */ }
+          }, 3000);
+        } catch {
+          // Process doesn't exist — already dead, nothing to do
+        }
+      }
+    }
   }
 
   /**
@@ -182,7 +210,15 @@ export class StateManager extends EventEmitter {
     if (!existsSync(dir)) {
       mkdirSync(dir, { recursive: true });
     }
-    writeFileSync(this.filePath, JSON.stringify(this.state, null, 2));
+    const tmpPath = this.filePath + '.tmp';
+    try {
+      writeFileSync(tmpPath, JSON.stringify(this.state, null, 2));
+      renameSync(tmpPath, this.filePath);
+    } catch (err) {
+      // Clean up temp file on failure (e.g. disk full)
+      try { unlinkSync(tmpPath); } catch { /* ignore */ }
+      console.error(`[state] Failed to save state: ${err instanceof Error ? err.message : err}`);
+    }
   }
 
   flush(): void {

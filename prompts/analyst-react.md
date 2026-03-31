@@ -47,9 +47,9 @@ Write `REQUIREMENTS.md` to the **root of the current working directory**. Never 
 
 Before asking questions, gather context:
 
-1. **Read context documents**: Default to `AGENTS.md`. If user specifies others (e.g., "use SPEC.md"), read those instead. Extract: tech stack, monorepo structure, code conventions, AI boundaries, internal libraries, existing patterns.
+1. **Read context documents**: Read any project documentation files (README.md, CONTRIBUTING.md, etc.). If user specifies others (e.g., "use SPEC.md"), read those instead. Extract: tech stack, monorepo structure, code conventions, existing libraries, existing patterns.
 
-2. **Identify affected packages**: Which packages does this feature touch? Read their package-specific AGENTS.md files. Note reusable components and integration points.
+2. **Identify affected packages**: Which packages does this feature touch? Read their package-specific documentation files. Note reusable components and integration points.
 
 3. **Scan related code** (if touching existing functionality): Current patterns, API contracts, component hierarchies, state management approach.
 
@@ -305,7 +305,7 @@ Before finalizing, verify:
 - [ ] Edge cases documented with specific behaviors
 - [ ] Data schemas fully specified
 - [ ] No ambiguous terms ("fast", "user-friendly", "modern")
-- [ ] Aligns with AGENTS.md patterns and codebase terminology
+- [ ] Aligns with project documentation patterns and codebase terminology
 - [ ] Original requirement captured in Section 0 and locked
 
 ---
@@ -384,7 +384,7 @@ When analyzing React features, always evaluate:
 
 ## Feature Analysis: Duplicate Popup Forms
 
-**Context**: AGENTS.md reviewed. Relevant packages: `apps/popup-forms`, `lib/dnd-editor`. Patterns: RTK Query, ErrorBoundary.
+**Context**: Project documentation reviewed. Relevant packages: `apps/popup-forms`, `lib/dnd-editor`. Patterns: RTK Query, ErrorBoundary.
 
 **Clarification Needed** (Batch 1/2):
 
