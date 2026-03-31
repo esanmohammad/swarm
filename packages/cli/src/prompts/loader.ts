@@ -29,9 +29,13 @@ const PROMPT_FILENAME_MAP: Record<Persona, (stack: TechStack) => string[]> = {
 // 4. ~/.claude/prompt/ (legacy location)
 // Bundled prompts are searched first because they contain mandatory output structure
 // enforcement that user-level prompts may not have.
-function getSearchDirs(customDir?: string): string[] {
+// For "custom" stack: skip bundled prompts, only search user dirs.
+function getSearchDirs(customDir?: string, stack?: TechStack): string[] {
   const dirs: string[] = [];
-  dirs.push(BUNDLED_PROMPTS_DIR);
+  // "custom" stack skips bundled prompts — user must provide their own
+  if (stack !== 'custom') {
+    dirs.push(BUNDLED_PROMPTS_DIR);
+  }
   if (customDir && customDir !== 'bundled') {
     dirs.push(resolve(customDir.replace('~', homedir())));
   }
@@ -41,16 +45,21 @@ function getSearchDirs(customDir?: string): string[] {
 }
 
 export class PromptLoader {
-  private searchDirs: string[];
+  private customDir?: string;
 
   constructor(customDir?: string) {
-    this.searchDirs = getSearchDirs(customDir);
+    this.customDir = customDir;
+  }
+
+  private getSearchDirsForStack(stack: TechStack): string[] {
+    return getSearchDirs(this.customDir, stack);
   }
 
   async load(persona: Persona, stack: TechStack): Promise<string> {
     const filenames = PROMPT_FILENAME_MAP[persona](stack);
+    const searchDirs = this.getSearchDirsForStack(stack);
 
-    for (const dir of this.searchDirs) {
+    for (const dir of searchDirs) {
       for (const filename of filenames) {
         const fullPath = join(dir, filename);
         if (existsSync(fullPath)) {
@@ -59,16 +68,26 @@ export class PromptLoader {
       }
     }
 
+    const searchedPaths = searchDirs.map((d) => filenames.map((f) => join(d, f))).flat().join(', ');
+    if (stack === 'custom') {
+      throw new Error(
+        `Prompt file not found for persona="${persona}" stack="custom". ` +
+        `Custom stack requires user-provided prompts. Place prompt files in your promptsDir, ~/.claude/prompts/, or ~/.claude/prompt/. ` +
+        `Expected filenames: ${filenames.join(', ')}. Searched: ${searchedPaths}`,
+      );
+    }
+
     throw new Error(
       `Prompt file not found for persona="${persona}" stack="${stack}". ` +
-      `Searched: ${this.searchDirs.map((d) => filenames.map((f) => join(d, f))).flat().join(', ')}`,
+      `Searched: ${searchedPaths}`,
     );
   }
 
   resolve(persona: Persona, stack: TechStack): string | null {
     const filenames = PROMPT_FILENAME_MAP[persona](stack);
+    const searchDirs = this.getSearchDirsForStack(stack);
 
-    for (const dir of this.searchDirs) {
+    for (const dir of searchDirs) {
       for (const filename of filenames) {
         const fullPath = join(dir, filename);
         if (existsSync(fullPath)) {
@@ -82,7 +101,7 @@ export class PromptLoader {
   listAvailable(): Array<{ persona: Persona; stack: TechStack; path: string }> {
     const results: Array<{ persona: Persona; stack: TechStack; path: string }> = [];
     const personas: Persona[] = ['analyst', 'architect', 'lead', 'engineer', 'tester'];
-    const stacks: TechStack[] = ['react', 'node', 'go'];
+    const stacks: TechStack[] = ['react', 'node', 'go', 'python', 'rust', 'swift', 'custom'];
 
     for (const persona of personas) {
       for (const stack of stacks) {

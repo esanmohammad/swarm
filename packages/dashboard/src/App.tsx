@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Wifi, WifiOff, Plus, Terminal } from 'lucide-react';
 import { useWebSocket } from './hooks/useWebSocket';
 import { TopBar } from './components/TopBar';
@@ -9,7 +9,7 @@ import { GuardrailAlerts } from './components/GuardrailAlerts';
 import { SpawnDialog } from './components/SpawnDialog';
 import { KillConfirmDialog } from './components/KillConfirmDialog';
 import { EmptyState } from './components/EmptyState';
-import type { Agent } from './types';
+import type { Agent, AgentStatus } from './types';
 
 export default function App() {
   const { state, connected, agentOutputs, agentActivities, violations, sendCommand } = useWebSocket();
@@ -22,6 +22,80 @@ export default function App() {
     ? Object.values(state.stages).every((s) => s.status === 'pending')
     : false;
   const showEmptyState = state !== null && state.agents.length === 0 && allStagesPending;
+
+  // --- Browser notifications ---
+  const prevAgentStatusesRef = useRef<Map<string, AgentStatus>>(new Map());
+  const prevMaydayStageRef = useRef<string | undefined>(undefined);
+  const prevViolationCountRef = useRef<number>(0);
+
+  // Request notification permission on mount
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }, []);
+
+  const notify = useCallback((title: string, body: string) => {
+    if (
+      'Notification' in window &&
+      Notification.permission === 'granted' &&
+      !document.hasFocus()
+    ) {
+      new Notification(title, { body, icon: '/favicon.ico' });
+    }
+  }, []);
+
+  // Watch agent status transitions
+  useEffect(() => {
+    if (!state?.agents) return;
+
+    const prev = prevAgentStatusesRef.current;
+    for (const agent of state.agents) {
+      const prevStatus = prev.get(agent.id);
+      if (prevStatus && prevStatus !== agent.status) {
+        if (agent.status === 'done') {
+          notify('Agent completed', `${agent.name} finished successfully`);
+        } else if (agent.status === 'error') {
+          notify('Agent failed', `${agent.name} failed: ${agent.error || 'unknown error'}`);
+        }
+      }
+    }
+
+    const next = new Map<string, AgentStatus>();
+    for (const agent of state.agents) {
+      next.set(agent.id, agent.status);
+    }
+    prevAgentStatusesRef.current = next;
+  }, [state?.agents, notify]);
+
+  // Watch MayDay pipeline stage transitions
+  useEffect(() => {
+    const currentStage = state?.mayday?.currentStage;
+    const prevStage = prevMaydayStageRef.current;
+
+    if (prevStage && prevStage !== currentStage) {
+      if (currentStage === 'complete') {
+        notify('Pipeline completed', 'MayDay pipeline completed!');
+      } else if (currentStage === 'fix-loop') {
+        notify('Fix iteration', 'MayDay fix iteration starting');
+      }
+    }
+
+    prevMaydayStageRef.current = currentStage;
+  }, [state?.mayday?.currentStage, notify]);
+
+  // Watch guardrail violations
+  useEffect(() => {
+    const currentCount = violations.length;
+    const prevCount = prevViolationCountRef.current;
+
+    if (currentCount > prevCount) {
+      const latest = violations[currentCount - 1];
+      notify('Guardrail violation', latest?.message || 'A guardrail check failed');
+    }
+
+    prevViolationCountRef.current = currentCount;
+  }, [violations, notify]);
 
   // Update browser tab title with project name
   useEffect(() => {

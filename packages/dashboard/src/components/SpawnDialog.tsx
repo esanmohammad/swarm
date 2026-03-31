@@ -94,6 +94,10 @@ export function SpawnDialog({ onSpawn, onClose }: SpawnDialogProps) {
                 <option value="react">react</option>
                 <option value="node">node</option>
                 <option value="go">go</option>
+                <option value="python">python</option>
+                <option value="rust">rust</option>
+                <option value="swift">swift</option>
+                <option value="custom">custom</option>
               </select>
             </div>
 

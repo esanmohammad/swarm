@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import {
   Terminal, Send, ChevronDown, ChevronRight,
   FileText, Pencil, TerminalSquare, Search, Brain,
-  FolderSearch, Globe, Zap,
+  FolderSearch, Globe, Zap, Copy, Check, Download,
 } from 'lucide-react';
 import type { Agent, AgentActivity } from '../types';
 
@@ -115,6 +115,9 @@ export function OutputStream({ agent, liveOutput, activities, onSendInput }: Out
   const [localMessages, setLocalMessages] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<ViewMode>('activity');
   const [autoScroll, setAutoScroll] = useState(true);
+  const [copied, setCopied] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+  const exportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setLocalMessages([]);
@@ -132,6 +135,58 @@ export function OutputStream({ agent, liveOutput, activities, onSendInput }: Out
     const isAtBottom = scrollHeight - scrollTop - clientHeight < 40;
     setAutoScroll(isAtBottom);
   };
+
+  // Close export dropdown when clicking outside
+  useEffect(() => {
+    if (!exportOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (exportRef.current && !exportRef.current.contains(e.target as Node)) {
+        setExportOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [exportOpen]);
+
+  const getFullOutput = useCallback(() => {
+    return agent?.output || liveOutput || '';
+  }, [agent?.output, liveOutput]);
+
+  const handleCopy = useCallback(async () => {
+    const text = getFullOutput();
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // fallback: silent fail
+    }
+  }, [getFullOutput]);
+
+  const handleExport = useCallback((format: 'txt' | 'json') => {
+    if (!agent) return;
+    const filename = `${agent.name}-${agent.id.slice(0, 8)}.${format}`;
+    let content: string;
+
+    if (format === 'txt') {
+      content = getFullOutput();
+    } else {
+      content = JSON.stringify({
+        agent: { id: agent.id, name: agent.name, persona: agent.persona, status: agent.status },
+        output: getFullOutput(),
+        activities,
+      }, null, 2);
+    }
+
+    const blob = new Blob([content], { type: format === 'json' ? 'application/json' : 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+    setExportOpen(false);
+  }, [agent, activities, getFullOutput]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -202,6 +257,40 @@ export function OutputStream({ agent, liveOutput, activities, onSendInput }: Out
             >
               raw
             </button>
+          </div>
+          {/* Copy button */}
+          <button
+            onClick={handleCopy}
+            className="p-1 rounded text-stone-400 hover:text-stone-300 transition-colors"
+            title="Copy output"
+          >
+            {copied ? <Check size={12} className="text-green-400" /> : <Copy size={12} />}
+          </button>
+          {/* Export dropdown */}
+          <div ref={exportRef} className="relative">
+            <button
+              onClick={() => setExportOpen(!exportOpen)}
+              className="p-1 rounded text-stone-400 hover:text-stone-300 transition-colors"
+              title="Export log"
+            >
+              <Download size={12} />
+            </button>
+            {exportOpen && (
+              <div className="absolute right-0 top-full mt-1 z-50 bg-stone-900 border border-stone-700 rounded shadow-lg py-1 min-w-[120px]">
+                <button
+                  onClick={() => handleExport('txt')}
+                  className="w-full text-left px-3 py-1 text-[10px] text-stone-300 hover:bg-stone-800 transition-colors"
+                >
+                  Export .txt
+                </button>
+                <button
+                  onClick={() => handleExport('json')}
+                  className="w-full text-left px-3 py-1 text-[10px] text-stone-300 hover:bg-stone-800 transition-colors"
+                >
+                  Export .json
+                </button>
+              </div>
+            )}
           </div>
           {isRunning && (
             <span className="flex items-center gap-1 text-[9px] text-red-400">

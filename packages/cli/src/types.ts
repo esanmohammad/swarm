@@ -8,7 +8,7 @@ export type PermissionMode = 'default' | 'acceptEdits' | 'bypassPermissions' | '
 export type Persona = 'analyst' | 'architect' | 'lead' | 'engineer' | 'tester';
 
 // Supported tech stacks
-export type TechStack = 'react' | 'node' | 'go';
+export type TechStack = 'react' | 'node' | 'go' | 'python' | 'rust' | 'swift' | 'custom';
 
 // Pipeline stage names
 export type StageName = 'analyze' | 'architect' | 'plan' | 'build' | 'test' | 'evaluate';

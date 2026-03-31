@@ -1,0 +1,62 @@
+{
+  "name": "swarm-vscode",
+  "displayName": "Swarm",
+  "description": "VS Code extension for Swarm CLI pipeline orchestration",
+  "version": "0.1.0",
+  "publisher": "swarm",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": [
+    "onCommand:swarm.*"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "swarm.connect",
+        "title": "Swarm: Connect to Server"
+      },
+      {
+        "command": "swarm.runStage",
+        "title": "Swarm: Run Pipeline Stage"
+      },
+      {
+        "command": "swarm.runMayday",
+        "title": "Swarm: Run MayDay"
+      },
+      {
+        "command": "swarm.showOutput",
+        "title": "Swarm: Show Agent Output"
+      }
+    ],
+    "configuration": {
+      "title": "Swarm",
+      "properties": {
+        "swarm.wsHost": {
+          "type": "string",
+          "default": "localhost",
+          "description": "Swarm WebSocket server host"
+        },
+        "swarm.wsPort": {
+          "type": "number",
+          "default": 3847,
+          "description": "Swarm WebSocket server port"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w"
+  },
+  "dependencies": {
+    "ws": "^8.16.0"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/ws": "^8.5.10",
+    "typescript": "^5.3.0"
+  }
+}
