@@ -379,11 +379,18 @@ export class SwarmWsServer {
         break;
 
       case 'run-stage': {
+        // Idempotency guard: prevent duplicate spawns for a stage already running
+        const currentStageState = this.state.getState().stages[cmd.stage];
+        if (currentStageState?.status === 'running') {
+          _ws.send(JSON.stringify({
+            type: 'agent-update',
+            payload: { error: `Stage "${cmd.stage}" is already running`, status: 'error' },
+          }));
+          return;
+        }
+
         const stageStack = this.state.getState().stack;
         const stageOpts = { stack: stageStack, interactive: false };
-
-        // Allow re-running a stage that's already 'done' — reset to 'pending' first
-        const currentStageState = this.state.getState().stages[cmd.stage];
         if (currentStageState?.status === 'done') {
           this.state.updateStage(cmd.stage as import('../types.js').StageName, { status: 'pending' });
           console.log(`[ws] Reset stage "${cmd.stage}" from done to pending for re-run`);
@@ -437,6 +444,15 @@ export class SwarmWsServer {
       }
 
       case 'run-mayday': {
+        // Idempotency guard: prevent concurrent MayDay runs
+        if (!cmd.resume && this.state.getMayday()?.active) {
+          _ws.send(JSON.stringify({
+            type: 'agent-update',
+            payload: { error: 'MayDay pipeline is already running. Use resume or stop it first.', status: 'error' },
+          }));
+          return;
+        }
+
         const stageStack = this.state.getState().stack;
 
         if (cmd.resume) {

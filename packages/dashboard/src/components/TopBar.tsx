@@ -151,9 +151,10 @@ export function TopBar({ pipeline, violationCount, onRunStage }: TopBarProps) {
               <button
                 onClick={() => canRun && handleStageClick(stage.key)}
                 disabled={!canRun}
+                title={isActive ? 'Stage already running' : undefined}
                 className={`group flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium transition-all ${
                   isActive
-                    ? 'bg-red-950/50 text-red-400 glow-red'
+                    ? 'bg-red-950/50 text-red-400 glow-red opacity-70 cursor-not-allowed'
                     : isDone
                       ? 'text-green-500/80 hover:text-green-400'
                       : isError

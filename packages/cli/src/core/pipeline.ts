@@ -136,6 +136,10 @@ export class Pipeline {
   }
 
   async runAnalyze(featureRequest: string, opts?: StageOpts): Promise<void> {
+    if (this.state.getState().stages.analyze?.status === 'running') {
+      throw new Error('Stage "analyze" is already running');
+    }
+
     const s = opts?.stack ?? this.config.stack;
     const interactive = opts?.interactive ?? true;
 
@@ -200,6 +204,10 @@ export class Pipeline {
   }
 
   async runArchitect(opts?: StageOpts): Promise<void> {
+    if (this.state.getState().stages.architect?.status === 'running') {
+      throw new Error('Stage "architect" is already running');
+    }
+
     const s = opts?.stack ?? this.config.stack;
     const interactive = opts?.interactive ?? true;
     const reqPath = join(process.cwd(), 'REQUIREMENTS.md');
@@ -254,6 +262,10 @@ export class Pipeline {
   }
 
   async runPlan(opts?: StageOpts): Promise<void> {
+    if (this.state.getState().stages.plan?.status === 'running') {
+      throw new Error('Stage "plan" is already running');
+    }
+
     const s = opts?.stack ?? this.config.stack;
     const interactive = opts?.interactive ?? true;
     const specPath = join(process.cwd(), 'SPEC.md');
@@ -310,6 +322,10 @@ export class Pipeline {
   }
 
   async runBuild(opts: { parallel?: number; taskId?: string; stack?: TechStack } = {}): Promise<void> {
+    if (this.state.getState().stages.build?.status === 'running') {
+      throw new Error('Stage "build" is already running');
+    }
+
     const s = opts.stack ?? this.config.stack;
     const tasksPath = join(process.cwd(), 'TASKS.md');
 
@@ -523,6 +539,10 @@ export class Pipeline {
   }
 
   async runTest(opts: { parallel?: number; stack?: TechStack; figmaUrl?: string; interactive?: boolean } = {}): Promise<void> {
+    if (this.state.getState().stages.test?.status === 'running') {
+      throw new Error('Stage "test" is already running');
+    }
+
     const s = opts.stack ?? this.config.stack;
     const interactive = opts.interactive ?? false;
 
@@ -903,6 +923,10 @@ export class Pipeline {
     maxFixBudgetUsd?: number | null;
     fromStage?: StageName;
   } = {}): Promise<void> {
+    if (this.state.getMayday()?.active) {
+      throw new Error('MayDay pipeline is already running. Use --resume to continue or stop it first.');
+    }
+
     const stack = opts.stack ?? this.config.stack;
     const maxIterations = opts.maxIterations ?? 5;
 
