@@ -1,7 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { PipelineState, WsMessage, WsCommand, GuardrailViolation, AgentActivity } from '../types';
 
-const WS_URL = `ws://${window.location.hostname}:3847`;
+// WS port is injected by the dashboard HTTP server into window.__SWARM_WS_PORT__
+// Falls back to deriving from dashboard port (wsPort = dashboardPort - 1) or default 3847
+const wsPort = (window as unknown as Record<string, unknown>).__SWARM_WS_PORT__
+  ?? (parseInt(new URLSearchParams(window.location.search).get('wsPort') || '', 10)
+  || (window.location.port ? parseInt(window.location.port, 10) - 1 : 3847));
+const WS_URL = `ws://${window.location.hostname}:${wsPort}`;
 const RECONNECT_DELAY = 2000;
 const MAX_RECONNECT_DELAY = 30000;
 

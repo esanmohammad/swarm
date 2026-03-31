@@ -32,12 +32,23 @@ export function registerDashboard(program: Command): void {
       const dashboardIndex = join(dashboardDist, 'index.html');
 
       if (existsSync(dashboardIndex)) {
+        // Inject WS port into index.html so the dashboard knows where to connect
+        const rawHtml = readFileSync(dashboardIndex, 'utf-8');
+        const injectedHtml = rawHtml.replace(
+          '<head>',
+          `<head><script>window.__SWARM_WS_PORT__=${config.wsPort};</script>`,
+        );
+
         // Serve static dashboard
         const server = createServer((req, res) => {
           const url = req.url === '/' ? '/index.html' : req.url!;
           const filePath = join(dashboardDist, url);
 
-          if (existsSync(filePath)) {
+          // Serve injected index.html for root and SPA fallback
+          if (url === '/index.html') {
+            res.setHeader('Content-Type', 'text/html');
+            res.end(injectedHtml);
+          } else if (existsSync(filePath)) {
             const ext = filePath.split('.').pop();
             const contentTypes: Record<string, string> = {
               html: 'text/html',
@@ -52,7 +63,7 @@ export function registerDashboard(program: Command): void {
           } else {
             // SPA fallback
             res.setHeader('Content-Type', 'text/html');
-            res.end(readFileSync(dashboardIndex));
+            res.end(injectedHtml);
           }
         });
 
