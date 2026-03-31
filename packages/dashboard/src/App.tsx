@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Wifi, WifiOff, Plus, Terminal } from 'lucide-react';
 import { useWebSocket } from './hooks/useWebSocket';
 import { TopBar } from './components/TopBar';
@@ -18,6 +18,11 @@ export default function App() {
 
   const selectedAgent = state?.agents.find((a) => a.id === selectedAgentId) ?? null;
 
+  // Update browser tab title with project name
+  useEffect(() => {
+    document.title = state?.projectName ? `SWARM-${state.projectName}` : 'SWARM';
+  }, [state?.projectName]);
+
   return (
     <div className="h-screen flex flex-col bg-[#0c0a09]">
       {/* Header — terminal title bar */}
@@ -31,10 +36,11 @@ export default function App() {
           </div>
           <div className="w-px h-4 bg-stone-800/50 mx-1" />
           <Terminal size={14} className="text-red-600" />
-          <h1 className="text-sm font-semibold tracking-[0.2em] text-stone-300 uppercase">swarm</h1>
+          <h1 className="text-sm font-semibold tracking-[0.2em] text-stone-300 uppercase">
+            swarm{state ? <span className="text-red-500">-{state.projectName}</span> : ''}
+          </h1>
           {state && (
             <span className="text-xs text-stone-500 font-light">
-              <span className="text-stone-600">//</span> {state.projectName}
               <span className="text-stone-600">:</span>{state.stack}
             </span>
           )}

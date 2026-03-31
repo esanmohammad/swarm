@@ -1,10 +1,19 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { createHash } from 'node:crypto';
 import { stringify as toYaml } from 'yaml';
 import chalk from 'chalk';
 import type { Command } from 'commander';
 import type { SwarmConfig, TechStack } from '../types.js';
 import { DEFAULT_CONFIG, createEmptyPipeline } from '../types.js';
+
+/** Derive a deterministic port pair from the project name so different projects don't collide. */
+function derivePort(projectName: string, offset: number): number {
+  const hash = createHash('md5').update(projectName).digest();
+  // Use 2 bytes → range 0-65535, then clamp to 10000-60000
+  const raw = hash.readUInt16BE(offset % (hash.length - 1));
+  return 10000 + (raw % 50000);
+}
 
 export function registerInit(program: Command): void {
   program
@@ -26,12 +35,20 @@ export function registerInit(program: Command): void {
       const projectName = opts.name || cwd.split('/').pop() || 'my-project';
       const stack = opts.stack as TechStack;
 
+      // Derive unique ports from project name so multiple projects can run simultaneously
+      const wsPort = derivePort(projectName, 0);
+      let dashboardPort = derivePort(projectName, 2);
+      // Ensure ws and dashboard ports don't collide
+      if (dashboardPort === wsPort) dashboardPort = wsPort + 1;
+
       const config: SwarmConfig = {
         ...DEFAULT_CONFIG,
         projectName,
         stack,
         model: opts.model,
         maxBudgetUsd: parseFloat(opts.budget) || null,
+        wsPort,
+        dashboardPort,
       };
 
       // Create directories
