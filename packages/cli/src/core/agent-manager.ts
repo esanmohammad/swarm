@@ -339,6 +339,10 @@ export class AgentManager extends EventEmitter {
     return Array.from(this.agents.values()).map((e) => e.agent);
   }
 
+  getRunningAgents(): Agent[] {
+    return this.list().filter((a) => a.status === 'running');
+  }
+
   get(agentId: string): Agent | undefined {
     return this.agents.get(agentId)?.agent;
   }

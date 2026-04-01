@@ -1,5 +1,82 @@
 @import "tailwindcss";
 
+/* ── Theme Variables ── */
+:root {
+  /* Dark theme (default) */
+  --bg-primary: #0c0a09;
+  --bg-secondary: #0e0c0b;
+  --bg-tertiary: #0b0908;
+  --border-primary: rgba(120, 113, 108, 0.5);
+  --border-secondary: rgba(120, 113, 108, 0.3);
+  --text-primary: #e7e5e4;
+  --text-secondary: #a8a29e;
+  --text-muted: #78716c;
+  --scrollbar-thumb: #333;
+  --scrollbar-hover: #444;
+  --selection-bg: rgba(59, 130, 246, 0.3);
+  --selection-color: #e7e5e4;
+}
+
+.light {
+  --bg-primary: #fafaf9;
+  --bg-secondary: #f5f5f4;
+  --bg-tertiary: #ffffff;
+  --border-primary: rgba(168, 162, 158, 0.5);
+  --border-secondary: rgba(168, 162, 158, 0.3);
+  --text-primary: #1c1917;
+  --text-secondary: #57534e;
+  --text-muted: #a8a29e;
+  --scrollbar-thumb: #d6d3d1;
+  --scrollbar-hover: #a8a29e;
+  --selection-bg: rgba(59, 130, 246, 0.2);
+  --selection-color: #1c1917;
+}
+
+/* ── Light theme overrides for key UI elements ── */
+.light .bg-\[\#0c0a09\] { background-color: var(--bg-primary) !important; }
+.light .bg-\[\#0e0c0b\] { background-color: var(--bg-secondary) !important; }
+.light .bg-\[\#0b0908\] { background-color: var(--bg-tertiary) !important; }
+.light .bg-\[\#0d0b0a\] { background-color: var(--bg-secondary) !important; }
+.light .bg-\[\#0a0908\] { background-color: var(--bg-tertiary) !important; }
+
+/* Light theme text adjustments */
+.light .text-stone-300 { color: #44403c !important; }
+.light .text-stone-400 { color: #57534e !important; }
+.light .text-stone-200 { color: #1c1917 !important; }
+
+/* Light theme borders */
+.light .border-stone-800\/50 { border-color: rgba(214, 211, 209, 0.6) !important; }
+.light .border-stone-800\/40 { border-color: rgba(214, 211, 209, 0.5) !important; }
+.light .border-stone-800\/30 { border-color: rgba(214, 211, 209, 0.4) !important; }
+.light .border-stone-800\/60 { border-color: rgba(214, 211, 209, 0.7) !important; }
+.light .border-stone-700\/40 { border-color: rgba(168, 162, 158, 0.4) !important; }
+.light .border-stone-700\/50 { border-color: rgba(168, 162, 158, 0.5) !important; }
+
+/* Light theme backgrounds for interactive elements */
+.light .bg-stone-800\/30 { background-color: rgba(214, 211, 209, 0.3) !important; }
+.light .bg-stone-800\/40 { background-color: rgba(214, 211, 209, 0.4) !important; }
+.light .bg-stone-800\/50 { background-color: rgba(214, 211, 209, 0.5) !important; }
+.light .bg-stone-800\/60 { background-color: rgba(214, 211, 209, 0.6) !important; }
+.light .bg-stone-900\/30 { background-color: rgba(231, 229, 228, 0.5) !important; }
+.light .bg-stone-900\/40 { background-color: rgba(231, 229, 228, 0.6) !important; }
+.light .bg-stone-900\/60 { background-color: rgba(231, 229, 228, 0.7) !important; }
+
+/* Light theme hover states */
+.light .hover\:bg-stone-800\/20:hover { background-color: rgba(214, 211, 209, 0.2) !important; }
+.light .hover\:bg-stone-800\/30:hover { background-color: rgba(214, 211, 209, 0.3) !important; }
+.light .hover\:bg-stone-800\/40:hover { background-color: rgba(214, 211, 209, 0.4) !important; }
+.light .hover\:bg-stone-800\/60:hover { background-color: rgba(214, 211, 209, 0.6) !important; }
+
+/* Light theme input backgrounds */
+.light input, .light textarea, .light select {
+  background-color: #ffffff !important;
+  border-color: rgba(168, 162, 158, 0.4) !important;
+  color: #1c1917 !important;
+}
+.light input::placeholder, .light textarea::placeholder {
+  color: #a8a29e !important;
+}
+
 /* Terminal cursor blink (used in output stream) */
 @keyframes cursor-blink {
   0%, 50% { opacity: 1; }
@@ -18,7 +95,7 @@
   animation: fade-in 0.2s ease-out;
 }
 
-/* Scrollbar — thin, dark */
+/* Scrollbar — thin, themed */
 ::-webkit-scrollbar {
   width: 5px;
   height: 5px;
@@ -27,17 +104,17 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #333;
+  background: var(--scrollbar-thumb);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #444;
+  background: var(--scrollbar-hover);
 }
 
 /* Text selection */
 ::selection {
-  background: rgba(59, 130, 246, 0.3);
-  color: #e7e5e4;
+  background: var(--selection-bg);
+  color: var(--selection-color);
 }
 
 /* Disable ligatures in monospace */

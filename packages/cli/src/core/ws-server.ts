@@ -489,7 +489,7 @@ export class SwarmWsServer {
         (async () => {
           try {
             if (cmd.resume) {
-              await this.pipeline.resumeMayday({ parallel: cmd.parallel });
+              await this.pipeline.resumeMayday({ parallel: cmd.parallel, headless: true });
             } else {
               await this.pipeline.runMayday(cmd.prompt, {
                 stack: stageStack,
@@ -500,6 +500,7 @@ export class SwarmWsServer {
                 maxFixBudgetUsd: cmd.maxFixBudgetUsd !== undefined ? cmd.maxFixBudgetUsd : 15,
                 fromStage: cmd.fromStage,
                 approvalRequired: cmd.approvalRequired,
+                headless: true, // Dashboard runs are always headless (no stdin prompts)
               });
             }
             console.log(`[ws] MayDay complete`);
@@ -565,6 +566,32 @@ export class SwarmWsServer {
         const entries = this.state.listHistory();
         const msg: WsMessage = { type: 'history-list', payload: entries };
         _ws.send(JSON.stringify(msg));
+        break;
+      }
+
+      case 'get-artifact': {
+        const stage = cmd.stage;
+        const artifactMap: Record<string, string> = {
+          analyze: 'REQUIREMENTS.md',
+          architect: 'SPEC.md',
+          plan: 'TASKS.md',
+          test: 'TESTPLAN.md',
+        };
+        const artifactName = artifactMap[stage];
+        let content: string | null = null;
+        if (artifactName) {
+          const artifactPath = join(this.projectCwd, artifactName);
+          try {
+            content = readFileSync(artifactPath, 'utf-8');
+          } catch {
+            content = null;
+          }
+        }
+        const artifactMsg: WsMessage = {
+          type: 'artifact-content',
+          payload: { stage, artifact: artifactName || stage, content },
+        };
+        _ws.send(JSON.stringify(artifactMsg));
         break;
       }
     }

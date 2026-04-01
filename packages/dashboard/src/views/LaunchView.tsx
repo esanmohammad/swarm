@@ -34,6 +34,7 @@ export function LaunchView({ sendCommand, historyEntries, onNavigate }: LaunchVi
   const [model, setModel] = useState('sonnet');
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [figmaUrl, setFigmaUrl] = useState('');
+  const [budget, setBudget] = useState('5');
 
   const handleLaunch = () => {
     if (!prompt.trim()) return;
@@ -78,21 +79,27 @@ export function LaunchView({ sendCommand, historyEntries, onNavigate }: LaunchVi
           {/* Model picker + cost estimate */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              {['sonnet', 'opus', 'haiku'].map((m) => (
+              {[
+                { id: 'sonnet', hint: 'balanced' },
+                { id: 'opus', hint: 'best quality' },
+                { id: 'haiku', hint: 'fast & cheap' },
+              ].map((m) => (
                 <button
-                  key={m}
-                  onClick={() => setModel(m)}
+                  key={m.id}
+                  onClick={() => setModel(m.id)}
                   className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                    model === m
+                    model === m.id
                       ? 'bg-blue-600/20 text-blue-300 border border-blue-500/40'
                       : 'text-stone-400 hover:text-stone-300 border border-stone-700/40 hover:border-stone-600/50'
                   }`}
+                  title={m.hint}
                 >
-                  {m}
+                  {m.id}
+                  {model === m.id && <span className="text-[9px] text-blue-400/60 ml-1">{m.hint}</span>}
                 </button>
               ))}
               <span className="text-xs text-stone-500 ml-2">
-                Estimated: ~{estimateCost(model)}
+                Est. ~{estimateCost(model)}
               </span>
             </div>
 
@@ -107,7 +114,24 @@ export function LaunchView({ sendCommand, historyEntries, onNavigate }: LaunchVi
 
           {/* Advanced options */}
           {showAdvanced && (
-            <div className="space-y-2 p-3 rounded-lg bg-stone-900/40 border border-stone-800/40">
+            <div className="space-y-3 p-3 rounded-lg bg-stone-900/40 border border-stone-800/40">
+              <div>
+                <label className="text-xs text-stone-500 block mb-1">Budget (USD)</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="range"
+                    min="1"
+                    max="50"
+                    value={budget === 'none' ? 50 : parseInt(budget) || 5}
+                    onChange={(e) => setBudget(e.target.value === '50' ? 'none' : e.target.value)}
+                    className="flex-1 accent-blue-500"
+                  />
+                  <span className="text-xs text-stone-300 font-mono w-12 text-right">
+                    {budget === 'none' ? 'none' : `$${budget}`}
+                  </span>
+                </div>
+                <p className="text-[10px] text-stone-500 mt-1">Pipeline stops if budget is reached. No surprise charges.</p>
+              </div>
               <div>
                 <label className="text-xs text-stone-500 block mb-1">Figma URL (optional)</label>
                 <input

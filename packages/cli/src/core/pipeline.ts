@@ -8,6 +8,7 @@ import type { SwarmConfig, StageName, TechStack, PlaywrightConfig, MaydayState, 
 import { STAGE_ARTIFACT_MAP } from '../types.js';
 import { parse as parseYaml } from 'yaml';
 import { isGhInstalled, createPR, buildPRBody, getCurrentBranch, hasUncommittedChanges } from './git.js';
+import { stageTransitionPause, fixLoopPause, InputListener } from './input-listener.js';
 import { WebhookManager } from './webhooks.js';
 import type { WebhookConfig } from './webhooks.js';
 import { QualityScorer } from './quality.js';
@@ -62,6 +63,8 @@ interface StageOpts {
   interactive?: boolean;
   figmaUrl?: string;
   prompt?: string;
+  /** When true, skip all interactive pauses (for CI/automation/dashboard) */
+  headless?: boolean;
 }
 
 /** Non-interactive agents (dashboard/headless) need 'auto' permission — they can't prompt the user. */
@@ -1382,6 +1385,8 @@ export class Pipeline {
     maxFixBudgetUsd?: number | null;
     fromStage?: StageName;
     approvalRequired?: boolean;
+    /** When true, skip all interactive pauses (for CI/automation/dashboard) */
+    headless?: boolean;
   } = {}): Promise<void> {
     if (this.state.getMayday()?.active) {
       throw new Error('MayDay pipeline is already running. Use --resume to continue or stop it first.');
@@ -1444,8 +1449,10 @@ export class Pipeline {
 
     const pipelineStart = Date.now();
 
+    const headless = opts.headless ?? false;
+
     try {
-      await this.executeMaydayPipeline(stack, opts.parallel);
+      await this.executeMaydayPipeline(stack, opts.parallel, headless);
       this.state.archiveRun();
       this.attemptAutoCreatePR();
       this.webhooks.maydayComplete(this.config.projectName, this.state.getState()).catch(() => {});
@@ -1476,7 +1483,7 @@ export class Pipeline {
     console.log(chalk.dim(`  Run ${chalk.bold('swarm status')} to see details or ${chalk.bold('swarm dashboard')} to view in browser\n`));
   }
 
-  async resumeMayday(opts: { parallel?: number } = {}): Promise<void> {
+  async resumeMayday(opts: { parallel?: number; headless?: boolean } = {}): Promise<void> {
     const mayday = this.state.getMayday();
     if (!mayday || !mayday.active) {
       throw new Error('No active MayDay session to resume.');
@@ -1492,7 +1499,7 @@ export class Pipeline {
     console.log('');
 
     try {
-      await this.executeMaydayPipeline(stack, opts.parallel);
+      await this.executeMaydayPipeline(stack, opts.parallel, opts.headless ?? false);
       this.state.archiveRun();
       this.attemptAutoCreatePR();
       this.webhooks.maydayComplete(this.config.projectName, this.state.getState()).catch(() => {});
@@ -1505,9 +1512,9 @@ export class Pipeline {
     }
   }
 
-  private async executeMaydayPipeline(stack: TechStack, parallel?: number): Promise<void> {
+  private async executeMaydayPipeline(stack: TechStack, parallel?: number, headless = false): Promise<void> {
     const mayday = this.state.getMayday()!;
-    const stageOpts: StageOpts = { stack, interactive: false, figmaUrl: mayday.figmaUrl };
+    const stageOpts: StageOpts = { stack, interactive: false, figmaUrl: mayday.figmaUrl, headless };
 
     // Create a feature branch for this mayday run
     this.createFeatureBranch(mayday.featureRequest);
@@ -1525,7 +1532,7 @@ export class Pipeline {
         parallel,
       });
       // After custom pipeline, enter fix loop
-      await this.maydayFixLoop(stack, parallel);
+      await this.maydayFixLoop(stack, parallel, headless);
       return;
     }
 
@@ -1598,6 +1605,17 @@ export class Pipeline {
         // Auto-commit after each stage completes
         this.autoCommitStage(stage, STAGE_ARTIFACT_MAP[stage]);
 
+        // Stage transition pause — let user review and optionally send feedback
+        if (!headless && i < stages.length - 1) {
+          const nextStage = stages[i + 1];
+          const feedback = await stageTransitionPause(stage, nextStage, STAGE_ARTIFACT_MAP[stage]);
+          if (feedback) {
+            // Inject user feedback as a message for the next stage
+            this.state.pushMaydayMessage(feedback);
+            console.log(chalk.magenta(`  Feedback noted — will be included in ${nextStage} stage.`));
+          }
+        }
+
         // Approval gate: pause and wait for user approval before proceeding
         const currentMayday = this.state.getMayday();
         if (currentMayday?.approvalRequired && i < stages.length - 1) {
@@ -1624,10 +1642,10 @@ export class Pipeline {
     }
 
     // After initial pipeline, enter the fix-retest loop
-    await this.maydayFixLoop(stack, parallel);
+    await this.maydayFixLoop(stack, parallel, headless);
   }
 
-  private async maydayFixLoop(stack: TechStack, _parallel?: number): Promise<void> {
+  private async maydayFixLoop(stack: TechStack, _parallel?: number, headless = false): Promise<void> {
     // Resolve test framework run command for this stack
     const frameworks = getTestFrameworks(stack);
     const testRunCmd = frameworks[0]?.runCmd ?? 'npx playwright test';
@@ -1675,6 +1693,18 @@ export class Pipeline {
       this.state.updateMayday({ fixIteration: iteration, currentStage: 'fix-loop' });
 
       console.log(chalk.red(`\n[mayday] Fix iteration ${iteration}/${maxIter} — ${testResults.failureCount} failure(s)`));
+
+      // Interactive pause — let user guide the fix or skip
+      if (!headless) {
+        const fixPause = await fixLoopPause(iteration, maxIter, testResults.failureCount ?? 0);
+        if (fixPause.action === 'skip') {
+          console.log(chalk.yellow(`[mayday] Skipping remaining fix iterations.`));
+          break;
+        }
+        if (fixPause.feedback) {
+          this.state.pushMaydayMessage(fixPause.feedback);
+        }
+      }
 
       // Consume user messages for guidance
       const userMsgs = this.state.consumeMaydayMessages();

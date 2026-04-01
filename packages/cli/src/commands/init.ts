@@ -98,11 +98,16 @@ export function registerInit(program: Command): void {
       // Write .gitignore for state
       writeFileSync(join(swarmDir, '.gitignore'), 'state.json\nlogs/\n');
 
-      console.log(chalk.green(`Initialized Swarm project "${projectName}"`));
+      console.log(chalk.green(`\nInitialized Swarm project "${projectName}"`));
       console.log(`  Stack:  ${chalk.cyan(stack)}`);
       console.log(`  Model:  ${chalk.cyan(config.model)}`);
-      console.log(`  Budget: ${chalk.cyan(config.maxBudgetUsd ? '$' + config.maxBudgetUsd + '/agent' : 'no limit')}`);
+      console.log(`  Budget: ${chalk.cyan(config.maxBudgetUsd ? '$' + config.maxBudgetUsd + ' per pipeline' : 'no limit')}`);
       console.log(`  Config: ${chalk.dim(join(swarmDir, 'config.yaml'))}`);
-      console.log(`\nNext: ${chalk.bold('swarm analyze "your feature request"')}`);
+      console.log('');
+      console.log(chalk.dim('Quick start:'));
+      console.log(`  ${chalk.bold('swarm "your feature request"')}   Build a feature end-to-end`);
+      console.log(`  ${chalk.bold('swarm dashboard')}                Open the web UI`);
+      console.log(`  ${chalk.bold('swarm doctor')}                   Check your environment`);
+      console.log('');
     });
 }

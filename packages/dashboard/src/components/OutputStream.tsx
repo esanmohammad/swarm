@@ -3,9 +3,11 @@ import {
   Terminal, Send, ChevronDown, ChevronRight,
   FileText, Pencil, TerminalSquare, Search, Brain,
   FolderSearch, Globe, Zap, Copy, Check, Download,
+  Filter, X,
 } from 'lucide-react';
 import type { Agent, AgentActivity } from '../types';
 import { DiffViewer } from './DiffViewer';
+import { usePersistedState } from '../hooks/usePersistedState';
 
 interface OutputStreamProps {
   agent: Agent | null;
@@ -30,8 +32,13 @@ function toolMeta(tool?: string) {
   }
 }
 
-function ActivityItem({ activity, index }: { activity: AgentActivity; index: number }) {
-  const [expanded, setExpanded] = useState(false);
+function ActivityItem({ activity, index, isExpanded, onToggleExpanded }: {
+  activity: AgentActivity;
+  index: number;
+  isExpanded: boolean;
+  onToggleExpanded: (id: string) => void;
+}) {
+  const expanded = isExpanded;
 
   const isToolUse = activity.kind === 'tool_use';
   const isText = activity.kind === 'text';
@@ -60,7 +67,7 @@ function ActivityItem({ activity, index }: { activity: AgentActivity; index: num
           </div>
           {hasExpandableContent && (
             <button
-              onClick={() => setExpanded(!expanded)}
+              onClick={() => onToggleExpanded(activity.id)}
               className="shrink-0 p-0.5 text-stone-400 hover:text-stone-300 ml-1"
             >
               {expanded ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
@@ -77,7 +84,8 @@ function ActivityItem({ activity, index }: { activity: AgentActivity; index: num
   return (
     <div className="group hover:bg-stone-800/20 transition-colors">
       <button
-        onClick={() => hasExpandableContent && setExpanded(!expanded)}
+        onClick={() => hasExpandableContent && onToggleExpanded(activity.id)}
+        aria-expanded={hasExpandableContent ? expanded : undefined}
         className={`w-full flex items-start px-3 py-1 text-left ${
           hasExpandableContent ? 'cursor-pointer' : 'cursor-default'
         }`}
@@ -114,11 +122,47 @@ export function OutputStream({ agent, liveOutput, activities, onSendInput }: Out
   const inputRef = useRef<HTMLInputElement>(null);
   const [input, setInput] = useState('');
   const [localMessages, setLocalMessages] = useState<string[]>([]);
-  const [viewMode, setViewMode] = useState<ViewMode>('activity');
+  const [viewMode, setViewMode] = usePersistedState<ViewMode>('swarm_output_view', 'activity');
   const [autoScroll, setAutoScroll] = useState(true);
   const [copied, setCopied] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterTool, setFilterTool] = useState<string | null>(null);
+  const [showSearch, setShowSearch] = useState(false);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const exportRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  // Track scroll positions per agent so switching agents restores position
+  const scrollPositions = useRef(new Map<string, number>());
+  const prevAgentId = useRef<string | null>(null);
+
+  const toggleExpanded = useCallback((id: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  // Save scroll position when switching agents, restore for new agent
+  useEffect(() => {
+    // Save previous agent's scroll position
+    if (prevAgentId.current && scrollRef.current) {
+      scrollPositions.current.set(prevAgentId.current, scrollRef.current.scrollTop);
+    }
+    // Restore new agent's scroll position
+    if (agent?.id && scrollRef.current) {
+      const saved = scrollPositions.current.get(agent.id);
+      if (saved !== undefined) {
+        // Defer to next frame so content is rendered
+        requestAnimationFrame(() => {
+          if (scrollRef.current) scrollRef.current.scrollTop = saved;
+        });
+      }
+    }
+    prevAgentId.current = agent?.id ?? null;
+  }, [agent?.id]);
 
   useEffect(() => {
     setLocalMessages([]);
@@ -135,6 +179,10 @@ export function OutputStream({ agent, liveOutput, activities, onSendInput }: Out
     const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
     const isAtBottom = scrollHeight - scrollTop - clientHeight < 40;
     setAutoScroll(isAtBottom);
+    // Persist scroll position for current agent
+    if (agent?.id) {
+      scrollPositions.current.set(agent.id, scrollTop);
+    }
   };
 
   // Close export dropdown when clicking outside
@@ -221,10 +269,29 @@ export function OutputStream({ agent, liveOutput, activities, onSendInput }: Out
   const isRunning = agent.status === 'running';
   const isDone = agent.status === 'done';
   const showInput = isRunning || isDone;
-  const feedActivities = activities.filter(a => a.kind === 'tool_use' || a.kind === 'thinking' || a.kind === 'text');
+  const feedActivities = activities.filter(a => {
+    if (a.kind !== 'tool_use' && a.kind !== 'thinking' && a.kind !== 'text') return false;
+    if (filterTool && a.kind === 'tool_use' && a.tool !== filterTool) return false;
+    if (filterTool && a.kind !== 'tool_use') return false;
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      const inSummary = a.summary?.toLowerCase().includes(q);
+      const inContent = a.content?.toLowerCase().includes(q);
+      const inTool = a.tool?.toLowerCase().includes(q);
+      if (!inSummary && !inContent && !inTool) return false;
+    }
+    return true;
+  });
+
+  const toolCounts = activities.reduce<Record<string, number>>((acc, a) => {
+    if (a.kind === 'tool_use' && a.tool) {
+      acc[a.tool] = (acc[a.tool] || 0) + 1;
+    }
+    return acc;
+  }, {});
 
   return (
-    <div className="flex flex-col h-full font-mono">
+    <div className="flex flex-col h-full font-mono" role="log" aria-label={`Agent output: ${agent.name}`} aria-live="polite">
       {/* Terminal header */}
       <div className="flex items-center justify-between px-3 py-1.5 border-b border-stone-800/50 bg-[#0e0c0b]">
         <div className="flex items-center gap-2 text-xs">
@@ -303,6 +370,14 @@ export function OutputStream({ agent, liveOutput, activities, onSendInput }: Out
               </div>
             )}
           </div>
+          {/* Search toggle */}
+          <button
+            onClick={() => { setShowSearch(!showSearch); if (!showSearch) setTimeout(() => searchRef.current?.focus(), 50); }}
+            className={`p-1 rounded transition-colors ${showSearch ? 'text-blue-400' : 'text-stone-400 hover:text-stone-300'}`}
+            title="Search output (Ctrl+F)"
+          >
+            <Search size={12} />
+          </button>
           {isRunning && (
             <span className="flex items-center gap-1 text-[9px] text-red-400">
               <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
@@ -312,6 +387,53 @@ export function OutputStream({ agent, liveOutput, activities, onSendInput }: Out
           <span className="text-[9px] text-stone-500 tabular-nums">{agent.id.slice(0, 8)}</span>
         </div>
       </div>
+
+      {/* Search and filter bar */}
+      {showSearch && viewMode === 'activity' && (
+        <div className="flex items-center gap-2 px-3 py-1.5 border-b border-stone-800/50 bg-[#0d0b0a]">
+          <Search size={11} className="text-stone-500 shrink-0" />
+          <input
+            ref={searchRef}
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search output..."
+            className="flex-1 bg-transparent text-xs text-stone-300 placeholder-stone-500 focus:outline-none"
+          />
+          {searchQuery && (
+            <button onClick={() => setSearchQuery('')} className="text-stone-400 hover:text-stone-300">
+              <X size={11} />
+            </button>
+          )}
+          <div className="h-3 w-px bg-stone-700/50" />
+          <div className="flex items-center gap-1">
+            <Filter size={10} className="text-stone-500" />
+            {Object.entries(toolCounts).slice(0, 6).map(([tool, count]) => {
+              const meta = toolMeta(tool);
+              return (
+                <button
+                  key={tool}
+                  onClick={() => setFilterTool(filterTool === tool ? null : tool)}
+                  className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] transition-colors ${
+                    filterTool === tool
+                      ? `${meta.color} bg-stone-800/60 border border-stone-600/40`
+                      : 'text-stone-500 hover:text-stone-400'
+                  }`}
+                  title={`${tool} (${count})`}
+                >
+                  {meta.prefix}
+                  <span className="text-stone-500">{count}</span>
+                </button>
+              );
+            })}
+            {filterTool && (
+              <button onClick={() => setFilterTool(null)} className="text-[9px] text-stone-400 hover:text-stone-300 ml-1">
+                clear
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Content area */}
       <div
@@ -325,7 +447,7 @@ export function OutputStream({ agent, liveOutput, activities, onSendInput }: Out
           <div className="min-h-full py-1">
             {feedActivities.length > 0 ? (
               feedActivities.map((activity, i) => (
-                <ActivityItem key={activity.id} activity={activity} index={i} />
+                <ActivityItem key={activity.id} activity={activity} index={i} isExpanded={expandedIds.has(activity.id)} onToggleExpanded={toggleExpanded} />
               ))
             ) : isRunning ? (
               <div className="flex items-center gap-2 px-3 py-4 text-stone-400">

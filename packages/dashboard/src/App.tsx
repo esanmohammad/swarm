@@ -1,11 +1,15 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Wifi, WifiOff, Rocket, BarChart3, Clock, Home, UserPlus } from 'lucide-react';
+import { Wifi, WifiOff, Rocket, BarChart3, Clock, Home, UserPlus, Sun, Moon, Monitor } from 'lucide-react';
 import { useWebSocket } from './hooks/useWebSocket';
+import { useOnboarding } from './hooks/useOnboarding';
+import { usePersistedState } from './hooks/usePersistedState';
 import { LaunchView } from './views/LaunchView';
 import { PipelineView } from './views/PipelineView';
 import { ResultsView } from './views/ResultsView';
 import { HistoryView } from './views/HistoryView';
 import { SpawnDialog } from './components/SpawnDialog';
+import { WelcomeScreen } from './components/WelcomeScreen';
+import { useTheme } from './hooks/useTheme';
 type View = 'launch' | 'pipeline' | 'results' | 'history';
 
 function getInitialView(): View {
@@ -25,12 +29,14 @@ interface Toast {
 let toastId = 0;
 
 export default function App() {
-  const { state, connected, agentOutputs, agentActivities, violations, historyEntries, sendCommand } = useWebSocket();
-  const [view, setView] = useState<View>(getInitialView);
+  const { state, connected, agentOutputs, agentActivities, violations, historyEntries, artifactContent, sendCommand } = useWebSocket();
+  const { theme, cycleTheme } = useTheme();
+  const [view, setView] = usePersistedState<View>('swarm_view', getInitialView());
   const [showSpawn, setShowSpawn] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const prevMaydayStageRef = useRef<string | undefined>(undefined);
   const prevConnectedRef = useRef(connected);
+  const { currentStep, advanceStep, completeOnboarding } = useOnboarding();
 
   // Navigate and update hash
   const navigate = useCallback((v: View) => {
@@ -55,7 +61,21 @@ export default function App() {
     if (maydayComplete && view === 'pipeline') {
       navigate('results');
     }
-  }, [state, view, navigate]);
+
+    // Auto-advance onboarding steps based on pipeline state
+    if (currentStep === 'first-launch' && (hasRunning || maydayActive)) {
+      advanceStep('analyzing');
+    }
+    if (currentStep === 'analyzing' && state.stages.analyze?.status === 'done') {
+      advanceStep('stage-complete');
+    }
+    if (currentStep === 'stage-complete' && state.stages.build?.status === 'running') {
+      advanceStep('building');
+    }
+    if (currentStep === 'building' && maydayComplete) {
+      advanceStep('done');
+    }
+  }, [state, view, navigate, currentStep, advanceStep]);
 
   // Toast helper
   const addToast = useCallback((message: string, type: Toast['type'] = 'info') => {
@@ -126,60 +146,79 @@ export default function App() {
 
   return (
     <div className="h-screen flex flex-col bg-[#0c0a09] text-stone-300">
+      {/* Skip to content link (accessibility) */}
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:px-3 focus:py-1.5 focus:bg-blue-600 focus:text-white focus:rounded-md focus:text-xs">
+        Skip to content
+      </a>
+
       {/* Navigation bar */}
-      <header className="flex items-center justify-between px-4 py-2 border-b border-stone-800/50 bg-[#0e0c0b]">
-        <div className="flex items-center gap-4">
-          <h1 className="text-sm font-semibold tracking-wide text-stone-300">
+      <header className="flex items-center justify-between px-2 sm:px-4 py-2 border-b border-stone-800/50 bg-[#0e0c0b]">
+        <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+          <h1 className="text-sm font-semibold tracking-wide text-stone-300 shrink-0">
             swarm
-            {state && <span className="text-blue-400 ml-1 font-normal">/ {state.projectName}</span>}
+            {state && <span className="text-blue-400 ml-1 font-normal hidden sm:inline">/ {state.projectName}</span>}
           </h1>
 
-          <nav className="flex items-center gap-1 ml-2">
+          <nav className="flex items-center gap-0.5 sm:gap-1 ml-1 sm:ml-2 overflow-x-auto" role="tablist" aria-label="Main navigation">
             {NAV_ITEMS.map(({ key, label, icon: Icon }) => (
               <button
                 key={key}
                 onClick={() => navigate(key)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                role="tab"
+                aria-selected={view === key}
+                aria-controls={`panel-${key}`}
+                className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-md text-xs font-medium transition-colors shrink-0 min-h-[36px] ${
                   view === key
                     ? 'bg-stone-800/60 text-stone-200'
                     : 'text-stone-500 hover:text-stone-300 hover:bg-stone-800/30'
                 }`}
               >
                 <Icon size={13} />
-                {label}
+                <span className="hidden sm:inline">{label}</span>
               </button>
             ))}
           </nav>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
           {/* Spawn Agent button */}
           {connected && state && (
             <button
               onClick={() => setShowSpawn(true)}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-stone-400 hover:text-stone-200 hover:bg-stone-800/40 border border-stone-800/40 hover:border-stone-700/50 transition-colors"
-              title="Spawn individual agent"
+              className="flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-md text-xs font-medium text-stone-400 hover:text-stone-200 hover:bg-stone-800/40 border border-stone-800/40 hover:border-stone-700/50 transition-colors min-h-[36px]"
+              aria-label="Spawn individual agent (Cmd+K)"
+              title="Spawn individual agent (⌘K)"
             >
               <UserPlus size={13} />
-              Spawn Agent
+              <span className="hidden md:inline">Spawn Agent</span>
             </button>
           )}
 
           {/* Cost display */}
           {state && state.totalCost.totalUsd > 0 && (
-            <span className="text-xs text-amber-400 font-mono">
+            <span className="text-xs text-amber-400 font-mono" aria-label={`Total cost: $${state.totalCost.totalUsd.toFixed(2)}`}>
               ${state.totalCost.totalUsd.toFixed(2)}
             </span>
           )}
 
+          {/* Theme toggle */}
+          <button
+            onClick={cycleTheme}
+            className="p-1.5 rounded-md text-stone-400 hover:text-stone-200 hover:bg-stone-800/40 transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center"
+            aria-label={`Theme: ${theme}. Click to cycle.`}
+            title={`Theme: ${theme} (click to cycle)`}
+          >
+            {theme === 'dark' ? <Moon size={13} /> : theme === 'light' ? <Sun size={13} /> : <Monitor size={13} />}
+          </button>
+
           {/* Connection status */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5" role="status" aria-live="polite" aria-label={connected ? 'Connected to server' : 'Disconnected from server'}>
             {connected ? (
-              <Wifi size={12} className="text-green-500" />
+              <Wifi size={12} className="text-green-500" aria-hidden="true" />
             ) : (
-              <WifiOff size={12} className="text-red-500" />
+              <WifiOff size={12} className="text-red-500" aria-hidden="true" />
             )}
-            <span className={`text-[10px] font-medium ${connected ? 'text-green-500' : 'text-red-500'}`}>
+            <span className={`text-[10px] font-medium hidden sm:inline ${connected ? 'text-green-500' : 'text-red-500'}`}>
               {connected ? 'connected' : 'offline'}
             </span>
           </div>
@@ -194,6 +233,7 @@ export default function App() {
       )}
 
       {/* Main content */}
+      <main id="main-content" role="tabpanel" aria-label={`${view} view`} className="flex-1 flex flex-col overflow-hidden">
       {!state ? (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center text-stone-500">
@@ -217,6 +257,15 @@ export default function App() {
               agentOutputs={agentOutputs}
               agentActivities={agentActivities}
               violations={violations}
+              artifactContent={artifactContent}
+              onboardingStep={currentStep}
+              onDismissOnboarding={() => {
+                if (currentStep === 'done') {
+                  completeOnboarding();
+                } else {
+                  advanceStep(null);
+                }
+              }}
             />
           )}
           {view === 'results' && (
@@ -234,13 +283,15 @@ export default function App() {
           )}
         </>
       )}
+      </main>
 
       {/* Toast notifications */}
       {toasts.length > 0 && (
-        <div className="fixed bottom-4 right-4 space-y-2 z-50">
+        <div className="fixed bottom-4 right-4 space-y-2 z-50" aria-live="assertive">
           {toasts.map((toast) => (
             <div
               key={toast.id}
+              role="alert"
               className={`px-4 py-2 rounded-lg text-xs font-medium shadow-lg border transition-all animate-fade-in ${
                 toast.type === 'success' ? 'bg-green-950/80 text-green-300 border-green-800/50' :
                 toast.type === 'error' ? 'bg-red-950/80 text-red-300 border-red-800/50' :
@@ -259,6 +310,14 @@ export default function App() {
         <SpawnDialog
           onSpawn={sendCommand}
           onClose={() => setShowSpawn(false)}
+        />
+      )}
+
+      {/* Welcome screen for first-time users */}
+      {currentStep === 'welcome' && (
+        <WelcomeScreen
+          onGetStarted={() => advanceStep('first-launch')}
+          onSkip={completeOnboarding}
         />
       )}
     </div>

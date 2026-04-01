@@ -186,7 +186,8 @@ export type WsMessage =
   | { type: 'guardrail-alert'; payload: GuardrailViolation }
   | { type: 'cost-update'; payload: CostInfo }
   | { type: 'history-list'; payload: HistoryEntry[] }
-  | { type: 'approval-request'; payload: { stage: StageName; summary: string } };
+  | { type: 'approval-request'; payload: { stage: StageName; summary: string } }
+  | { type: 'artifact-content'; payload: { stage: StageName; artifact: string; content: string | null } };
 
 export type WsCommand =
   | { action: 'spawn'; name: string; persona: Persona; stack: TechStack; model?: string; prompt?: string; permissionMode?: PermissionMode }
@@ -199,7 +200,8 @@ export type WsCommand =
   | { action: 'mayday-stop' }
   | { action: 'mayday-approve'; stage: StageName }
   | { action: 'mayday-reject'; stage: StageName; reason?: string }
-  | { action: 'get-history' };
+  | { action: 'get-history' }
+  | { action: 'get-artifact'; stage: StageName };
 
 // Guardrail types
 export interface GuardrailRule {

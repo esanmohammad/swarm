@@ -121,10 +121,18 @@ export function registerDoctor(program: Command): void {
       const total = checks.length;
       const hasCriticalFailure = checks.some((c) => c.critical && c.status === 'fail');
 
-      console.log(chalk.bold(`\n${passed}/${total} checks passed\n`));
+      console.log(chalk.bold(`\n${passed}/${total} checks passed`));
 
       if (hasCriticalFailure) {
+        console.log('');
         process.exit(1);
       }
+
+      // Show next steps
+      console.log(chalk.dim('\nQuick start:'));
+      console.log(chalk.dim(`  ${chalk.bold('swarm "describe your feature"')}     Build something`));
+      console.log(chalk.dim(`  ${chalk.bold('swarm dashboard')}                   Open web UI`));
+      console.log(chalk.dim(`  ${chalk.bold('swarm status')}                      Check pipeline state`));
+      console.log('');
     });
 }

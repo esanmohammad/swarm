@@ -10,17 +10,25 @@ Swarm orchestrates multiple Claude Code agents through a 5-stage pipeline — an
   Analyze → Architect → Plan → Build → Test → Working Code
 ```
 
+<!-- TODO: Add demo GIF here once recorded -->
+<!-- ![Swarm Demo](assets/demo.gif) -->
+
 ## Quick Start
 
 ```bash
-# Install
+# 1. Install Claude Code CLI (if you don't have it)
+npm install -g @anthropic-ai/claude-code
+
+# 2. Install Swarm
 npm install -g swarm-pipeline
 
-# Build a feature (that's it)
+# 3. Build a feature (that's it)
 swarm "Add a login page with JWT authentication"
 ```
 
 Swarm auto-detects your tech stack, runs all 5 stages, fixes failing tests, and commits the result.
+
+> **First time?** Run `swarm doctor` to verify your environment is set up correctly.
 
 ## What Happens
 
@@ -34,6 +42,30 @@ Swarm auto-detects your tech stack, runs all 5 stages, fixes failing tests, and 
 
 Each stage uses a specialized AI persona with strict role boundaries — the analyst can't write code, the engineer can't redesign the architecture.
 
+## What Does It Cost?
+
+Swarm uses Claude API credits through the Claude Code CLI. Here's what to expect:
+
+| Run Type | Typical Cost | Notes |
+|----------|-------------|-------|
+| Single stage (analyze/architect/plan) | $0.50 – $2.00 | Quick, focused work |
+| Full pipeline (all 5 stages) | $3.00 – $8.00 | Depends on feature complexity |
+| Full pipeline + fix iterations | $5.00 – $15.00 | Auto-fixing test failures adds cost |
+
+**Cost controls:**
+- Default budget: **$5 per pipeline** (override with `--budget`)
+- Use cheaper models for early stages: `haiku` for analyst, `sonnet` for architect, `opus` for engineer
+- Run `swarm status` anytime to see current spend
+- If you hit the budget cap, the pipeline stops — no surprise charges
+
+```yaml
+# .swarm/config.yaml — per-stage model overrides to save money
+models:
+  analyst: haiku        # ~$0.25 per run
+  architect: sonnet     # ~$0.75 per run
+  engineer: opus        # ~$2.00 per run (where quality matters most)
+```
+
 ## Dashboard
 
 ```bash
@@ -45,6 +77,10 @@ Opens a web UI where you can:
 - **Watch progress** through each pipeline stage in real-time
 - **View results** — file diffs, test outcomes, cost breakdown
 - **Browse history** of past runs
+- **Spawn individual agents** with custom personas
+
+<!-- TODO: Add dashboard screenshot -->
+<!-- ![Dashboard](assets/dashboard.png) -->
 
 ## Commands
 
@@ -77,6 +113,21 @@ swarm mayday --approve             # Require approval between stages
 swarm mayday --figma <url>         # Include Figma designs
 ```
 
+### Advanced Commands
+
+These are available but hidden from `--help` by default. Run `swarm --help --all` to see them.
+
+```bash
+swarm agent spawn <name>           # Spawn a standalone agent
+swarm agent list                   # List all agents
+swarm agent kill <name>            # Stop an agent
+swarm evaluate                     # Run guardrail checks on artifacts
+swarm audit                        # View structured event log
+swarm recover                      # Restore from state backup
+swarm plugin list                  # Show installed plugins
+swarm telemetry [on|off|reset]     # Manage local usage stats
+```
+
 ## Configuration
 
 `swarm init` creates `.swarm/config.yaml`:
@@ -88,6 +139,51 @@ model: sonnet             # sonnet | opus | haiku
 maxBudgetUsd: 5           # Per-pipeline budget (null = no limit)
 ```
 
+<details>
+<summary>Full configuration reference</summary>
+
+```yaml
+projectName: my-project
+stack: react
+model: sonnet
+
+# Per-stage model overrides (save money on early stages)
+models:
+  analyst: haiku
+  architect: sonnet
+  lead: sonnet
+  engineer: opus
+  tester: sonnet
+
+maxBudgetUsd: 5
+promptsDir: bundled        # 'bundled' or path to custom prompts
+
+# Networking (auto-derived from project name to avoid collisions)
+wsPort: 3847
+dashboardPort: 3848
+
+# Permission modes for Claude CLI
+permissions:
+  permissionMode: default  # default | acceptEdits | bypassPermissions | plan | auto
+
+# E2E testing
+playwright:
+  baseUrl: http://localhost:3000
+  testDir: e2e
+
+# Webhooks (Slack, Discord, or generic HTTP)
+webhooks:
+  - url: https://hooks.slack.com/services/...
+    events: [stage-complete, pipeline-done]
+    format: slack
+
+# Custom plugins
+plugins:
+  - './plugins/custom.js'
+```
+
+</details>
+
 ## Defaults
 
 - **Model**: Sonnet (good balance of speed and quality)
@@ -97,8 +193,32 @@ maxBudgetUsd: 5           # Per-pipeline budget (null = no limit)
 
 ## Prerequisites
 
-- Node.js 18+
-- [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) installed and authenticated (`npm install -g @anthropic-ai/claude-code`)
+- **Node.js 18+** — [Download](https://nodejs.org/)
+- **Claude Code CLI** — installed and authenticated
+
+```bash
+# Install Claude Code CLI
+npm install -g @anthropic-ai/claude-code
+
+# Verify it's working (this will prompt for authentication if needed)
+claude --version
+```
+
+> **Don't have an Anthropic account?** Sign up at [console.anthropic.com](https://console.anthropic.com). You'll need API credits to use Swarm.
+
+## Troubleshooting
+
+| Problem | Fix |
+|---------|-----|
+| `command not found: swarm` | Run `npm install -g swarm-pipeline` again, or use `npx swarm-pipeline` |
+| `command not found: claude` | Run `npm install -g @anthropic-ai/claude-code` |
+| `No .swarm/ directory found` | Run `swarm init` in your project, or just run `swarm "feature"` (auto-inits) |
+| Pipeline stops mid-run | Check `swarm status` for cost/budget. Increase with `--budget` |
+| Dashboard won't open | Port may be in use. Check `swarm doctor` or change `dashboardPort` in `.swarm/config.yaml` |
+| `state.json` corrupted | Run `swarm recover` to restore from backup |
+| Agent seems stuck | Agents have a 30-minute inactivity timeout. Run `swarm agent kill <name>` to force stop |
+
+Run `swarm doctor` for a full environment health check — it verifies Node.js, Claude CLI, disk space, and project setup.
 
 ## Why Swarm vs. Claude Code Directly?
 
@@ -122,6 +242,8 @@ npm run build
 npm run dev              # CLI dev mode
 npm run dev:dashboard    # Dashboard dev mode with HMR
 ```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for details. Architecture docs are in [docs/](docs/).
 
 ## License
 

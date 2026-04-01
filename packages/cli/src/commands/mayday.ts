@@ -39,6 +39,7 @@ export function registerMayday(program: Command): void {
     .option('--from <stage>', 'Skip stages before this one (analyze, architect, plan, build, test)')
     .option('--approve', 'Require approval between pipeline stages')
     .option('--no-git', 'Skip git branch creation and auto-commits')
+    .option('--headless', 'Skip all interactive pauses (for CI/automation)')
     .action(async (featureRequest: string | undefined, opts) => {
       let swarmDir: string;
       try {
@@ -109,6 +110,7 @@ export function registerMayday(program: Command): void {
           maxFixBudgetUsd: fixBudget,
           fromStage: opts.from as StageName | undefined,
           approvalRequired: opts.approve ?? false,
+          headless: opts.headless ?? false,
         });
       } catch (err) {
         console.error(chalk.red(err instanceof Error ? err.message : String(err)));
