@@ -79,11 +79,11 @@
 
 ## Tier 2 — Competitive Parity
 
-- [ ] **P2-01 — PR Creation on Completion**
+- [x] **P2-01 — PR Creation on Completion**
   After successful MayDay or build stage, auto-create a GitHub PR using `gh pr create`. Include pipeline summary (stages, cost, agents, test results) in PR body.
   _Files: `pipeline.ts`, new `core/git.ts` helper_
 
-- [ ] **P2-02 — Diff Viewer in Dashboard**
+- [x] **P2-02 — Diff Viewer in Dashboard**
   Show files changed per agent with inline diff view. Parse agent activity for Edit/Write tool calls, extract file paths and changes. Add a "Changes" tab alongside activity/raw output.
   _Files: new component `DiffViewer.tsx`, `OutputStream.tsx`_
 
@@ -95,19 +95,19 @@
   Extension that: shows pipeline status in sidebar, allows running stages from command palette, displays agent output in VS Code panel, opens diffs in editor.
   _Files: new `packages/vscode/` package_
 
-- [ ] **P2-05 — MayDay Approval Gates**
+- [x] **P2-05 — MayDay Approval Gates**
   Add `--approve` flag to MayDay. Pauses after each stage and waits for user approval before proceeding. Dashboard shows approve/reject buttons. CLI prompts interactively.
   _Files: `pipeline.ts`, `types.ts` (MaydayState), `TopBar.tsx`, `ws-server.ts`_
 
-- [ ] **P2-06 — Custom Pipeline Definitions**
+- [x] **P2-06 — Custom Pipeline Definitions**
   Allow `.swarm/pipeline.yaml` to define custom stages, personas, and flow. Support conditional stages, parallel groups, and custom prompts per stage.
   _Files: new `core/pipeline-loader.ts`, `pipeline.ts`, `types.ts`_
 
-- [ ] **P2-07 — Pipeline History**
+- [x] **P2-07 — Pipeline History**
   Save completed pipeline runs to `.swarm/history/`. Each run gets a timestamped directory with artifacts, agent logs, and summary. Dashboard shows past runs list with cost/duration comparison.
   _Files: `pipeline.ts`, `state.ts`, new component `HistoryView.tsx`_
 
-- [ ] **P2-08 — Keyboard Shortcuts**
+- [x] **P2-08 — Keyboard Shortcuts**
   Add: `Cmd+N` spawn agent, `Up/Down` cycle agents, `Cmd+K` kill selected, `Cmd+Enter` run next stage, `Cmd+L` toggle log/raw view, `Esc` close dialogs.
   _Files: `App.tsx`, all dialog components_
 
@@ -171,6 +171,6 @@
 |------|-------|------|-----------|
 | Tier 0 — Safety | 6 | 6 | 0 |
 | Tier 1 — MVP | 10 | 10 | 0 |
-| Tier 2 — Competitive | 10 | 4 | 6 |
+| Tier 2 — Competitive | 10 | 10 | 0 |
 | Tier 3 — Growth | 10 | 0 | 10 |
-| **Total** | **36** | **20** | **16** |
+| **Total** | **36** | **26** | **10** |
