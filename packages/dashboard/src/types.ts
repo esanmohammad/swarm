@@ -46,6 +46,21 @@ export interface StageState {
   startedAt?: number;
 }
 
+// Custom pipeline definition types
+export interface PipelineStageDefinition {
+  name: string;
+  persona: Persona;
+  artifact?: string;
+  dependsOn?: string[];
+  parallel?: boolean;
+  condition?: string;
+  prompt?: string;
+}
+
+export interface PipelineDefinition {
+  stages: PipelineStageDefinition[];
+}
+
 // MayDay autonomous pipeline state
 export interface MaydayState {
   active: boolean;

@@ -8,6 +8,8 @@ import type { SwarmConfig, StageName, TechStack, PlaywrightConfig, MaydayState }
 import { STAGE_ARTIFACT_MAP } from '../types.js';
 import { parse as parseYaml } from 'yaml';
 import { isGhInstalled, createPR, buildPRBody, getCurrentBranch, hasUncommittedChanges } from './git.js';
+import { loadPipelineDefinition, getDefaultPipelineDefinition, stageNameForDefinition } from './pipeline-loader.js';
+import type { PipelineDefinition, PipelineStageDefinition } from './pipeline-loader.js';
 
 // Non-engineer personas: block dangerous tools (Bash, Edit, NotebookEdit)
 // They can only use Read, Glob, Grep, Write. Filename is enforced via prompt + system prompt.
@@ -789,6 +791,116 @@ export class Pipeline {
     await this.runTest({ stack, figmaUrl: opts?.figmaUrl });
   }
 
+  /**
+   * Run a custom pipeline defined by a PipelineDefinition.
+   * Iterates through stages respecting dependsOn and condition fields.
+   */
+  async runCustomPipeline(
+    definition: PipelineDefinition,
+    featureRequest: string,
+    opts: StageOpts & { parallel?: number } = {},
+  ): Promise<void> {
+    const stack = opts.stack ?? this.config.stack;
+    const stageOpts: StageOpts = {
+      stack,
+      interactive: opts.interactive ?? false,
+      figmaUrl: opts.figmaUrl,
+    };
+
+    const completed = new Set<string>();
+    const stageMap = new Map<string, PipelineStageDefinition>();
+    for (const s of definition.stages) {
+      stageMap.set(s.name, s);
+    }
+
+    console.log(chalk.cyan(`\n[pipeline] Running custom pipeline (${definition.stages.length} stages)\n`));
+
+    for (const stageDef of definition.stages) {
+      // Check if mayday was stopped (if running within mayday)
+      if (this.state.getMayday()?.active === false) {
+        console.log(chalk.yellow(`\n[pipeline] Stopped by user.`));
+        return;
+      }
+
+      // Check dependencies
+      if (stageDef.dependsOn) {
+        const unmet = stageDef.dependsOn.filter(dep => !completed.has(dep));
+        if (unmet.length > 0) {
+          console.log(chalk.yellow(`[pipeline] Skipping "${stageDef.name}": unmet dependencies: ${unmet.join(', ')}`));
+          const mappedStage = stageNameForDefinition(stageDef);
+          this.state.updateStage(mappedStage, { status: 'skipped' });
+          continue;
+        }
+      }
+
+      // Check condition
+      if (stageDef.condition) {
+        const skip = this.evaluateCondition(stageDef.condition);
+        if (skip) {
+          console.log(chalk.yellow(`[pipeline] Skipping "${stageDef.name}": condition not met (${stageDef.condition})`));
+          const mappedStage = stageNameForDefinition(stageDef);
+          this.state.updateStage(mappedStage, { status: 'skipped' });
+          completed.add(stageDef.name); // Treat as completed for dependency resolution
+          continue;
+        }
+      }
+
+      // Dispatch to the appropriate run method based on persona
+      const customPrompt = stageDef.prompt;
+      const stageOptsWithPrompt: StageOpts = { ...stageOpts, prompt: customPrompt ?? opts.prompt };
+
+      console.log(chalk.cyan(`[pipeline] ▸ ${stageDef.name} (${stageDef.persona})`));
+
+      try {
+        switch (stageDef.persona) {
+          case 'analyst':
+            await this.runAnalyze(featureRequest, stageOptsWithPrompt);
+            break;
+          case 'architect':
+            await this.runArchitect(stageOptsWithPrompt);
+            break;
+          case 'lead':
+            await this.runPlan(stageOptsWithPrompt);
+            break;
+          case 'engineer':
+            await this.runBuild({ stack, parallel: opts.parallel ?? 3 });
+            break;
+          case 'tester':
+            await this.runTest({ stack, figmaUrl: opts.figmaUrl });
+            break;
+        }
+
+        // Auto-commit after each stage
+        const mappedStage = stageNameForDefinition(stageDef);
+        if (stageDef.artifact) {
+          this.autoCommitStage(mappedStage, stageDef.artifact);
+        }
+
+        completed.add(stageDef.name);
+      } catch (err) {
+        const mappedStage = stageNameForDefinition(stageDef);
+        this.state.updateStage(mappedStage, { status: 'error' });
+        throw err;
+      }
+    }
+
+    console.log(chalk.green(`\n[pipeline] Custom pipeline complete (${completed.size}/${definition.stages.length} stages).`));
+  }
+
+  /**
+   * Evaluate a stage condition. Returns true if the stage should be SKIPPED.
+   */
+  private evaluateCondition(condition: string): boolean {
+    if (condition.startsWith('file-exists:')) {
+      const filename = condition.slice('file-exists:'.length).trim();
+      const filePath = join(process.cwd(), filename);
+      // Skip if file does NOT exist
+      return !existsSync(filePath);
+    }
+    // Unknown condition type — don't skip
+    return false;
+  }
+
   private printStageHeader(stage: string, stack: TechStack, interactive: boolean): void {
     if (interactive) {
       console.log(chalk.cyan(`\n[${stage}] Starting interactive session (${stack})...`));
@@ -1094,6 +1206,23 @@ export class Pipeline {
 
     // Create a feature branch for this mayday run
     this.createFeatureBranch(mayday.featureRequest);
+
+    // Check for custom pipeline definition
+    const swarmDir = join(process.cwd(), '.swarm');
+    const customDef = loadPipelineDefinition(swarmDir);
+
+    if (customDef) {
+      console.log(chalk.cyan(`[mayday] Using custom pipeline definition (${customDef.stages.length} stages)`));
+      await this.runCustomPipeline(customDef, mayday.featureRequest, {
+        stack,
+        interactive: false,
+        figmaUrl: mayday.figmaUrl,
+        parallel,
+      });
+      // After custom pipeline, enter fix loop
+      await this.maydayFixLoop(stack, parallel);
+      return;
+    }
 
     // Pipeline stages in order — resume from currentStage
     const stages: StageName[] = ['analyze', 'architect', 'plan', 'build', 'test'];

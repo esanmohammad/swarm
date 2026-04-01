@@ -200,6 +200,21 @@ export interface GuardrailViolation {
   severity: 'error' | 'warning';
 }
 
+// Custom pipeline definition types
+export interface PipelineStageDefinition {
+  name: string;
+  persona: Persona;
+  artifact?: string;
+  dependsOn?: string[];
+  parallel?: boolean;
+  condition?: string;
+  prompt?: string;
+}
+
+export interface PipelineDefinition {
+  stages: PipelineStageDefinition[];
+}
+
 // .swarm/config.yaml shape
 export interface PlaywrightConfig {
   baseUrl?: string;
@@ -222,6 +237,8 @@ export interface SwarmConfig {
     permissionMode?: string;
   };
   playwright?: PlaywrightConfig;
+  /** Path to custom pipeline YAML (relative to .swarm/ or absolute). Defaults to .swarm/pipeline.yaml */
+  customPipeline?: string;
 }
 
 export const DEFAULT_CONFIG: SwarmConfig = {
