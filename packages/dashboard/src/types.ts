@@ -179,7 +179,8 @@ export type WsMessage =
   | { type: 'history-list'; payload: HistoryEntry[] }
   | { type: 'approval-request'; payload: { stage: StageName; summary: string } }
   | { type: 'artifact-content'; payload: { stage: StageName; artifact: string; content: string | null } }
-  | { type: 'pipeline-list'; payload: { pipelines: PipelineInfo[]; active: string } };
+  | { type: 'pipeline-list'; payload: { pipelines: PipelineInfo[]; active: string } }
+  | { type: 'error'; payload: { message: string } };
 
 export type WsCommand =
   | { action: 'spawn'; name: string; persona: Persona; stack: TechStack; model?: string; prompt?: string; permissionMode?: PermissionMode }

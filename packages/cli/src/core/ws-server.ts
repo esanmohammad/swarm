@@ -157,8 +157,8 @@ export class SwarmWsServer {
           const errMsg = err instanceof Error ? err.message : String(err);
           console.error(`[ws] Command error: ${errMsg}`);
           ws.send(JSON.stringify({
-            type: 'agent-update',
-            payload: { error: errMsg, status: 'error' },
+            type: 'error' as const,
+            payload: { message: errMsg },
           }));
         }
       });
@@ -403,8 +403,8 @@ export class SwarmWsServer {
         const currentStageState = this.state.getState().stages[cmd.stage];
         if (currentStageState?.status === 'running') {
           _ws.send(JSON.stringify({
-            type: 'agent-update',
-            payload: { error: `Stage "${cmd.stage}" is already running`, status: 'error' },
+            type: 'error' as const,
+            payload: { message: `Stage "${cmd.stage}" is already running` },
           }));
           return;
         }
@@ -467,8 +467,8 @@ export class SwarmWsServer {
         // Idempotency guard: prevent concurrent MayDay runs
         if (!cmd.resume && this.state.getMayday()?.active) {
           _ws.send(JSON.stringify({
-            type: 'agent-update',
-            payload: { error: 'MayDay pipeline is already running. Use resume or stop it first.', status: 'error' },
+            type: 'error' as const,
+            payload: { message: 'MayDay pipeline is already running. Use resume or stop it first.' },
           }));
           return;
         }

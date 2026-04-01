@@ -80,6 +80,8 @@ export function useWebSocket(): UseWebSocketReturn {
             break;
 
           case 'agent-update':
+            // Ignore malformed agent-update messages (e.g. server error responses with no id)
+            if (!msg.payload?.id) break;
             setState((prev) => {
               if (!prev) return prev;
               const agents = prev.agents.map((a) =>
