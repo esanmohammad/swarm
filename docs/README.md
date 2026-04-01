@@ -17,6 +17,7 @@
 | 07 | [State Management](./07-state-management.md) | Persistence, debounced writes, cross-process sync, cost tracking, cleanup |
 | 08 | [Persona & Prompt System](./08-persona-and-prompt-system.md) | 5 personas, prompt resolution, system enforcement, tool restrictions, guardrails |
 | 09 | [Product Analysis — Pre-Launch Audit](./09-product-analysis.md) | UI/UX audit, market fit, technical reliability, real-world scenarios, 35-item action list |
+| 10 | [Testing, Resilience & Tier 3 Features](./10-testing-resilience-and-tier3.md) | Agent timeout, stage retry, structured test parsing, stack-aware frameworks, fix loop intelligence, multi-model, webhooks, audit trail, custom personas, GitHub Action, quality scoring, multi-pipeline |
 
 ---
 
@@ -38,6 +39,7 @@ swarm dashboard          # Launch web UI
 - **Understanding MayDay?** See [06 - MayDay Autonomous Pipeline](./06-mayday-autonomous-pipeline.md)
 - **Debugging state issues?** See [07 - State Management](./07-state-management.md)
 - **Modifying prompts?** See [08 - Persona & Prompt System](./08-persona-and-prompt-system.md)
+- **New features (testing, webhooks, quality, etc.)?** See [10 - Testing, Resilience & Tier 3](./10-testing-resilience-and-tier3.md)
 
 ## Architecture at a Glance
 
