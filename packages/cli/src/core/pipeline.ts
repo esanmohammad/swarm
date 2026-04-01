@@ -1453,10 +1453,20 @@ export class Pipeline {
 
     // Print summary
     const totalElapsed = Date.now() - pipelineStart;
-    const totalCost = this.state.getState().totalCost.totalUsd;
+    const pipelineState = this.state.getState();
+    const totalCost = pipelineState.totalCost.totalUsd;
     const elapsedMin = (totalElapsed / 60000).toFixed(1);
     console.log(chalk.bold(`\nPipeline complete`));
     console.log(chalk.dim(`  Total time: ${elapsedMin}m | Total cost: $${totalCost.toFixed(2)}`));
+
+    // Quality scores summary
+    const scores = pipelineState.qualityScores ?? [];
+    if (scores.length > 0) {
+      const avgScore = Math.round(scores.reduce((sum, s) => sum + s.overall, 0) / scores.length);
+      const color = avgScore >= 80 ? chalk.green : avgScore >= 50 ? chalk.yellow : chalk.red;
+      console.log(`  Quality: ${color(`${avgScore}/100`)}` + chalk.dim(` (${scores.map(s => `${s.artifact}: ${s.overall}`).join(', ')})`));
+    }
+
     console.log(chalk.dim(`  Run ${chalk.bold('swarm status')} to see details or ${chalk.bold('swarm dashboard')} to view in browser\n`));
   }
 

@@ -224,7 +224,7 @@ export class AgentProcess extends EventEmitter {
     this.stopWatchdog();
     this.watchdogTimer = setTimeout(() => {
       this._timedOut = true;
-      this.emit('error-output', `Agent timed out after ${Math.round(timeout / 60000)}m of inactivity`);
+      this.emit('error-output', `Agent timed out after ${Math.round(timeout / 60000)}m of inactivity. Use 'swarm mayday --resume' to continue, or increase timeout in .swarm/config.yaml.`);
       this.kill();
     }, timeout);
   }

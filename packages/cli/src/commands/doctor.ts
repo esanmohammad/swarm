@@ -10,6 +10,7 @@ interface CheckResult {
   status: 'pass' | 'fail' | 'warn' | 'info';
   message: string;
   critical: boolean;
+  fix?: string;
 }
 
 function checkNodeVersion(): CheckResult {
@@ -26,7 +27,7 @@ function checkClaudeInstalled(): CheckResult {
     const path = execSync('which claude', { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }).trim();
     return { name: 'claude CLI installed', status: 'pass', message: path, critical: true };
   } catch {
-    return { name: 'claude CLI installed', status: 'fail', message: 'claude CLI not found in PATH', critical: true };
+    return { name: 'claude CLI installed', status: 'fail', message: 'claude CLI not found in PATH', critical: true, fix: 'npm install -g @anthropic-ai/claude-code' };
   }
 }
 
@@ -35,7 +36,7 @@ function checkClaudeAuthenticated(): CheckResult {
     const output = execSync('claude --version', { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }).trim();
     return { name: 'claude CLI authenticated', status: 'pass', message: output, critical: true };
   } catch {
-    return { name: 'claude CLI authenticated', status: 'fail', message: 'claude --version failed — check authentication', critical: true };
+    return { name: 'claude CLI authenticated', status: 'fail', message: 'claude --version failed — check authentication', critical: true, fix: 'Run: claude (to re-authenticate)' };
   }
 }
 
@@ -111,6 +112,9 @@ export function registerDoctor(program: Command): void {
       for (const check of checks) {
         const icon = STATUS_ICONS[check.status];
         console.log(`  ${icon} ${check.name}: ${chalk.dim(check.message)}`);
+        if (check.fix && (check.status === 'fail' || check.status === 'warn')) {
+          console.log(`    ${chalk.cyan('→ ' + check.fix)}`);
+        }
       }
 
       const passed = checks.filter((c) => c.status === 'pass').length;

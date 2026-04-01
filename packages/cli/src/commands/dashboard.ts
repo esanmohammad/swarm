@@ -28,7 +28,17 @@ export function registerDashboard(program: Command): void {
       const wsToken = randomBytes(32).toString('hex');
 
       // Start WebSocket server with auth token
-      wsServer.start(config.wsPort, wsToken);
+      try {
+        wsServer.start(config.wsPort, wsToken);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.includes('EADDRINUSE') || msg.includes('address already in use')) {
+          console.error(chalk.red(`WebSocket port ${config.wsPort} is already in use.`));
+          console.error(chalk.dim(`Another swarm dashboard may be running. Kill it or change wsPort in .swarm/config.yaml`));
+          process.exit(1);
+        }
+        throw err;
+      }
       console.log(chalk.dim(`WebSocket server on ws://localhost:${config.wsPort}`));
 
       // Try to serve built dashboard
@@ -74,6 +84,16 @@ export function registerDashboard(program: Command): void {
             res.setHeader('Content-Type', 'text/html');
             res.end(injectedHtml);
           }
+        });
+
+        server.on('error', (err: NodeJS.ErrnoException) => {
+          if (err.code === 'EADDRINUSE') {
+            console.error(chalk.red(`Dashboard port ${config.dashboardPort} is already in use.`));
+            console.error(chalk.dim(`Another swarm dashboard may be running. Kill it or change dashboardPort in .swarm/config.yaml`));
+            cleanup();
+            process.exit(1);
+          }
+          throw err;
         });
 
         server.listen(config.dashboardPort, () => {

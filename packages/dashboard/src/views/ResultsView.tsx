@@ -32,6 +32,10 @@ export function ResultsView({ pipeline, agentActivities, onNavigate }: ResultsVi
   const allPassed = mayday?.lastTestPassed === true;
   const hasErrors = Object.values(stages).some((s) => s.status === 'error');
   const featureRequest = mayday?.featureRequest || '';
+  const qualityScores = pipeline.qualityScores ?? [];
+  const avgQuality = qualityScores.length > 0
+    ? Math.round(qualityScores.reduce((sum, s) => sum + s.overall, 0) / qualityScores.length)
+    : 0;
 
   // Collect all activities across all agents for diff viewer
   const allActivities = agents.flatMap((a) => agentActivities.get(a.id) || []);
@@ -134,7 +138,29 @@ export function ResultsView({ pipeline, agentActivities, onNavigate }: ResultsVi
               <span className="text-stone-300 font-mono ml-2">{mayday.fixIteration}</span>
             </div>
           )}
+          {qualityScores.length > 0 && (
+            <div>
+              <span className="text-stone-500">Quality</span>
+              <span className={`font-mono ml-2 ${avgQuality >= 80 ? 'text-green-400' : avgQuality >= 50 ? 'text-amber-400' : 'text-red-400'}`}>
+                {avgQuality}/100
+              </span>
+            </div>
+          )}
         </div>
+
+        {/* Quality score breakdown */}
+        {qualityScores.length > 0 && (
+          <div className="flex items-center gap-3 mt-3">
+            {qualityScores.map((qs) => (
+              <div key={qs.stage} className="flex items-center gap-1.5 text-[11px]">
+                <span className="text-stone-500">{qs.artifact}:</span>
+                <span className={`font-mono ${qs.overall >= 80 ? 'text-green-400/80' : qs.overall >= 50 ? 'text-amber-400/80' : 'text-red-400/80'}`}>
+                  {qs.overall}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Stage summary */}
         <div className="flex items-center gap-1 mt-4">

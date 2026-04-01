@@ -171,7 +171,7 @@ export class AgentManager extends EventEmitter {
       if (agentProcess.timedOut) {
         agent.status = 'error';
         agent.finishedAt = Date.now();
-        agent.error = agent.error || 'Agent killed due to inactivity timeout';
+        agent.error = agent.error || 'Agent killed due to inactivity timeout. Use swarm mayday --resume to continue.';
         this.state.updateAgent(agent);
         this.emit('agent-error', agent);
       } else if (code !== 0) {
