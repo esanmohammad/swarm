@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { ChevronDown, Plus, Trash2 } from 'lucide-react';
+import { ChevronDown, Plus, Trash2, GitBranch } from 'lucide-react';
 import type { PipelineInfo, WsCommand } from '../types';
 
 interface PipelineSelectorProps {
@@ -9,11 +9,18 @@ interface PipelineSelectorProps {
   sendCommand: (cmd: WsCommand) => void;
 }
 
-const STATUS_DOT: Record<PipelineInfo['status'], string> = {
+const STATUS_COLOR: Record<PipelineInfo['status'], string> = {
   running: 'bg-green-500',
   complete: 'bg-green-500',
   error: 'bg-red-500',
   idle: 'bg-stone-500',
+};
+
+const STATUS_RING: Record<PipelineInfo['status'], string> = {
+  running: 'ring-green-500/20',
+  complete: 'ring-green-500/20',
+  error: 'ring-red-500/20',
+  idle: 'ring-stone-500/20',
 };
 
 function formatCost(cost: { totalUsd: number }): string {
@@ -36,7 +43,6 @@ export function PipelineSelector({ pipelines, activePipeline, onSwitch, sendComm
   const ref = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Close on outside click
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
@@ -50,7 +56,6 @@ export function PipelineSelector({ pipelines, activePipeline, onSwitch, sendComm
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
 
-  // Close on Escape
   useEffect(() => {
     if (!open) return;
     const handler = (e: KeyboardEvent) => {
@@ -64,13 +69,15 @@ export function PipelineSelector({ pipelines, activePipeline, onSwitch, sendComm
     return () => document.removeEventListener('keydown', handler);
   }, [open]);
 
-  // Focus input when create form shows
   useEffect(() => {
     if (showCreate) inputRef.current?.focus();
   }, [showCreate]);
 
   const current = pipelines.find(p => p.namespace === activePipeline);
-  const displayName = current?.projectName || activePipeline;
+  const displayName = current
+    ? (current.namespace === 'default' ? current.projectName : current.namespace)
+    : activePipeline;
+  const currentStatus = current?.status ?? 'idle';
 
   const handleCreate = () => {
     const name = newName.trim().replace(/[^a-zA-Z0-9_-]/g, '-');
@@ -78,7 +85,6 @@ export function PipelineSelector({ pipelines, activePipeline, onSwitch, sendComm
     sendCommand({ action: 'create-pipeline', namespace: name });
     setNewName('');
     setShowCreate(false);
-    // Refresh pipeline list after short delay
     setTimeout(() => sendCommand({ action: 'list-pipelines' }), 500);
   };
 
@@ -89,31 +95,47 @@ export function PipelineSelector({ pipelines, activePipeline, onSwitch, sendComm
   };
 
   return (
-    <div className="relative hidden sm:block" ref={ref}>
+    <div className="relative" ref={ref}>
+      {/* Trigger — styled as a distinct bordered pill */}
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-1 text-sm text-blue-400 hover:text-blue-300 transition-colors"
+        className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+          open
+            ? 'bg-stone-800/80 border-stone-600/60 text-stone-200'
+            : 'bg-stone-800/40 border-stone-700/40 text-stone-400 hover:text-stone-200 hover:border-stone-600/50 hover:bg-stone-800/60'
+        }`}
         aria-expanded={open}
         aria-haspopup="listbox"
       >
-        <span className="font-normal">/ {displayName}</span>
-        <ChevronDown size={12} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+        <GitBranch size={13} className="shrink-0 text-stone-500" />
+        {/* Status dot */}
+        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ring-2 ${STATUS_COLOR[currentStatus]} ${STATUS_RING[currentStatus]}`} />
+        <span className="max-w-[140px] truncate">{displayName}</span>
+        {pipelines.length > 1 && (
+          <span className="text-[10px] text-stone-600 tabular-nums">{pipelines.length}</span>
+        )}
+        <ChevronDown size={11} className={`shrink-0 text-stone-500 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
 
+      {/* Dropdown */}
       {open && (
-        <div className="absolute top-full left-0 mt-1 w-80 bg-stone-900 border border-stone-700/50 rounded-lg shadow-xl z-50 overflow-hidden">
+        <div className="absolute top-full left-0 mt-1.5 w-80 bg-stone-900 border border-stone-700/50 rounded-lg shadow-2xl z-50 overflow-hidden">
+          {/* Header */}
+          <div className="px-3 py-2 border-b border-stone-800/50">
+            <span className="text-[10px] font-medium text-stone-500 uppercase tracking-wider">Pipelines</span>
+          </div>
+
           {/* Pipeline list */}
-          <div className="py-1">
+          <div className="py-0.5 max-h-64 overflow-y-auto">
             {pipelines.map((p) => (
               <div
                 key={p.namespace}
-                className={`flex items-center gap-2.5 px-3 py-2 text-xs transition-colors ${
+                className={`group flex items-center gap-2 px-3 py-2 text-xs transition-colors ${
                   p.namespace === activePipeline
-                    ? 'bg-stone-800/60 text-stone-200'
-                    : 'text-stone-400 hover:text-stone-200 hover:bg-stone-800/30'
+                    ? 'bg-blue-950/20 border-l-2 border-l-blue-500'
+                    : 'border-l-2 border-l-transparent hover:bg-stone-800/40'
                 }`}
               >
-                {/* Clickable area for switching */}
                 <button
                   onClick={() => {
                     onSwitch(p.namespace);
@@ -123,29 +145,24 @@ export function PipelineSelector({ pipelines, activePipeline, onSwitch, sendComm
                   role="option"
                   aria-selected={p.namespace === activePipeline}
                 >
-                  <span className={`w-2 h-2 rounded-full shrink-0 ${STATUS_DOT[p.status]}`} />
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${STATUS_COLOR[p.status]}`} />
                   <div className="flex-1 min-w-0">
-                    <div className="font-medium truncate">
-                      {p.projectName}
-                      {p.namespace !== 'default' && (
-                        <span className="text-stone-600 ml-1 font-normal">{p.namespace}</span>
-                      )}
+                    <div className={`font-medium truncate ${p.namespace === activePipeline ? 'text-stone-200' : 'text-stone-400'}`}>
+                      {p.namespace === 'default' ? p.projectName : p.namespace}
                       {p.namespace === 'default' && (
-                        <span className="text-stone-600 ml-1 font-normal">(default)</span>
+                        <span className="text-stone-600 ml-1.5 font-normal text-[10px]">default</span>
                       )}
                     </div>
-                    <div className="text-[10px] text-stone-500 mt-0.5">
-                      {p.currentStage} &middot; {formatCost(p.totalCost)} &middot; {formatTime(p.updatedAt)}
+                    <div className="text-[10px] text-stone-500 mt-0.5 flex items-center gap-1.5">
+                      <span>{p.currentStage}</span>
+                      <span className="text-stone-700">&middot;</span>
+                      <span>{formatCost(p.totalCost)}</span>
+                      <span className="text-stone-700">&middot;</span>
+                      <span>{formatTime(p.updatedAt)}</span>
                     </div>
-                    {p.worktreePath && (
-                      <div className="text-[9px] text-stone-600 truncate mt-0.5" title={p.worktreePath}>
-                        {p.worktreePath}
-                      </div>
-                    )}
                   </div>
                 </button>
 
-                {/* Delete button (non-default pipelines only) */}
                 {p.namespace !== 'default' && (
                   confirmDelete === p.namespace ? (
                     <div className="flex items-center gap-1 shrink-0">
@@ -153,13 +170,13 @@ export function PipelineSelector({ pipelines, activePipeline, onSwitch, sendComm
                         onClick={() => handleDelete(p.namespace)}
                         className="text-[10px] text-red-400 hover:text-red-300 px-1.5 py-0.5 rounded bg-red-950/50 border border-red-800/30"
                       >
-                        Delete
+                        Confirm
                       </button>
                       <button
                         onClick={() => setConfirmDelete(null)}
-                        className="text-[10px] text-stone-500 hover:text-stone-300 px-1 py-0.5"
+                        className="text-[10px] text-stone-500 hover:text-stone-300 px-1"
                       >
-                        Cancel
+                        No
                       </button>
                     </div>
                   ) : (
@@ -168,8 +185,8 @@ export function PipelineSelector({ pipelines, activePipeline, onSwitch, sendComm
                         e.stopPropagation();
                         setConfirmDelete(p.namespace);
                       }}
-                      className="text-stone-600 hover:text-red-400 transition-colors shrink-0 p-1"
-                      title={`Delete pipeline "${p.namespace}"`}
+                      className="opacity-0 group-hover:opacity-100 text-stone-600 hover:text-red-400 transition-all shrink-0 p-1 rounded hover:bg-stone-800/50"
+                      title={`Delete "${p.namespace}"`}
                     >
                       <Trash2 size={11} />
                     </button>
@@ -179,7 +196,7 @@ export function PipelineSelector({ pipelines, activePipeline, onSwitch, sendComm
             ))}
           </div>
 
-          {/* Divider + Create new pipeline */}
+          {/* Create */}
           <div className="border-t border-stone-700/50">
             {showCreate ? (
               <form
@@ -192,20 +209,20 @@ export function PipelineSelector({ pipelines, activePipeline, onSwitch, sendComm
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
                   placeholder="pipeline-name"
-                  className="flex-1 bg-stone-800 border border-stone-700/50 rounded px-2 py-1 text-xs text-stone-200 placeholder-stone-600 focus:outline-none focus:border-blue-500/50"
+                  className="flex-1 bg-stone-800 border border-stone-700/50 rounded-md px-2 py-1 text-xs text-stone-200 placeholder-stone-600 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20"
                   autoFocus
                 />
                 <button
                   type="submit"
                   disabled={!newName.trim()}
-                  className="text-xs text-blue-400 hover:text-blue-300 disabled:text-stone-600 px-2 py-1 rounded hover:bg-stone-800/50 transition-colors"
+                  className="text-xs text-blue-400 hover:text-blue-300 disabled:text-stone-600 disabled:cursor-not-allowed px-2.5 py-1 rounded-md bg-blue-500/10 hover:bg-blue-500/20 disabled:bg-transparent transition-colors"
                 >
                   Create
                 </button>
                 <button
                   type="button"
                   onClick={() => { setShowCreate(false); setNewName(''); }}
-                  className="text-xs text-stone-500 hover:text-stone-300 px-1 py-1"
+                  className="text-xs text-stone-500 hover:text-stone-300 px-1.5 py-1"
                 >
                   Cancel
                 </button>
@@ -213,7 +230,7 @@ export function PipelineSelector({ pipelines, activePipeline, onSwitch, sendComm
             ) : (
               <button
                 onClick={() => setShowCreate(true)}
-                className="w-full flex items-center gap-2 px-3 py-2 text-xs text-stone-500 hover:text-stone-300 hover:bg-stone-800/30 transition-colors"
+                className="w-full flex items-center gap-2 px-3 py-2.5 text-xs text-stone-500 hover:text-stone-300 hover:bg-stone-800/30 transition-colors"
               >
                 <Plus size={12} />
                 New pipeline

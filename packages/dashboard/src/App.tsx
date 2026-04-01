@@ -157,19 +157,18 @@ export default function App() {
       {/* Navigation bar */}
       <header className="flex items-center justify-between px-2 sm:px-4 py-2 border-b border-stone-800/50 bg-[#0e0c0b]">
         <div className="flex items-center gap-2 sm:gap-4 min-w-0">
-          <h1 className="text-sm font-semibold tracking-wide text-stone-300 shrink-0 flex items-center gap-0">
+          <h1 className="text-sm font-semibold tracking-wide text-stone-300 shrink-0">
             swarm
-            {state && (
-              <span className="ml-1">
-                <PipelineSelector
-                  pipelines={pipelines}
-                  activePipeline={activePipeline}
-                  onSwitch={switchPipeline}
-                  sendCommand={sendCommand}
-                />
-              </span>
-            )}
           </h1>
+
+          {state && (
+            <PipelineSelector
+              pipelines={pipelines}
+              activePipeline={activePipeline}
+              onSwitch={switchPipeline}
+              sendCommand={sendCommand}
+            />
+          )}
 
           <nav className="flex items-center gap-0.5 sm:gap-1 ml-1 sm:ml-2 overflow-x-auto" role="tablist" aria-label="Main navigation">
             {NAV_ITEMS.map(({ key, label, icon: Icon }) => (
