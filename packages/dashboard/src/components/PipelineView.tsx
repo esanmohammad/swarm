@@ -1,5 +1,5 @@
-import { ArrowRight, CheckCircle, Circle, Loader2, XCircle, SkipForward } from 'lucide-react';
-import type { PipelineState, StageName } from '../types';
+import { ArrowRight, CheckCircle, Circle, Loader2, XCircle, SkipForward, RotateCcw } from 'lucide-react';
+import type { PipelineState, StageName, WsCommand } from '../types';
 
 const STAGES: { key: StageName; label: string }[] = [
   { key: 'analyze', label: 'Analyze' },
@@ -17,7 +17,7 @@ const STATUS_CONFIG = {
   skipped: { icon: SkipForward, color: 'text-gray-600', bg: 'bg-gray-900', ring: '' },
 };
 
-export function PipelineView({ pipeline }: { pipeline: PipelineState }) {
+export function PipelineView({ pipeline, sendCommand }: { pipeline: PipelineState; sendCommand?: (cmd: WsCommand) => void }) {
   return (
     <div className="flex items-center gap-2 p-4">
       {STAGES.map((stage, i) => {
@@ -41,6 +41,19 @@ export function PipelineView({ pipeline }: { pipeline: PipelineState }) {
                 <span className="text-xs bg-gray-700 px-1.5 py-0.5 rounded-full text-gray-300">
                   {s.agentIds.length}
                 </span>
+              )}
+              {s.status === 'error' && s.sessionId && sendCommand && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    sendCommand({ action: 'run-mayday', prompt: '', resume: true });
+                  }}
+                  className="flex items-center gap-1 text-xs text-amber-400 hover:text-amber-300 ml-1"
+                  title="Resume interrupted stage"
+                >
+                  <RotateCcw size={12} />
+                  Resume
+                </button>
               )}
             </div>
             {i < STAGES.length - 1 && (

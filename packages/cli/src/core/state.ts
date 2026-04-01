@@ -1,6 +1,7 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync, unlinkSync, readdirSync, copyFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync, unlinkSync, readdirSync, copyFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { execSync } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import type { PipelineState, Agent, StageName, StageState, MaydayState, HistoryEntry } from '../types.js';
 import { createEmptyPipeline, emptyCost, addCosts } from '../types.js';
@@ -53,6 +54,116 @@ export class StateManager extends EventEmitter {
       if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
     }
     this.state = this.loadStateWithRecovery();
+  }
+
+  /**
+   * Get the working directory for the current pipeline.
+   * Non-default pipelines use a git worktree for isolation.
+   * Falls back to the project root if no worktree is set.
+   */
+  getProjectCwd(): string {
+    // If the pipeline has a worktree, use it
+    if (this.state.worktreePath && existsSync(this.state.worktreePath)) {
+      return this.state.worktreePath;
+    }
+    // Default pipeline or no worktree → use project root (parent of .swarm/)
+    return join(this.swarmDir, '..');
+  }
+
+  /**
+   * Create a git worktree for a non-default pipeline.
+   * Worktrees are stored in .swarm/worktrees/{namespace}/.
+   * Each gets its own branch: pipeline/{namespace}.
+   */
+  ensureWorktree(namespace: string): string | null {
+    if (namespace === 'default') return null;
+
+    const worktreesDir = join(this.swarmDir, 'worktrees');
+    const worktreePath = join(worktreesDir, namespace);
+
+    // Already exists and is valid
+    if (this.state.worktreePath && existsSync(this.state.worktreePath)) {
+      return this.state.worktreePath;
+    }
+
+    // Already exists on disk (e.g. from a previous run)
+    if (existsSync(worktreePath)) {
+      this.state.worktreePath = worktreePath;
+      this.scheduleSave();
+      return worktreePath;
+    }
+
+    // Create worktree
+    try {
+      if (!existsSync(worktreesDir)) {
+        mkdirSync(worktreesDir, { recursive: true });
+      }
+
+      const projectRoot = join(this.swarmDir, '..');
+      const branchName = `pipeline/${namespace}`;
+
+      // Try creating with new branch
+      try {
+        execSync(`git worktree add "${worktreePath}" -b "${branchName}"`, {
+          stdio: 'pipe',
+          cwd: projectRoot,
+        });
+      } catch {
+        // Branch might already exist — try without -b
+        try {
+          execSync(`git worktree add "${worktreePath}" "${branchName}"`, {
+            stdio: 'pipe',
+            cwd: projectRoot,
+          });
+        } catch {
+          // If that also fails, create from HEAD
+          execSync(`git worktree add "${worktreePath}"`, {
+            stdio: 'pipe',
+            cwd: projectRoot,
+          });
+        }
+      }
+
+      console.log(`[state] Created worktree for pipeline "${namespace}" at ${worktreePath}`);
+      this.state.worktreePath = worktreePath;
+      this.scheduleSave();
+      return worktreePath;
+    } catch (err) {
+      console.error(`[state] Could not create worktree for "${namespace}": ${err instanceof Error ? err.message : err}`);
+      return null;
+    }
+  }
+
+  /**
+   * Remove a git worktree for a pipeline.
+   */
+  removeWorktree(namespace: string): void {
+    if (namespace === 'default') return;
+
+    const worktreePath = this.state.worktreePath;
+    if (!worktreePath) return;
+
+    try {
+      const projectRoot = join(this.swarmDir, '..');
+      execSync(`git worktree remove "${worktreePath}" --force`, {
+        stdio: 'pipe',
+        cwd: projectRoot,
+      });
+      console.log(`[state] Removed worktree for pipeline "${namespace}"`);
+    } catch {
+      // Fallback: remove directory manually
+      try {
+        rmSync(worktreePath, { recursive: true, force: true });
+        // Prune stale worktree entries
+        const projectRoot = join(this.swarmDir, '..');
+        execSync('git worktree prune', { stdio: 'pipe', cwd: projectRoot });
+      } catch {
+        console.error(`[state] Could not remove worktree at ${worktreePath}`);
+      }
+    }
+
+    this.state.worktreePath = undefined;
+    this.scheduleSave();
   }
 
   /** Try loading state.json, fall back to state.json.bak, then empty state */
@@ -154,8 +265,12 @@ export class StateManager extends EventEmitter {
   }
 
   /**
-   * Remove completed/error/killed agents and reset any "running" agents
-   * to "error" (they can't still be running if the process restarted).
+   * Clean up stale agents while preserving completed stage state.
+   * - Running/pending agents → mark as error (orphaned)
+   * - Remove error/killed agents (keep done agents for session history)
+   * - Done stages → preserve (keep sessionId, artifact, contextSummary)
+   * - Running stages → set to error (interrupted, but keep sessionId for resume)
+   * - Pending/skipped stages → keep as-is
    * Called on dashboard startup to clean stale state.
    */
   cleanupStaleAgents(): void {
@@ -168,18 +283,42 @@ export class StateManager extends EventEmitter {
       }
     }
 
-    // Remove all finished agents (done, error, killed)
-    this.state.agents = [];
+    // Remove only error/killed agents — keep done agents for session history
+    this.state.agents = this.state.agents.filter(a => a.status === 'done');
 
-    // Reset all stages to pending since we're starting fresh
-    for (const stage of Object.values(this.state.stages)) {
-      stage.status = 'pending';
-      stage.agentIds = [];
+    // Preserve completed stages, mark running stages as error
+    for (const [, stage] of Object.entries(this.state.stages)) {
+      if (stage.status === 'running') {
+        // Interrupted — mark as error but keep sessionId for potential resume
+        stage.status = 'error';
+      }
+      // done, pending, skipped, error — keep as-is
     }
 
     this.recalcTotalCost();
     this.state.updatedAt = Date.now();
     this.save();
+  }
+
+  /**
+   * Get resume context for feeding into fresh-start prompts.
+   * Returns context summaries from all completed prior stages.
+   */
+  getResumeContext(upToStage: StageName): string {
+    const stageOrder: StageName[] = ['analyze', 'architect', 'plan', 'build', 'test', 'evaluate'];
+    const targetIdx = stageOrder.indexOf(upToStage);
+    const summaries: string[] = [];
+
+    for (let i = 0; i < targetIdx; i++) {
+      const stage = this.state.stages[stageOrder[i]];
+      if (stage.status === 'done' && stage.contextSummary) {
+        summaries.push(`[${stageOrder[i]}] ${stage.contextSummary}`);
+      }
+    }
+
+    return summaries.length > 0
+      ? `Context from prior stages:\n${summaries.join('\n')}\n`
+      : '';
   }
 
   addAgent(agent: Agent): void {
@@ -361,6 +500,13 @@ export class StateManager extends EventEmitter {
     const dir = this.swarmDir;
     if (!existsSync(dir)) {
       mkdirSync(dir, { recursive: true });
+    }
+    // Ensure pipelines subdirectory exists for non-default namespaces
+    if (this.namespace !== 'default') {
+      const pipelinesDir = join(this.swarmDir, 'pipelines');
+      if (!existsSync(pipelinesDir)) {
+        mkdirSync(pipelinesDir, { recursive: true });
+      }
     }
     const tmpPath = this.filePath + '.tmp';
     const backupPath = this.filePath + '.bak';

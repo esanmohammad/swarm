@@ -233,7 +233,7 @@ export class AgentManager extends EventEmitter {
    * This spawns a new `claude -p "<text>" --resume <session-id>` process,
    * allowing the user to answer questions or provide input the agent requested.
    */
-  async sendInput(agentId: string, text: string): Promise<void> {
+  async sendInput(agentId: string, text: string, cwd?: string): Promise<void> {
     const entry = this.agents.get(agentId);
     if (!entry) throw new Error(`Agent ${agentId} not found`);
 
@@ -259,7 +259,7 @@ export class AgentManager extends EventEmitter {
       allowedTools: agent.allowedTools,
       disallowedTools: agent.disallowedTools,
       appendSystemPrompt: agent.appendSystemPrompt,
-      cwd: process.cwd(),
+      cwd: cwd ?? process.cwd(),
       resume: true,
     });
 
@@ -327,6 +327,137 @@ export class AgentManager extends EventEmitter {
     // Replace the old process reference
     this.agents.set(agentId, { agent, process: resumeProcess });
     resumeProcess.start();
+  }
+
+  /**
+   * Resume an interrupted session by creating a new agent record that uses --resume.
+   * Returns the new agent, or null if the session is expired/invalid.
+   */
+  async resumeSession(opts: {
+    sessionId: string;
+    name: string;
+    persona: Persona;
+    stack: TechStack;
+    prompt: string;
+    model?: string;
+    cwd: string;
+    permissionMode?: import('../types.js').PermissionMode;
+    allowedTools?: string[];
+    disallowedTools?: string[];
+    appendSystemPrompt?: string;
+    timeoutMs?: number;
+  }): Promise<Agent | null> {
+    const permissionMode = opts.permissionMode || this.config.permissions.permissionMode || 'default';
+    const agent: Agent = {
+      id: uuid(),
+      name: opts.name,
+      persona: opts.persona,
+      stack: opts.stack,
+      status: 'pending',
+      pid: null,
+      sessionId: opts.sessionId,
+      model: opts.model || this.config.model,
+      permissionMode: permissionMode as import('../types.js').PermissionMode,
+      startedAt: null,
+      finishedAt: null,
+      cost: emptyCost(),
+      output: '',
+      error: null,
+      parentId: null,
+      childIds: [],
+      allowedTools: opts.allowedTools,
+      disallowedTools: opts.disallowedTools,
+      appendSystemPrompt: opts.appendSystemPrompt,
+    };
+
+    const resumeProcess = new AgentProcess({
+      prompt: opts.prompt,
+      model: agent.model,
+      sessionId: opts.sessionId,
+      permissionMode,
+      allowedTools: opts.allowedTools ?? this.config.permissions.allowedTools,
+      disallowedTools: opts.disallowedTools ?? this.config.permissions.disallowedTools,
+      appendSystemPrompt: opts.appendSystemPrompt,
+      cwd: opts.cwd,
+      resume: true,
+      timeoutMs: opts.timeoutMs,
+    });
+
+    // Wire events
+    resumeProcess.on('content', (chunk) => {
+      this.appendOutput(agent, chunk);
+      this.emit('agent-output', { agentId: agent.id, chunk });
+      this.appendLog(agent.id, { type: 'output', timestamp: Date.now(), chunk });
+    });
+
+    resumeProcess.on('activity', (activity) => {
+      const full: AgentActivity = { ...activity, agentId: agent.id };
+      this.emit('agent-activity', full);
+      this.appendLog(agent.id, { type: 'activity', timestamp: Date.now(), activity: full });
+    });
+
+    this.wireSubAgentEvents(resumeProcess, agent);
+
+    return new Promise<Agent | null>((resolve) => {
+      let resolved = false;
+
+      resumeProcess.on('result', ({ result, cost, sessionId: sid }) => {
+        agent.status = 'done';
+        agent.cost = cost;
+        agent.sessionId = sid;
+        agent.finishedAt = Date.now();
+        agent.output = result || agent.output;
+        this.costTracker.record(agent.id, cost);
+        this.state.updateAgent(agent);
+        this.emit('agent-done', agent);
+        if (!resolved) { resolved = true; resolve(agent); }
+      });
+
+      resumeProcess.on('error-output', (text) => {
+        if (!agent.error) agent.error = '';
+        agent.error += text;
+      });
+
+      resumeProcess.on('exit', (code) => {
+        if (agent.status === 'done') return;
+        if (code !== 0) {
+          agent.status = 'error';
+          agent.finishedAt = Date.now();
+          if (!agent.error) agent.error = `Resume process exited with code ${code}`;
+          this.state.updateAgent(agent);
+          this.emit('agent-error', agent);
+          // Session expired or invalid — return null
+          if (!resolved) { resolved = true; resolve(null); }
+        } else {
+          setTimeout(() => {
+            if (agent.status === 'running') {
+              agent.status = 'done';
+              agent.finishedAt = Date.now();
+              this.state.updateAgent(agent);
+              this.emit('agent-done', agent);
+            }
+            if (!resolved) { resolved = true; resolve(agent); }
+          }, 100);
+        }
+      });
+
+      // Start
+      resumeProcess.start();
+      agent.status = 'running';
+      agent.pid = resumeProcess.pid ?? null;
+      agent.startedAt = Date.now();
+
+      this.agents.set(agent.id, { agent, process: resumeProcess });
+      this.state.addAgent(agent);
+
+      const stage = PERSONA_STAGE_MAP[opts.persona];
+      this.state.updateStage(stage, {
+        status: 'running',
+        agentIds: [...(this.state.getState().stages[stage].agentIds), agent.id],
+      });
+
+      this.emit('agent-spawned', agent);
+    });
   }
 
   killAll(): void {

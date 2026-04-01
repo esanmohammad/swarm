@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import type { PipelineState, WsMessage, WsCommand, GuardrailViolation, AgentActivity, HistoryEntry, StageName } from '../types';
+import type { PipelineState, PipelineInfo, WsMessage, WsCommand, GuardrailViolation, AgentActivity, HistoryEntry, StageName } from '../types';
 
 // WS port is injected by the dashboard HTTP server into window.__SWARM_WS_PORT__
 // Falls back to deriving from dashboard port (wsPort = dashboardPort - 1) or default 3847
@@ -21,7 +21,11 @@ interface UseWebSocketReturn {
   violations: GuardrailViolation[];
   historyEntries: HistoryEntry[];
   artifactContent: Map<StageName, string>;
+  pipelines: PipelineInfo[];
+  activePipeline: string;
   sendCommand: (cmd: WsCommand) => void;
+  switchPipeline: (namespace: string) => void;
+  listPipelines: () => void;
 }
 
 export function useWebSocket(): UseWebSocketReturn {
@@ -29,6 +33,8 @@ export function useWebSocket(): UseWebSocketReturn {
   const [connected, setConnected] = useState(false);
   const [violations, setViolations] = useState<GuardrailViolation[]>([]);
   const [historyEntries, setHistoryEntries] = useState<HistoryEntry[]>([]);
+  const [pipelines, setPipelines] = useState<PipelineInfo[]>([]);
+  const [activePipeline, setActivePipeline] = useState('default');
   const agentOutputsRef = useRef(new Map<string, string>());
   const agentActivitiesRef = useRef(new Map<string, AgentActivity[]>());
   const artifactContentRef = useRef(new Map<StageName, string>());
@@ -43,6 +49,8 @@ export function useWebSocket(): UseWebSocketReturn {
     ws.onopen = () => {
       setConnected(true);
       reconnectDelay.current = RECONNECT_DELAY;
+      // Request pipeline list after connecting
+      ws.send(JSON.stringify({ action: 'list-pipelines' }));
     };
 
     ws.onclose = () => {
@@ -139,6 +147,11 @@ export function useWebSocket(): UseWebSocketReturn {
               forceUpdate((n) => n + 1);
             }
             break;
+
+          case 'pipeline-list':
+            setPipelines(msg.payload.pipelines);
+            setActivePipeline(msg.payload.active);
+            break;
         }
       } catch {
         // ignore malformed messages
@@ -159,6 +172,14 @@ export function useWebSocket(): UseWebSocketReturn {
     }
   }, []);
 
+  const switchPipeline = useCallback((namespace: string) => {
+    sendCommand({ action: 'switch-pipeline', namespace });
+  }, [sendCommand]);
+
+  const listPipelines = useCallback(() => {
+    sendCommand({ action: 'list-pipelines' });
+  }, [sendCommand]);
+
   return {
     state,
     connected,
@@ -167,6 +188,10 @@ export function useWebSocket(): UseWebSocketReturn {
     violations,
     historyEntries,
     artifactContent: artifactContentRef.current,
+    pipelines,
+    activePipeline,
     sendCommand,
+    switchPipeline,
+    listPipelines,
   };
 }

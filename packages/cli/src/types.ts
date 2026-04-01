@@ -70,6 +70,12 @@ export interface StageState {
   agentIds: string[];
   artifact: string | null;
   startedAt?: number;
+  /** Claude session ID for --resume (persists across restarts) */
+  sessionId?: string;
+  /** Short summary of stage output (~500 chars) for context feeding */
+  contextSummary?: string;
+  /** When stage completed */
+  finishedAt?: number;
 }
 
 // Fix history entry for intelligent fix loop
@@ -127,6 +133,8 @@ export interface PipelineState {
   qualityScores?: QualityScoreInfo[];
   updatedAt: number;
   mayday?: MaydayState;
+  /** Absolute path to git worktree for this pipeline (non-default pipelines only) */
+  worktreePath?: string;
 }
 
 export interface HistoryEntry {
@@ -187,7 +195,18 @@ export type WsMessage =
   | { type: 'cost-update'; payload: CostInfo }
   | { type: 'history-list'; payload: HistoryEntry[] }
   | { type: 'approval-request'; payload: { stage: StageName; summary: string } }
-  | { type: 'artifact-content'; payload: { stage: StageName; artifact: string; content: string | null } };
+  | { type: 'artifact-content'; payload: { stage: StageName; artifact: string; content: string | null } }
+  | { type: 'pipeline-list'; payload: { pipelines: PipelineInfo[]; active: string } };
+
+export interface PipelineInfo {
+  namespace: string;
+  projectName: string;
+  currentStage: string;
+  status: 'running' | 'complete' | 'error' | 'idle';
+  updatedAt: number;
+  totalCost: CostInfo;
+  worktreePath?: string;
+}
 
 export type WsCommand =
   | { action: 'spawn'; name: string; persona: Persona; stack: TechStack; model?: string; prompt?: string; permissionMode?: PermissionMode }
@@ -201,7 +220,11 @@ export type WsCommand =
   | { action: 'mayday-approve'; stage: StageName }
   | { action: 'mayday-reject'; stage: StageName; reason?: string }
   | { action: 'get-history' }
-  | { action: 'get-artifact'; stage: StageName };
+  | { action: 'get-artifact'; stage: StageName }
+  | { action: 'list-pipelines' }
+  | { action: 'switch-pipeline'; namespace: string }
+  | { action: 'delete-pipeline'; namespace: string }
+  | { action: 'create-pipeline'; namespace: string };
 
 // Guardrail types
 export interface GuardrailRule {

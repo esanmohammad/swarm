@@ -186,6 +186,14 @@ export class Pipeline {
   }
 
   /**
+   * Get the working directory for the current pipeline.
+   * Uses worktree path if available, otherwise falls back to this.projectCwd.
+   */
+  get projectCwd(): string {
+    return this.state.getProjectCwd();
+  }
+
+  /**
    * Wraps agentManager.waitForAgent to surface a clear budget error
    * when agents are killed due to budget enforcement.
    */
@@ -222,12 +230,12 @@ export class Pipeline {
     const slug = this.slugify(featureRequest);
     const branch = `swarm/${slug}`;
     try {
-      execSync(`git checkout -b ${branch}`, { stdio: 'pipe', cwd: process.cwd() });
+      execSync(`git checkout -b ${branch}`, { stdio: 'pipe', cwd: this.projectCwd });
       console.log(chalk.dim(`[git] Created branch: ${branch}`));
     } catch {
       // Branch may already exist — try checking it out
       try {
-        execSync(`git checkout ${branch}`, { stdio: 'pipe', cwd: process.cwd() });
+        execSync(`git checkout ${branch}`, { stdio: 'pipe', cwd: this.projectCwd });
         console.log(chalk.dim(`[git] Switched to existing branch: ${branch}`));
       } catch {
         console.log(chalk.dim(`[git] Could not create/switch branch: ${branch} — continuing on current branch`));
@@ -247,8 +255,8 @@ export class Pipeline {
     };
     const msg = messages[stage] ?? `Completed ${stage}`;
     try {
-      execSync('git add -A', { stdio: 'pipe', cwd: process.cwd() });
-      execSync(`git commit -m "[swarm:${stage}] ${msg}"`, { stdio: 'pipe', cwd: process.cwd() });
+      execSync('git add -A', { stdio: 'pipe', cwd: this.projectCwd });
+      execSync(`git commit -m "[swarm:${stage}] ${msg}"`, { stdio: 'pipe', cwd: this.projectCwd });
       console.log(chalk.dim(`[git] Committed: [swarm:${stage}] ${msg}`));
     } catch {
       // Nothing to commit is OK
@@ -277,8 +285,8 @@ export class Pipeline {
       // Auto-commit any remaining uncommitted changes
       if (hasUncommittedChanges()) {
         try {
-          execSync('git add -A', { stdio: 'pipe', cwd: process.cwd() });
-          execSync('git commit -m "[swarm] Final changes before PR"', { stdio: 'pipe', cwd: process.cwd() });
+          execSync('git add -A', { stdio: 'pipe', cwd: this.projectCwd });
+          execSync('git commit -m "[swarm] Final changes before PR"', { stdio: 'pipe', cwd: this.projectCwd });
           console.log(chalk.dim('[git] Committed remaining changes'));
         } catch {
           // Nothing to commit or commit failed — continue anyway
@@ -287,7 +295,7 @@ export class Pipeline {
 
       // Push the branch
       try {
-        execSync(`git push -u origin ${branch}`, { stdio: 'pipe', cwd: process.cwd() });
+        execSync(`git push -u origin ${branch}`, { stdio: 'pipe', cwd: this.projectCwd });
         console.log(chalk.dim(`[git] Pushed branch: ${branch}`));
       } catch {
         console.log(chalk.yellow('[pr] Could not push branch — skipping PR creation'));
@@ -372,7 +380,7 @@ export class Pipeline {
       stack: s,
       prompt,
       model: this.modelFor('analyst'),
-      cwd: process.cwd(),
+      cwd: this.projectCwd,
       interactive,
       permissionMode: headlessPermission(interactive),
       disallowedTools: figmaUrl ? undefined : NON_ENGINEER_DISALLOWED_TOOLS,
@@ -391,7 +399,7 @@ export class Pipeline {
 
     const s = opts?.stack ?? this.config.stack;
     const interactive = opts?.interactive ?? true;
-    const reqPath = join(process.cwd(), 'REQUIREMENTS.md');
+    const reqPath = join(this.projectCwd, 'REQUIREMENTS.md');
 
     if (!existsSync(reqPath)) {
       throw new Error('REQUIREMENTS.md not found. Run `swarm analyze` first.');
@@ -431,7 +439,7 @@ export class Pipeline {
       stack: s,
       prompt,
       model: this.modelFor('architect'),
-      cwd: process.cwd(),
+      cwd: this.projectCwd,
       interactive,
       permissionMode: headlessPermission(interactive),
       disallowedTools: NON_ENGINEER_DISALLOWED_TOOLS,
@@ -450,7 +458,7 @@ export class Pipeline {
 
     const s = opts?.stack ?? this.config.stack;
     const interactive = opts?.interactive ?? true;
-    const specPath = join(process.cwd(), 'SPEC.md');
+    const specPath = join(this.projectCwd, 'SPEC.md');
 
     if (!existsSync(specPath)) {
       throw new Error('SPEC.md not found. Run `swarm architect` first.');
@@ -492,7 +500,7 @@ export class Pipeline {
       stack: s,
       prompt,
       model: this.modelFor('lead'),
-      cwd: process.cwd(),
+      cwd: this.projectCwd,
       interactive,
       permissionMode: headlessPermission(interactive),
       disallowedTools: NON_ENGINEER_DISALLOWED_TOOLS,
@@ -510,7 +518,7 @@ export class Pipeline {
     }
 
     const s = opts.stack ?? this.config.stack;
-    const tasksPath = join(process.cwd(), 'TASKS.md');
+    const tasksPath = join(this.projectCwd, 'TASKS.md');
 
     if (!existsSync(tasksPath)) {
       throw new Error('TASKS.md not found. Run `swarm plan` first.');
@@ -532,7 +540,7 @@ export class Pipeline {
         stack: s,
         prompt,
         model: this.modelFor('engineer'),
-        cwd: process.cwd(),
+        cwd: this.projectCwd,
         interactive: false,
         permissionMode: 'auto',
       });
@@ -554,7 +562,7 @@ export class Pipeline {
           stack: s,
           prompt,
           model: this.modelFor('engineer'),
-          cwd: process.cwd(),
+          cwd: this.projectCwd,
           interactive: false,
           permissionMode: 'auto',
         });
@@ -595,7 +603,7 @@ export class Pipeline {
           stack: s,
           prompt: orchestratorPrompt,
           model: this.modelFor('engineer'),
-          cwd: process.cwd(),
+          cwd: this.projectCwd,
           interactive: false,
           permissionMode: 'auto',
         });
@@ -630,7 +638,7 @@ export class Pipeline {
                     'TASKS.md:',
                     tasks,
                   ].join('\n'),
-                  cwd: process.cwd(),
+                  cwd: this.projectCwd,
                   interactive: false,
                   permissionMode: 'auto',
                   parentId: orchestrator.id,
@@ -737,7 +745,7 @@ export class Pipeline {
 
     this.state.updateStage('test', { status: 'running', startedAt: Date.now() });
 
-    const testplanPath = join(process.cwd(), 'TESTPLAN.md');
+    const testplanPath = join(this.projectCwd, 'TESTPLAN.md');
     const pwConfig = this.buildPlaywrightContext();
     let testerCost = 0;
 
@@ -751,9 +759,9 @@ export class Pipeline {
 
       const contextParts: string[] = [];
 
-      const reqPath = join(process.cwd(), 'REQUIREMENTS.md');
-      const specPath = join(process.cwd(), 'SPEC.md');
-      const tasksPath = join(process.cwd(), 'TASKS.md');
+      const reqPath = join(this.projectCwd, 'REQUIREMENTS.md');
+      const specPath = join(this.projectCwd, 'SPEC.md');
+      const tasksPath = join(this.projectCwd, 'TASKS.md');
 
       if (existsSync(reqPath)) {
         contextParts.push('--- REQUIREMENTS.md ---', readFileSync(reqPath, 'utf-8'), '');
@@ -782,7 +790,7 @@ export class Pipeline {
         stack: s,
         prompt: testerPromptParts.join('\n'),
         model: this.modelFor('tester'),
-        cwd: process.cwd(),
+        cwd: this.projectCwd,
         interactive,
         permissionMode: headlessPermission(interactive),
         disallowedTools: opts.figmaUrl ? undefined : NON_ENGINEER_DISALLOWED_TOOLS,
@@ -813,7 +821,7 @@ export class Pipeline {
       stack: s,
       prompt: runnerPromptParts.join('\n'),
       model: this.modelFor('engineer'),
-      cwd: process.cwd(),
+      cwd: this.projectCwd,
       interactive: false,
       permissionMode: 'auto',
     });
@@ -1157,7 +1165,7 @@ export class Pipeline {
   private evaluateCondition(condition: string): boolean {
     if (condition.startsWith('file-exists:')) {
       const filename = condition.slice('file-exists:'.length).trim();
-      const filePath = join(process.cwd(), filename);
+      const filePath = join(this.projectCwd, filename);
       // Skip if file does NOT exist
       return !existsSync(filePath);
     }
@@ -1174,9 +1182,61 @@ export class Pipeline {
     }
   }
 
+  /**
+   * Generate a concise context summary from an artifact file (~500 chars).
+   * Extracts key structural info depending on artifact type.
+   */
+  private generateContextSummary(artifactPath: string, stage: StageName): string {
+    try {
+      const content = readFileSync(artifactPath, 'utf-8');
+      const headings = content.match(/^##\s+.+$/gm) || [];
+
+      switch (stage) {
+        case 'analyze':
+          // Extract section headings from REQUIREMENTS.md
+          return `Sections: ${headings.map(h => h.replace(/^##\s+/, '')).join(', ')}`.slice(0, 500);
+        case 'architect':
+          // Extract ADR titles from SPEC.md
+          const adrs = content.match(/^###\s+ADR-\d+.+$/gm) || [];
+          return `Architecture: ${headings.length} sections. ADRs: ${adrs.map(a => a.replace(/^###\s+/, '')).join('; ')}`.slice(0, 500);
+        case 'plan': {
+          // Count tasks from TASKS.md
+          const tasks = content.match(/^- \[[ x]\] T\d+/gm) || [];
+          const parallel = content.match(/\[P\]/g) || [];
+          return `Tasks: ${tasks.length} total, ${parallel.length} parallelizable. ${headings.map(h => h.replace(/^##\s+/, '')).join(', ')}`.slice(0, 500);
+        }
+        case 'test':
+          // Count test cases from TESTPLAN.md
+          const testCases = content.match(/^###?\s+TC-\d+/gm) || [];
+          return `Test plan: ${testCases.length} test cases. ${headings.map(h => h.replace(/^##\s+/, '')).join(', ')}`.slice(0, 500);
+        default:
+          return headings.map(h => h.replace(/^##\s+/, '')).join(', ').slice(0, 500);
+      }
+    } catch {
+      return '';
+    }
+  }
+
   private finishStage(stage: StageName, expectedArtifact: string): void {
-    const artifact = existsSync(join(process.cwd(), expectedArtifact)) ? expectedArtifact : null;
-    this.state.updateStage(stage, { status: 'done', artifact });
+    const artifactFullPath = join(this.projectCwd, expectedArtifact);
+    const artifact = existsSync(artifactFullPath) ? expectedArtifact : null;
+
+    // Find the primary agent's sessionId for this stage
+    const stageState = this.state.getState().stages[stage];
+    const primaryAgentId = stageState.agentIds[0];
+    const primaryAgent = primaryAgentId ? this.state.getAgent(primaryAgentId) : undefined;
+
+    // Generate context summary from the artifact
+    const contextSummary = artifact ? this.generateContextSummary(artifactFullPath, stage) : undefined;
+
+    this.state.updateStage(stage, {
+      status: 'done',
+      artifact,
+      sessionId: primaryAgent?.sessionId,
+      contextSummary,
+      finishedAt: Date.now(),
+    });
+
     if (artifact) {
       console.log(chalk.green(`\n[${stage}] Complete. ${expectedArtifact} created.`));
     } else {
@@ -1184,7 +1244,7 @@ export class Pipeline {
     }
 
     // Run quality scoring on the artifact
-    const score = this.quality.scoreArtifact(process.cwd(), stage);
+    const score = this.quality.scoreArtifact(this.projectCwd, stage);
     if (score) {
       const pipelineState = this.state.getState();
       const scores = pipelineState.qualityScores ?? [];
@@ -1216,7 +1276,7 @@ export class Pipeline {
     for (let i = 0; i < fromIdx; i++) {
       const stage = stages[i];
       const artifact = STAGE_ARTIFACT_MAP[stage];
-      if (artifact && !existsSync(join(process.cwd(), artifact))) {
+      if (artifact && !existsSync(join(this.projectCwd, artifact))) {
         throw new Error(
           `Cannot skip to "${fromStage}": required artifact "${artifact}" from "${stage}" stage not found. ` +
           `Run the earlier stages first or provide the artifact manually.`
@@ -1351,7 +1411,7 @@ export class Pipeline {
     const defaults = { testDir: 'e2e' };
 
     // Check .swarm/playwright.config.yaml
-    const configPath = join(process.cwd(), '.swarm', 'playwright.config.yaml');
+    const configPath = join(this.projectCwd, '.swarm', 'playwright.config.yaml');
     if (existsSync(configPath)) {
       try {
         const raw = readFileSync(configPath, 'utf-8');
@@ -1520,7 +1580,7 @@ export class Pipeline {
     this.createFeatureBranch(mayday.featureRequest);
 
     // Check for custom pipeline definition
-    const swarmDir = join(process.cwd(), '.swarm');
+    const swarmDir = join(this.projectCwd, '.swarm');
     const customDef = loadPipelineDefinition(swarmDir);
 
     if (customDef) {
@@ -1559,6 +1619,19 @@ export class Pipeline {
           return;
         }
 
+        // Skip already-completed stages (preserved across restarts)
+        const existingStage = this.state.getState().stages[stage];
+        if (existingStage.status === 'done' && existingStage.artifact) {
+          console.log(chalk.dim(`  [${i + 1}/5] ${STAGE_LABELS[stage] || stage}... (preserved)`));
+          continue;
+        }
+
+        // Try to resume interrupted stage via session if available
+        const canResume = existingStage.status === 'error'
+          && existingStage.sessionId
+          && existingStage.finishedAt
+          && (Date.now() - existingStage.finishedAt) < 24 * 60 * 60 * 1000; // < 24h old
+
         // Consume any queued user messages and log them
         const userMsgs = this.state.consumeMaydayMessages();
         if (userMsgs.length > 0) {
@@ -1570,7 +1643,46 @@ export class Pipeline {
         const stageLabel = STAGE_LABELS[stage] || stage;
         const costBefore = this.state.getState().totalCost.totalUsd;
         const stageStart = Date.now();
+
+        if (canResume) {
+          process.stdout.write(chalk.cyan(`  [${stageNum}/5] ${stageLabel} (resuming session)...`));
+          // Prepend context from prior stages to the resume prompt
+          const resumeContext = this.state.getResumeContext(stage);
+          const resumePrompt = resumeContext
+            ? `${resumeContext}\nPlease continue where you left off.`
+            : 'Please continue where you left off.';
+
+          const resumed = await this.agentManager.resumeSession({
+            sessionId: existingStage.sessionId!,
+            name: `${stage}-resume`,
+            persona: stage === 'analyze' ? 'analyst' : stage === 'architect' ? 'architect' : stage === 'plan' ? 'lead' : stage === 'test' ? 'tester' : 'engineer',
+            stack,
+            prompt: resumePrompt,
+            cwd: this.projectCwd,
+            permissionMode: 'auto',
+          });
+
+          if (resumed && resumed.status === 'done') {
+            // Resume succeeded — mark stage done
+            const artifact = STAGE_ARTIFACT_MAP[stage];
+            if (artifact && existsSync(join(this.projectCwd, artifact))) {
+              this.finishStage(stage, artifact);
+            } else {
+              this.state.updateStage(stage, { status: 'done', finishedAt: Date.now() });
+            }
+            const stageElapsed = Date.now() - stageStart;
+            const stageCost = this.state.getState().totalCost.totalUsd - costBefore;
+            console.log(chalk.dim(` (${(stageElapsed / 1000).toFixed(0)}s, $${stageCost.toFixed(2)})`));
+            continue;
+          }
+          // Resume failed — fall through to fresh start
+          console.log(chalk.yellow(` session expired, starting fresh...`));
+        }
+
         process.stdout.write(chalk.cyan(`  [${stageNum}/5] ${stageLabel}...`));
+
+        // Prepend context summaries from completed prior stages to fresh-start prompts
+        const priorContext = this.state.getResumeContext(stage);
 
         await this.runStageWithRetry(stage, async () => {
           switch (stage) {
@@ -1582,7 +1694,8 @@ export class Pipeline {
               break;
             case 'plan': {
               const guidance = userMsgs.length > 0 ? userMsgs.join('\n') : undefined;
-              await this.runPlan({ ...stageOpts, prompt: guidance });
+              const planPrompt = priorContext ? `${priorContext}\n${guidance || ''}` : guidance;
+              await this.runPlan({ ...stageOpts, prompt: planPrompt || undefined });
               break;
             }
             case 'build':
@@ -1731,7 +1844,7 @@ export class Pipeline {
               stack,
               prompt: this.buildTargetedFixPrompt(group, fixHistory, userMsgs, testRunCmd),
               model: this.modelFor('engineer'),
-              cwd: process.cwd(),
+              cwd: this.projectCwd,
               interactive: false,
               permissionMode: 'auto',
             }),
@@ -1752,7 +1865,7 @@ export class Pipeline {
           stack,
           prompt: fixPrompt,
           model: this.modelFor('engineer'),
-          cwd: process.cwd(),
+          cwd: this.projectCwd,
           interactive: false,
           permissionMode: 'auto',
         });
@@ -1975,7 +2088,7 @@ export class Pipeline {
 
   private evaluateTestResults(): TestEvaluation {
     // 1. Try structured JSON results first
-    const jsonPath = join(process.cwd(), '.swarm', 'test-results.json');
+    const jsonPath = join(this.projectCwd, '.swarm', 'test-results.json');
     if (existsSync(jsonPath)) {
       try {
         const raw = readFileSync(jsonPath, 'utf-8');
@@ -1993,7 +2106,7 @@ export class Pipeline {
     }
 
     // Also check .swarm/test-results.txt for frameworks that don't produce JSON
-    const txtPath = join(process.cwd(), '.swarm', 'test-results.txt');
+    const txtPath = join(this.projectCwd, '.swarm', 'test-results.txt');
     if (existsSync(txtPath)) {
       try {
         const raw = readFileSync(txtPath, 'utf-8');

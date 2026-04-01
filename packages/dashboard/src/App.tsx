@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Wifi, WifiOff, Rocket, BarChart3, Clock, Home, UserPlus, Sun, Moon, Monitor } from 'lucide-react';
+import { Wifi, WifiOff, Rocket, BarChart3, Clock, Home, UserPlus, Sun, Moon, Monitor, GitCompareArrows } from 'lucide-react';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useOnboarding } from './hooks/useOnboarding';
 import { usePersistedState } from './hooks/usePersistedState';
@@ -8,6 +8,8 @@ import { PipelineView } from './views/PipelineView';
 import { ResultsView } from './views/ResultsView';
 import { HistoryView } from './views/HistoryView';
 import { SpawnDialog } from './components/SpawnDialog';
+import { PipelineSelector } from './components/PipelineSelector';
+import { PipelineCompare } from './components/PipelineCompare';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { useTheme } from './hooks/useTheme';
 type View = 'launch' | 'pipeline' | 'results' | 'history';
@@ -29,10 +31,11 @@ interface Toast {
 let toastId = 0;
 
 export default function App() {
-  const { state, connected, agentOutputs, agentActivities, violations, historyEntries, artifactContent, sendCommand } = useWebSocket();
+  const { state, connected, agentOutputs, agentActivities, violations, historyEntries, artifactContent, pipelines, activePipeline, sendCommand, switchPipeline } = useWebSocket();
   const { theme, cycleTheme } = useTheme();
   const [view, setView] = usePersistedState<View>('swarm_view', getInitialView());
   const [showSpawn, setShowSpawn] = useState(false);
+  const [showCompare, setShowCompare] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const prevMaydayStageRef = useRef<string | undefined>(undefined);
   const prevConnectedRef = useRef(connected);
@@ -154,9 +157,19 @@ export default function App() {
       {/* Navigation bar */}
       <header className="flex items-center justify-between px-2 sm:px-4 py-2 border-b border-stone-800/50 bg-[#0e0c0b]">
         <div className="flex items-center gap-2 sm:gap-4 min-w-0">
-          <h1 className="text-sm font-semibold tracking-wide text-stone-300 shrink-0">
+          <h1 className="text-sm font-semibold tracking-wide text-stone-300 shrink-0 flex items-center gap-0">
             swarm
-            {state && <span className="text-blue-400 ml-1 font-normal hidden sm:inline">/ {state.projectName}</span>}
+            {state && pipelines.length > 1 ? (
+              <span className="ml-1">
+                <PipelineSelector
+                  pipelines={pipelines}
+                  activePipeline={activePipeline}
+                  onSwitch={switchPipeline}
+                />
+              </span>
+            ) : (
+              state && <span className="text-blue-400 ml-1 font-normal hidden sm:inline">/ {state.projectName}</span>
+            )}
           </h1>
 
           <nav className="flex items-center gap-0.5 sm:gap-1 ml-1 sm:ml-2 overflow-x-auto" role="tablist" aria-label="Main navigation">
@@ -181,6 +194,19 @@ export default function App() {
         </div>
 
         <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+          {/* Compare Pipelines button (only show when multiple pipelines exist) */}
+          {connected && state && pipelines.length > 1 && (
+            <button
+              onClick={() => setShowCompare(true)}
+              className="flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-md text-xs font-medium text-stone-400 hover:text-stone-200 hover:bg-stone-800/40 border border-stone-800/40 hover:border-stone-700/50 transition-colors min-h-[36px]"
+              aria-label="Compare pipelines"
+              title="Compare pipelines"
+            >
+              <GitCompareArrows size={13} />
+              <span className="hidden md:inline">Compare</span>
+            </button>
+          )}
+
           {/* Spawn Agent button */}
           {connected && state && (
             <button
@@ -310,6 +336,17 @@ export default function App() {
         <SpawnDialog
           onSpawn={sendCommand}
           onClose={() => setShowSpawn(false)}
+        />
+      )}
+
+      {/* Pipeline comparison modal */}
+      {showCompare && (
+        <PipelineCompare
+          pipelines={pipelines}
+          activePipeline={activePipeline}
+          sendCommand={sendCommand}
+          artifactContent={artifactContent}
+          onClose={() => setShowCompare(false)}
         />
       )}
 

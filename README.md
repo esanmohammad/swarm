@@ -100,6 +100,12 @@ swarm status                       # Show pipeline state and costs
 swarm dashboard                    # Open web UI
 swarm doctor                       # Check your environment
 swarm init --stack react           # Manual project setup
+
+# Multi-pipeline
+swarm pipeline create <name>       # Create isolated pipeline
+swarm pipeline list                # List all pipelines
+swarm pipeline switch <name>       # Switch active pipeline
+swarm pipeline delete <name>       # Delete pipeline and worktree
 ```
 
 ### Options
@@ -112,6 +118,33 @@ swarm mayday --from build          # Resume from a specific stage
 swarm mayday --approve             # Require approval between stages
 swarm mayday --figma <url>         # Include Figma designs
 ```
+
+### Multi-Pipeline Management
+
+Run multiple pipelines in parallel, each in its own git worktree for full isolation:
+
+```bash
+swarm pipeline create auth-feature  # Create pipeline with isolated worktree
+swarm pipeline create api-refactor  # Create another
+swarm pipeline list                 # Show all pipelines with status and cost
+swarm pipeline switch auth-feature  # Switch active pipeline
+swarm pipeline delete api-refactor  # Clean up worktree and state
+```
+
+Each non-default pipeline gets its own git branch (`pipeline/{name}`) and worktree, so agents in different pipelines never conflict on files. When creating a pipeline, existing artifacts (REQUIREMENTS.md, SPEC.md, etc.) are copied to the new worktree.
+
+The dashboard includes a **pipeline selector** dropdown (top-left header) to switch between pipelines and a **Compare** button for side-by-side stage comparison.
+
+### Pipeline Resume
+
+Pipelines persist across restarts. If a pipeline is interrupted (crash, Ctrl+C, budget kill):
+
+- Completed stages are **preserved** — they won't re-run
+- Interrupted stages keep their Claude session ID for **automatic resume**
+- `swarm mayday --resume` picks up from exactly where it left off
+- Sessions older than 24 hours fall through to a fresh start with context summaries from prior stages
+
+The dashboard shows a **Resume** button on errored stages that have a saved session.
 
 ### Advanced Commands
 

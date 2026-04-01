@@ -1,8 +1,9 @@
-import { watch, readFileSync, writeFileSync, existsSync, FSWatcher } from 'node:fs';
+import { watch, readFileSync, writeFileSync, existsSync, unlinkSync, copyFileSync, FSWatcher } from 'node:fs';
 import { join } from 'node:path';
 import { WebSocketServer, WebSocket } from 'ws';
 import { stringify as toYaml, parse as parseYaml } from 'yaml';
-import type { WsMessage, WsCommand, PipelineState, Persona, AgentActivity } from '../types.js';
+import type { WsMessage, WsCommand, PipelineState, PipelineInfo, Persona, AgentActivity } from '../types.js';
+import { emptyCost } from '../types.js';
 import { StateManager } from './state.js';
 import { AgentManager } from './agent-manager.js';
 import { Pipeline } from './pipeline.js';
@@ -80,7 +81,6 @@ export class SwarmWsServer {
   private clients = new Set<WebSocket>();
   private fileWatcher: FSWatcher | null = null;
   private lastStateJson = '';
-  private projectCwd: string;
   private pipeline: Pipeline;
   private authToken: string | null = null;
 
@@ -88,10 +88,8 @@ export class SwarmWsServer {
     private state: StateManager,
     private agentManager: AgentManager,
     config: SwarmConfig,
-    projectCwd?: string,
+    _projectCwd?: string,
   ) {
-    // The working directory where artifacts live (REQUIREMENTS.md, etc.)
-    this.projectCwd = projectCwd ?? process.cwd();
     this.pipeline = new Pipeline(agentManager, state, config);
 
     // Subscribe to in-process state events (for agents spawned via dashboard)
@@ -374,7 +372,7 @@ export class SwarmWsServer {
           stack: cmd.stack,
           model: cmd.model,
           prompt,
-          cwd: this.projectCwd,
+          cwd: this.getEffectiveCwd(),
           interactive: false,
           permissionMode: cmd.permissionMode,
           disallowedTools: isNonEngineer(cmd.persona) ? NON_ENGINEER_DISALLOWED_TOOLS : undefined,
@@ -392,7 +390,7 @@ export class SwarmWsServer {
 
       case 'send-input': {
         console.log(`[ws] Sending input to agent ${cmd.agentId}: ${cmd.text.slice(0, 80)}`);
-        await this.agentManager.sendInput(cmd.agentId, cmd.text);
+        await this.agentManager.sendInput(cmd.agentId, cmd.text, this.getEffectiveCwd());
         break;
       }
 
@@ -580,7 +578,7 @@ export class SwarmWsServer {
         const artifactName = artifactMap[stage];
         let content: string | null = null;
         if (artifactName) {
-          const artifactPath = join(this.projectCwd, artifactName);
+          const artifactPath = join(this.getEffectiveCwd(), artifactName);
           try {
             content = readFileSync(artifactPath, 'utf-8');
           } catch {
@@ -594,12 +592,203 @@ export class SwarmWsServer {
         _ws.send(JSON.stringify(artifactMsg));
         break;
       }
+
+      case 'list-pipelines': {
+        const pipelines = this.buildPipelineList();
+        const msg: WsMessage = {
+          type: 'pipeline-list',
+          payload: { pipelines, active: this.state.getNamespace() },
+        };
+        _ws.send(JSON.stringify(msg));
+        break;
+      }
+
+      case 'switch-pipeline': {
+        console.log(`[ws] Switching to pipeline: ${cmd.namespace}`);
+        this.state.switchTo(cmd.namespace);
+        // Ensure worktree exists for non-default pipelines
+        if (cmd.namespace !== 'default') {
+          this.state.ensureWorktree(cmd.namespace);
+        }
+        // Broadcast new state to all clients
+        this.broadcast({ type: 'state', payload: this.state.getState() });
+        // Also send updated pipeline list
+        const updatedPipelines = this.buildPipelineList();
+        this.broadcast({
+          type: 'pipeline-list',
+          payload: { pipelines: updatedPipelines, active: cmd.namespace },
+        });
+        // Re-start file watcher for new state file
+        this.restartFileWatcher();
+        break;
+      }
+
+      case 'create-pipeline': {
+        const ns = cmd.namespace;
+        if (!ns || ns === 'default') {
+          throw new Error('Cannot create a pipeline named "default"');
+        }
+        const swarmDir = join(this.state.getFilePath(), '..');
+        const existing = StateManager.listPipelines(swarmDir);
+        if (existing.includes(ns)) {
+          throw new Error(`Pipeline "${ns}" already exists`);
+        }
+
+        console.log(`[ws] Creating pipeline: ${ns}`);
+
+        // Create new pipeline state
+        const newState = new StateManager(swarmDir, ns);
+        const currentState = this.state.getState();
+        newState.init(currentState.projectName, currentState.stack);
+
+        // Create worktree
+        newState.ensureWorktree(ns);
+
+        // Copy artifacts from current pipeline to the new worktree (#4 cross-pipeline artifact copy)
+        const sourceCwd = this.state.getProjectCwd();
+        const targetCwd = newState.getProjectCwd();
+        const artifactFiles = ['REQUIREMENTS.md', 'SPEC.md', 'TASKS.md', 'TESTPLAN.md'];
+        for (const file of artifactFiles) {
+          const src = join(sourceCwd, file);
+          const dst = join(targetCwd, file);
+          if (existsSync(src) && !existsSync(dst)) {
+            try {
+              copyFileSync(src, dst);
+              console.log(`[ws] Copied ${file} to pipeline "${ns}"`);
+            } catch { /* non-critical */ }
+          }
+        }
+
+        // Broadcast updated pipeline list
+        const createdPipelines = this.buildPipelineList();
+        this.broadcast({
+          type: 'pipeline-list',
+          payload: { pipelines: createdPipelines, active: this.state.getNamespace() },
+        });
+        break;
+      }
+
+      case 'delete-pipeline': {
+        const ns = cmd.namespace;
+        if (ns === 'default') {
+          throw new Error('Cannot delete the default pipeline');
+        }
+
+        console.log(`[ws] Deleting pipeline: ${ns}`);
+
+        const swarmDir = join(this.state.getFilePath(), '..');
+
+        // If we're currently on this pipeline, switch to default first
+        if (this.state.getNamespace() === ns) {
+          this.state.switchTo('default');
+          this.restartFileWatcher();
+        }
+
+        // Remove worktree and state file
+        const tempState = new StateManager(swarmDir, ns);
+        tempState.removeWorktree(ns);
+
+        const pipelineFile = join(swarmDir, 'pipelines', `${ns}.json`);
+        if (existsSync(pipelineFile)) {
+          unlinkSync(pipelineFile);
+        }
+        const backupFile = pipelineFile + '.bak';
+        if (existsSync(backupFile)) {
+          unlinkSync(backupFile);
+        }
+
+        // Broadcast updated state and pipeline list
+        this.broadcast({ type: 'state', payload: this.state.getState() });
+        const deletedPipelines = this.buildPipelineList();
+        this.broadcast({
+          type: 'pipeline-list',
+          payload: { pipelines: deletedPipelines, active: this.state.getNamespace() },
+        });
+        break;
+      }
     }
+  }
+
+  /** Build PipelineInfo[] from all pipeline state files */
+  private buildPipelineList(): PipelineInfo[] {
+    const swarmDir = join(this.state.getFilePath(), '..');
+    const namespaces = StateManager.listPipelines(swarmDir);
+    const pipelines: PipelineInfo[] = [];
+
+    for (const ns of namespaces) {
+      try {
+        const filePath = ns === 'default'
+          ? join(swarmDir, 'state.json')
+          : join(swarmDir, 'pipelines', `${ns}.json`);
+
+        if (!existsSync(filePath)) continue;
+        const raw = readFileSync(filePath, 'utf-8');
+        const pState: PipelineState = JSON.parse(raw);
+
+        // Determine pipeline status
+        const stages = Object.values(pState.stages);
+        const hasRunning = stages.some(s => s.status === 'running');
+        const hasError = stages.some(s => s.status === 'error');
+        const allDone = stages.every(s => s.status === 'done' || s.status === 'skipped' || s.status === 'pending');
+        const anyDone = stages.some(s => s.status === 'done');
+
+        let status: PipelineInfo['status'] = 'idle';
+        if (hasRunning || pState.mayday?.active) status = 'running';
+        else if (hasError) status = 'error';
+        else if (anyDone && allDone) status = 'complete';
+
+        // Determine current stage
+        let currentStage = 'idle';
+        if (pState.mayday?.currentStage) {
+          currentStage = pState.mayday.currentStage;
+        } else {
+          const runningStage = Object.entries(pState.stages).find(([, s]) => s.status === 'running');
+          if (runningStage) currentStage = runningStage[0];
+          else {
+            const lastDone = Object.entries(pState.stages)
+              .filter(([, s]) => s.status === 'done')
+              .pop();
+            if (lastDone) currentStage = lastDone[0];
+          }
+        }
+
+        pipelines.push({
+          namespace: ns,
+          projectName: pState.projectName,
+          currentStage,
+          status,
+          updatedAt: pState.updatedAt,
+          totalCost: pState.totalCost || emptyCost(),
+          worktreePath: pState.worktreePath,
+        });
+      } catch {
+        // Skip unreadable pipeline files
+      }
+    }
+
+    return pipelines.sort((a, b) => b.updatedAt - a.updatedAt);
+  }
+
+  /** Restart file watcher after switching pipelines */
+  private restartFileWatcher(): void {
+    if (this.fileWatcher) {
+      this.fileWatcher.close();
+      this.fileWatcher = null;
+    }
+    if (this.fileCheckTimer) {
+      clearTimeout(this.fileCheckTimer);
+      this.fileCheckTimer = null;
+    }
+    if (this.pollTimer) {
+      clearInterval(this.pollTimer);
+      this.pollTimer = null;
+    }
+    this.startFileWatcher();
   }
 
   /** Write/merge baseUrl and authStorageState into .swarm/playwright.config.yaml */
   private writePlaywrightConfig(baseUrl?: string, authStorageState?: string): void {
-    const configPath = join(this.projectCwd, '.swarm', 'playwright.config.yaml');
+    const configPath = join(this.getEffectiveCwd(), '.swarm', 'playwright.config.yaml');
     let existing: PlaywrightConfig = {};
 
     // Read existing config if present
@@ -620,6 +809,14 @@ export class SwarmWsServer {
 
     writeFileSync(configPath, toYaml(existing));
     console.log(`[ws] Updated .swarm/playwright.config.yaml`);
+  }
+
+  /**
+   * Get the effective working directory for the active pipeline.
+   * Uses worktree path if available (non-default pipelines), otherwise falls back to projectCwd.
+   */
+  private getEffectiveCwd(): string {
+    return this.state.getProjectCwd();
   }
 
   get port(): number | undefined {

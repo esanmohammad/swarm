@@ -2,6 +2,8 @@ node_modules/
 dist/
 .swarm/state.json
 .swarm/logs/
+.swarm/worktrees/
+.swarm/pipelines/
 *.tsbuildinfo
 
 # Internal planning docs

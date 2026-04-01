@@ -20,6 +20,7 @@ import { registerRecover } from '../src/commands/recover.js';
 import { registerAudit } from '../src/commands/audit.js';
 import { registerPlugin } from '../src/commands/plugin.js';
 import { registerTelemetry } from '../src/commands/telemetry.js';
+import { registerPipeline } from '../src/commands/pipeline.js';
 import { autoDetectStack, autoInit, loadConfig } from '../src/core/config.js';
 import { createContext } from '../src/commands/shared.js';
 
@@ -80,6 +81,9 @@ registerArchitect(program);
 registerPlan(program);
 registerBuild(program);
 registerTest(program);
+
+// --- Pipeline management ---
+registerPipeline(program);
 
 // --- Advanced commands (hidden unless --all) ---
 const advancedCommands = [registerEvaluate, registerAgent, registerRecover, registerAudit, registerPlugin, registerTelemetry];
