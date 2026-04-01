@@ -18,6 +18,8 @@ import { registerMayday } from '../src/commands/mayday.js';
 import { registerDoctor } from '../src/commands/doctor.js';
 import { registerRecover } from '../src/commands/recover.js';
 import { registerAudit } from '../src/commands/audit.js';
+import { registerPlugin } from '../src/commands/plugin.js';
+import { registerTelemetry } from '../src/commands/telemetry.js';
 import { autoDetectStack, autoInit, loadConfig } from '../src/core/config.js';
 import { createContext } from '../src/commands/shared.js';
 
@@ -80,7 +82,7 @@ registerBuild(program);
 registerTest(program);
 
 // --- Advanced commands (hidden unless --all) ---
-const advancedCommands = [registerEvaluate, registerAgent, registerRecover, registerAudit];
+const advancedCommands = [registerEvaluate, registerAgent, registerRecover, registerAudit, registerPlugin, registerTelemetry];
 for (const register of advancedCommands) {
   register(program);
 }
@@ -89,7 +91,7 @@ for (const register of advancedCommands) {
 if (!showAll) {
   for (const cmd of program.commands) {
     const name = cmd.name();
-    if (['evaluate', 'eval', 'agent', 'recover', 'audit'].includes(name)) {
+    if (['evaluate', 'eval', 'agent', 'recover', 'audit', 'plugin', 'telemetry'].includes(name)) {
       (cmd as unknown as { _hidden: boolean })._hidden = true;
     }
   }

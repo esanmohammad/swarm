@@ -289,6 +289,8 @@ export interface SwarmConfig {
   activePipeline?: string;
   /** Additional repos for multi-repo mode. Each entry maps a label to an absolute path. */
   repos?: Record<string, string>;
+  /** Plugin package names or local paths for custom stages/personas */
+  plugins?: string[];
   /** Webhook configurations for event notifications */
   webhooks?: Array<{
     url: string;

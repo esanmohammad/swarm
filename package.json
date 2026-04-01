@@ -3,10 +3,11 @@
   "private": true,
   "workspaces": ["packages/*"],
   "scripts": {
-    "build": "npm run build -w packages/cli && npm run build -w packages/dashboard",
-    "build:cli": "npm run build -w packages/cli",
-    "build:dashboard": "npm run build -w packages/dashboard",
-    "dev": "npm run dev -w packages/cli",
-    "dev:dashboard": "npm run dev -w packages/dashboard"
+    "build": "npm run build -w swarm-pipeline && npm run build -w @swarm/dashboard",
+    "build:cli": "npm run build -w swarm-pipeline",
+    "build:dashboard": "npm run build -w @swarm/dashboard",
+    "build:vscode": "npm run build -w swarm-vscode",
+    "dev": "npm run dev -w swarm-pipeline",
+    "dev:dashboard": "npm run dev -w @swarm/dashboard"
   }
 }

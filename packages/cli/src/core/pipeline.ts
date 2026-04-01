@@ -14,6 +14,14 @@ import { QualityScorer } from './quality.js';
 import { loadPipelineDefinition, getDefaultPipelineDefinition, stageNameForDefinition } from './pipeline-loader.js';
 import type { PipelineDefinition, PipelineStageDefinition } from './pipeline-loader.js';
 
+// Plugin integration point: custom stages from PluginLoader.getCustomStages()
+// can be injected into the pipeline by converting CustomStagePlugin entries
+// into PipelineStageDefinition objects and merging them based on their
+// before/after positioning. The PluginLoader is instantiated in the command
+// layer (see commands/plugin.ts) and can be wired here when ready.
+// Plugin type used by PluginLoader (see ./plugins.ts)
+// import type { CustomStagePlugin } from './plugins.js';
+
 // Non-engineer personas: block dangerous tools (Bash, Edit, NotebookEdit)
 // They can only use Read, Glob, Grep, Write. Filename is enforced via prompt + system prompt.
 const NON_ENGINEER_DISALLOWED_TOOLS = ['Bash', 'Edit', 'NotebookEdit'];
@@ -224,7 +232,7 @@ export class Pipeline {
     }
   }
 
-  private autoCommitStage(stage: StageName, artifact: string | null): void {
+  private autoCommitStage(stage: StageName, _artifact: string | null): void {
     if (!this.gitEnabled) return;
     const messages: Record<StageName, string> = {
       analyze: 'Generated REQUIREMENTS.md',
@@ -822,8 +830,6 @@ export class Pipeline {
   ): string[] {
     const primary = frameworks[0];
     const isE2E = primary.category === 'e2e';
-    const hasMultiple = frameworks.length > 1;
-
     const parts = [
       `Read the pipeline artifacts below and produce TESTPLAN.md — a comprehensive test plan for a ${stack} project.`,
       '',
@@ -1621,7 +1627,7 @@ export class Pipeline {
     await this.maydayFixLoop(stack, parallel);
   }
 
-  private async maydayFixLoop(stack: TechStack, parallel?: number): Promise<void> {
+  private async maydayFixLoop(stack: TechStack, _parallel?: number): Promise<void> {
     // Resolve test framework run command for this stack
     const frameworks = getTestFrameworks(stack);
     const testRunCmd = frameworks[0]?.runCmd ?? 'npx playwright test';

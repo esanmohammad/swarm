@@ -85,4 +85,12 @@ export type WsCommand =
   | { action: 'send-input'; agentId: string; text: string }
   | { action: 'run-stage'; stage: 'analyze' | 'architect' | 'plan' | 'build' | 'test'; prompt?: string }
   | { action: 'run-mayday'; prompt: string; maxIterations?: number }
-  | { action: 'mayday-stop' };
+  | { action: 'mayday-stop' }
+  | { action: 'get-history' };
+
+// Artifact files that can be diffed
+export const ARTIFACT_FILES: Record<string, StageName> = {
+  'REQUIREMENTS.md': 'analyze',
+  'SPEC.md': 'architect',
+  'TASKS.md': 'plan',
+};

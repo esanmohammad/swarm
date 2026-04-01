@@ -2,35 +2,123 @@
   "name": "swarm-vscode",
   "displayName": "Swarm",
   "description": "VS Code extension for Swarm CLI pipeline orchestration",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "swarm",
   "engines": {
     "vscode": "^1.85.0"
   },
   "categories": ["Other"],
   "activationEvents": [
-    "onCommand:swarm.*"
+    "workspaceContains:.swarm/config.yaml"
   ],
   "main": "./dist/extension.js",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "swarmExplorer",
+          "title": "Swarm",
+          "icon": "$(zap)"
+        }
+      ]
+    },
+    "views": {
+      "swarmExplorer": [
+        {
+          "id": "swarmPipeline",
+          "name": "Pipeline",
+          "contextualTitle": "Swarm Pipeline"
+        }
+      ]
+    },
     "commands": [
       {
         "command": "swarm.connect",
-        "title": "Swarm: Connect to Server"
+        "title": "Swarm: Connect to Server",
+        "icon": "$(plug)"
+      },
+      {
+        "command": "swarm.run",
+        "title": "Swarm: Run Pipeline",
+        "icon": "$(play)"
       },
       {
         "command": "swarm.runStage",
-        "title": "Swarm: Run Pipeline Stage"
+        "title": "Swarm: Run Pipeline Stage",
+        "icon": "$(play-circle)"
       },
       {
         "command": "swarm.runMayday",
-        "title": "Swarm: Run MayDay"
+        "title": "Swarm: Run MayDay",
+        "icon": "$(flame)"
       },
       {
         "command": "swarm.showOutput",
-        "title": "Swarm: Show Agent Output"
+        "title": "Swarm: Show Agent Output",
+        "icon": "$(output)"
+      },
+      {
+        "command": "swarm.showAgentOutput",
+        "title": "Show Agent Output",
+        "icon": "$(output)"
+      },
+      {
+        "command": "swarm.killAgent",
+        "title": "Swarm: Kill Agent",
+        "icon": "$(stop)"
+      },
+      {
+        "command": "swarm.refreshTree",
+        "title": "Swarm: Refresh Pipeline",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "swarm.showDiff",
+        "title": "Swarm: Show Artifact Diff",
+        "icon": "$(diff)"
       }
     ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "swarm.run",
+          "when": "view == swarmPipeline && swarm.connected",
+          "group": "navigation@1"
+        },
+        {
+          "command": "swarm.refreshTree",
+          "when": "view == swarmPipeline",
+          "group": "navigation@2"
+        },
+        {
+          "command": "swarm.showDiff",
+          "when": "view == swarmPipeline && swarm.connected",
+          "group": "navigation@3"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "swarm.killAgent",
+          "when": "view == swarmPipeline && viewItem == runningAgent",
+          "group": "inline"
+        },
+        {
+          "command": "swarm.showAgentOutput",
+          "when": "view == swarmPipeline && viewItem =~ /^(agent|runningAgent)$/",
+          "group": "inline"
+        },
+        {
+          "command": "swarm.runStage",
+          "when": "view == swarmPipeline && viewItem == stage && swarm.connected",
+          "group": "1_actions"
+        },
+        {
+          "command": "swarm.killAgent",
+          "when": "view == swarmPipeline && viewItem == runningAgent",
+          "group": "2_lifecycle"
+        }
+      ]
+    },
     "configuration": {
       "title": "Swarm",
       "properties": {
@@ -43,6 +131,11 @@
           "type": "number",
           "default": 3847,
           "description": "Swarm WebSocket server port"
+        },
+        "swarm.autoConnect": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically connect when .swarm/ directory is detected"
         }
       }
     }
