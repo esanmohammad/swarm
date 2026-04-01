@@ -5,6 +5,7 @@ import type { SwarmClient } from './swarm-client';
 import type { OutputPanelManager } from './output-panel';
 import type { SwarmPipelineTreeProvider, SwarmTreeItem } from './tree-view';
 import { ARTIFACT_FILES } from './types';
+import type { Persona, TechStack } from './types';
 
 type StagePick = 'analyze' | 'architect' | 'plan' | 'build' | 'test';
 
@@ -112,6 +113,66 @@ export function registerCommands(
 
       client.sendCommand({ action: 'run-mayday', prompt });
       vscode.window.showInformationMessage('Swarm: Pipeline started');
+    }),
+  );
+
+  // swarm.spawnAgent — spawn an individual agent with persona and prompt
+  context.subscriptions.push(
+    vscode.commands.registerCommand('swarm.spawnAgent', async () => {
+      if (!client.connected) {
+        vscode.window.showWarningMessage('Swarm: Not connected. Run "Swarm: Connect to Server" first.');
+        return;
+      }
+
+      const personas: Array<{ label: string; value: Persona; description: string }> = [
+        { label: 'Analyst', value: 'analyst', description: 'Analyze requirements → REQUIREMENTS.md' },
+        { label: 'Architect', value: 'architect', description: 'Design architecture → SPEC.md' },
+        { label: 'Lead', value: 'lead', description: 'Break down tasks → TASKS.md' },
+        { label: 'Engineer', value: 'engineer', description: 'Implement code' },
+        { label: 'Tester', value: 'tester', description: 'Create test plan → TESTPLAN.md' },
+      ];
+
+      const personaPick = await vscode.window.showQuickPick(personas, {
+        placeHolder: 'Select agent persona',
+      });
+      if (!personaPick) { return; }
+
+      const name = await vscode.window.showInputBox({
+        prompt: 'Agent name',
+        value: personaPick.value,
+        placeHolder: 'e.g. my-analyst',
+      });
+      if (!name) { return; }
+
+      const prompt = await vscode.window.showInputBox({
+        prompt: 'Task prompt for the agent',
+        placeHolder: 'Describe what this agent should do...',
+      });
+      if (!prompt) { return; }
+
+      const stacks: Array<{ label: string; value: TechStack }> = [
+        { label: 'React', value: 'react' },
+        { label: 'Node', value: 'node' },
+        { label: 'Go', value: 'go' },
+        { label: 'Python', value: 'python' },
+        { label: 'Rust', value: 'rust' },
+        { label: 'Swift', value: 'swift' },
+      ];
+
+      const stackPick = await vscode.window.showQuickPick(stacks, {
+        placeHolder: 'Select tech stack',
+      });
+      if (!stackPick) { return; }
+
+      client.sendCommand({
+        action: 'spawn',
+        name,
+        persona: personaPick.value,
+        stack: stackPick.value,
+        prompt,
+        permissionMode: 'auto',
+      });
+      vscode.window.showInformationMessage(`Swarm: Spawning agent "${name}" (${personaPick.label})`);
     }),
   );
 

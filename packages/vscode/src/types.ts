@@ -2,7 +2,8 @@
 
 export type AgentStatus = 'pending' | 'running' | 'done' | 'error' | 'killed';
 export type Persona = 'analyst' | 'architect' | 'lead' | 'engineer' | 'tester';
-export type TechStack = 'react' | 'node' | 'go';
+export type TechStack = 'react' | 'node' | 'go' | 'python' | 'rust' | 'swift' | 'custom';
+export type PermissionMode = 'default' | 'acceptEdits' | 'bypassPermissions' | 'plan' | 'auto';
 export type StageName = 'analyze' | 'architect' | 'plan' | 'build' | 'test' | 'evaluate';
 
 export interface CostInfo {
@@ -84,6 +85,7 @@ export type WsCommand =
   | { action: 'kill'; agentId: string }
   | { action: 'send-input'; agentId: string; text: string }
   | { action: 'run-stage'; stage: 'analyze' | 'architect' | 'plan' | 'build' | 'test'; prompt?: string }
+  | { action: 'spawn'; name: string; persona: Persona; stack: TechStack; model?: string; prompt?: string; permissionMode?: PermissionMode }
   | { action: 'run-mayday'; prompt: string; maxIterations?: number }
   | { action: 'mayday-stop' }
   | { action: 'get-history' };

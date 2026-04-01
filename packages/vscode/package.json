@@ -53,6 +53,11 @@
         "icon": "$(flame)"
       },
       {
+        "command": "swarm.spawnAgent",
+        "title": "Swarm: Spawn Agent",
+        "icon": "$(person-add)"
+      },
+      {
         "command": "swarm.showOutput",
         "title": "Swarm: Show Agent Output",
         "icon": "$(output)"
@@ -91,9 +96,14 @@
           "group": "navigation@2"
         },
         {
-          "command": "swarm.showDiff",
+          "command": "swarm.spawnAgent",
           "when": "view == swarmPipeline && swarm.connected",
           "group": "navigation@3"
+        },
+        {
+          "command": "swarm.showDiff",
+          "when": "view == swarmPipeline && swarm.connected",
+          "group": "navigation@4"
         }
       ],
       "view/item/context": [
