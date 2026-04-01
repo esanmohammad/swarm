@@ -477,6 +477,7 @@ export class SwarmWsServer {
                 model: cmd.model,
                 maxFixBudgetUsd: cmd.maxFixBudgetUsd !== undefined ? cmd.maxFixBudgetUsd : 15,
                 fromStage: cmd.fromStage,
+                approvalRequired: cmd.approvalRequired,
               });
             }
             console.log(`[ws] MayDay complete`);
@@ -492,6 +493,34 @@ export class SwarmWsServer {
         if (!cmd.text?.trim()) break;
         console.log(`[ws] MayDay user input: ${cmd.text.slice(0, 80)}`);
         this.state.pushMaydayMessage(cmd.text.trim());
+        break;
+      }
+
+      case 'mayday-approve': {
+        console.log(`[ws] Approving MayDay stage: ${cmd.stage}`);
+        const maydayApprove = this.state.getMayday();
+        if (maydayApprove?.active && maydayApprove.pendingApproval) {
+          this.state.updateMayday({ pendingApproval: null });
+        }
+        break;
+      }
+
+      case 'mayday-reject': {
+        console.log(`[ws] Rejecting MayDay stage: ${cmd.stage}`);
+        const maydayReject = this.state.getMayday();
+        if (maydayReject?.active) {
+          this.state.updateMayday({
+            active: false,
+            error: cmd.reason || 'Rejected by user',
+            pendingApproval: null,
+          });
+          // Kill all running agents
+          for (const agent of this.state.getState().agents) {
+            if (agent.status === 'running') {
+              this.agentManager.kill(agent.id);
+            }
+          }
+        }
         break;
       }
 

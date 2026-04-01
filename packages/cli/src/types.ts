@@ -90,6 +90,9 @@ export interface MaydayState {
   figmaUrl?: string;
   /** Maximum total USD to spend on fix iterations before aborting */
   maxFixBudgetUsd: number | null;
+  approvalRequired: boolean;
+  pendingApproval?: { stage: StageName; requestedAt: number } | null;
+  prUrl?: string;
 }
 
 export interface PipelineState {
@@ -159,7 +162,8 @@ export type WsMessage =
   | { type: 'agent-logs'; payload: { agentId: string; output: string; activities: AgentActivity[] } }
   | { type: 'guardrail-alert'; payload: GuardrailViolation }
   | { type: 'cost-update'; payload: CostInfo }
-  | { type: 'history-list'; payload: HistoryEntry[] };
+  | { type: 'history-list'; payload: HistoryEntry[] }
+  | { type: 'approval-request'; payload: { stage: StageName; summary: string } };
 
 export type WsCommand =
   | { action: 'spawn'; name: string; persona: Persona; stack: TechStack; model?: string; prompt?: string; permissionMode?: PermissionMode }
@@ -167,9 +171,11 @@ export type WsCommand =
   | { action: 'send-input'; agentId: string; text: string }
   | { action: 'get-state' }
   | { action: 'run-stage'; stage: 'analyze' | 'architect' | 'plan' | 'build' | 'test'; prompt?: string; parallel?: number; taskId?: string; figmaUrl?: string; baseUrl?: string; authStorageState?: string }
-  | { action: 'run-mayday'; prompt: string; maxIterations?: number; figmaUrl?: string; parallel?: number; resume?: boolean; model?: string; maxFixBudgetUsd?: number | null; fromStage?: StageName }
+  | { action: 'run-mayday'; prompt: string; maxIterations?: number; figmaUrl?: string; parallel?: number; resume?: boolean; model?: string; maxFixBudgetUsd?: number | null; fromStage?: StageName; approvalRequired?: boolean }
   | { action: 'mayday-input'; text: string }
   | { action: 'mayday-stop' }
+  | { action: 'mayday-approve'; stage: StageName }
+  | { action: 'mayday-reject'; stage: StageName; reason?: string }
   | { action: 'get-history' };
 
 // Guardrail types

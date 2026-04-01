@@ -7,6 +7,7 @@ import { StateManager } from './state.js';
 import type { SwarmConfig, StageName, TechStack, PlaywrightConfig, MaydayState } from '../types.js';
 import { STAGE_ARTIFACT_MAP } from '../types.js';
 import { parse as parseYaml } from 'yaml';
+import { isGhInstalled, createPR, buildPRBody, getCurrentBranch, hasUncommittedChanges } from './git.js';
 
 // Non-engineer personas: block dangerous tools (Bash, Edit, NotebookEdit)
 // They can only use Read, Glob, Grep, Write. Filename is enforced via prompt + system prompt.
@@ -55,9 +56,14 @@ function headlessPermission(interactive: boolean): 'auto' | undefined {
   return interactive ? undefined : 'auto';
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 export class Pipeline {
   private budgetExceeded = false;
   gitEnabled = true;
+  autoPR = true;
 
   constructor(
     private agentManager: AgentManager,
@@ -132,6 +138,66 @@ export class Pipeline {
       console.log(chalk.dim(`[git] Committed: [swarm:${stage}] ${msg}`));
     } catch {
       // Nothing to commit is OK
+    }
+  }
+
+  /**
+   * Attempt to auto-create a GitHub PR after a successful MayDay run.
+   * Failures are logged as warnings — they never crash the pipeline.
+   */
+  private attemptAutoCreatePR(): void {
+    if (!this.autoPR || !this.gitEnabled) return;
+
+    try {
+      if (!isGhInstalled()) {
+        console.log(chalk.dim('[pr] gh CLI not found — skipping PR creation'));
+        return;
+      }
+
+      const branch = getCurrentBranch();
+      if (branch === 'main' || branch === 'master') {
+        console.log(chalk.dim(`[pr] On ${branch} branch — skipping PR creation`));
+        return;
+      }
+
+      // Auto-commit any remaining uncommitted changes
+      if (hasUncommittedChanges()) {
+        try {
+          execSync('git add -A', { stdio: 'pipe', cwd: process.cwd() });
+          execSync('git commit -m "[swarm] Final changes before PR"', { stdio: 'pipe', cwd: process.cwd() });
+          console.log(chalk.dim('[git] Committed remaining changes'));
+        } catch {
+          // Nothing to commit or commit failed — continue anyway
+        }
+      }
+
+      // Push the branch
+      try {
+        execSync(`git push -u origin ${branch}`, { stdio: 'pipe', cwd: process.cwd() });
+        console.log(chalk.dim(`[git] Pushed branch: ${branch}`));
+      } catch {
+        console.log(chalk.yellow('[pr] Could not push branch — skipping PR creation'));
+        return;
+      }
+
+      const pipelineState = this.state.getState();
+      const mayday = pipelineState.mayday;
+      const featureRequest = mayday?.featureRequest ?? 'Swarm pipeline run';
+      const truncatedTitle = featureRequest.length > 50
+        ? featureRequest.slice(0, 50).trim() + '...'
+        : featureRequest;
+      const title = `feat: ${truncatedTitle}`;
+      const body = buildPRBody(pipelineState);
+
+      const prUrl = createPR({ title, body });
+      console.log(chalk.green.bold(`[pr] Pull request created: ${prUrl}`));
+
+      // Persist the PR URL in mayday state
+      if (mayday) {
+        this.state.updateMayday({ prUrl } as Partial<MaydayState>);
+      }
+    } catch (err) {
+      console.log(chalk.yellow(`[pr] Could not create PR: ${err instanceof Error ? err.message : err}`));
     }
   }
 
@@ -922,6 +988,7 @@ export class Pipeline {
     model?: string;
     maxFixBudgetUsd?: number | null;
     fromStage?: StageName;
+    approvalRequired?: boolean;
   } = {}): Promise<void> {
     if (this.state.getMayday()?.active) {
       throw new Error('MayDay pipeline is already running. Use --resume to continue or stop it first.');
@@ -962,6 +1029,8 @@ export class Pipeline {
       error: null,
       figmaUrl: opts.figmaUrl,
       maxFixBudgetUsd: opts.maxFixBudgetUsd !== undefined ? opts.maxFixBudgetUsd : 15,
+      approvalRequired: opts.approvalRequired ?? false,
+      pendingApproval: null,
     };
 
     this.state.setMayday(mayday);
@@ -983,6 +1052,7 @@ export class Pipeline {
     try {
       await this.executeMaydayPipeline(stack, opts.parallel);
       this.state.archiveRun();
+      this.attemptAutoCreatePR();
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
       this.state.updateMayday({ active: false, error: errMsg });
@@ -1009,6 +1079,7 @@ export class Pipeline {
     try {
       await this.executeMaydayPipeline(stack, opts.parallel);
       this.state.archiveRun();
+      this.attemptAutoCreatePR();
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
       this.state.updateMayday({ active: false, error: errMsg });
@@ -1070,6 +1141,29 @@ export class Pipeline {
 
         // Auto-commit after each stage completes
         this.autoCommitStage(stage, STAGE_ARTIFACT_MAP[stage]);
+
+        // Approval gate: pause and wait for user approval before proceeding
+        const currentMayday = this.state.getMayday();
+        if (currentMayday?.approvalRequired && i < stages.length - 1) {
+          this.state.updateMayday({
+            pendingApproval: { stage, requestedAt: Date.now() },
+          });
+          console.log(chalk.yellow(`[mayday] Waiting for approval to proceed past ${stage}...`));
+
+          // Poll until pendingApproval is cleared or mayday becomes inactive
+          while (true) {
+            await sleep(500);
+            const m = this.state.getMayday();
+            if (!m?.active) {
+              console.log(chalk.yellow(`\n[mayday] Rejected or stopped during approval.`));
+              return;
+            }
+            if (!m.pendingApproval) {
+              console.log(chalk.green(`[mayday] Approval granted — continuing pipeline.`));
+              break;
+            }
+          }
+        }
       }
     }
 

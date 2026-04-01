@@ -36,6 +36,7 @@ export function registerMayday(program: Command): void {
     .option('--resume', 'Resume a previously interrupted MayDay session')
     .option('-y, --yes', 'Skip cost confirmation prompt')
     .option('--from <stage>', 'Skip stages before this one (analyze, architect, plan, build, test)')
+    .option('--approve', 'Require approval between pipeline stages')
     .option('--no-git', 'Skip git branch creation and auto-commits')
     .action(async (featureRequest: string | undefined, opts) => {
       let swarmDir: string;
@@ -102,6 +103,7 @@ export function registerMayday(program: Command): void {
           parallel: parseInt(opts.parallel, 10),
           maxFixBudgetUsd: fixBudget,
           fromStage: opts.from as StageName | undefined,
+          approvalRequired: opts.approve ?? false,
         });
       } catch (err) {
         console.error(chalk.red(err instanceof Error ? err.message : String(err)));

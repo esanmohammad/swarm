@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { DollarSign, Clock, AlertTriangle, Play, ChevronRight, Siren, Square, MessageSquare, RotateCw } from 'lucide-react';
+import { DollarSign, Clock, AlertTriangle, Play, ChevronRight, Siren, Square, MessageSquare, RotateCw, CheckCircle, XCircle } from 'lucide-react';
 import type { PipelineState, StageName, WsCommand } from '../types';
 
 const COST_PER_STAGE: Record<string, { low: number; high: number }> = {
@@ -382,6 +382,30 @@ export function TopBar({ pipeline, violationCount, onRunStage }: TopBarProps) {
               [esc]
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Approval gate bar */}
+      {mayday?.pendingApproval && (
+        <div className="mb-3 font-mono p-2.5 rounded-md bg-yellow-950/30 border border-yellow-700/40 flex items-center gap-3">
+          <span className="text-yellow-400 text-sm font-bold">!</span>
+          <span className="text-xs text-stone-300 flex-1">
+            Stage <span className="text-yellow-300 font-bold">{mayday.pendingApproval.stage}</span> complete — approve to continue pipeline
+          </span>
+          <button
+            onClick={() => onRunStage?.({ action: 'mayday-approve', stage: mayday.pendingApproval!.stage })}
+            className="flex items-center gap-1 px-3 py-1 rounded text-xs font-bold text-green-400 hover:text-green-300 bg-green-950/40 hover:bg-green-950/60 border border-green-700/40 hover:border-green-600/50 transition-all"
+          >
+            <CheckCircle size={12} />
+            Approve
+          </button>
+          <button
+            onClick={() => onRunStage?.({ action: 'mayday-reject', stage: mayday.pendingApproval!.stage })}
+            className="flex items-center gap-1 px-3 py-1 rounded text-xs font-bold text-red-400 hover:text-red-300 bg-red-950/40 hover:bg-red-950/60 border border-red-700/40 hover:border-red-600/50 transition-all"
+          >
+            <XCircle size={12} />
+            Reject
+          </button>
         </div>
       )}
 
