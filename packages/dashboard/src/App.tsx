@@ -159,16 +159,15 @@ export default function App() {
         <div className="flex items-center gap-2 sm:gap-4 min-w-0">
           <h1 className="text-sm font-semibold tracking-wide text-stone-300 shrink-0 flex items-center gap-0">
             swarm
-            {state && pipelines.length > 1 ? (
+            {state && (
               <span className="ml-1">
                 <PipelineSelector
                   pipelines={pipelines}
                   activePipeline={activePipeline}
                   onSwitch={switchPipeline}
+                  sendCommand={sendCommand}
                 />
               </span>
-            ) : (
-              state && <span className="text-blue-400 ml-1 font-normal hidden sm:inline">/ {state.projectName}</span>
             )}
           </h1>
 

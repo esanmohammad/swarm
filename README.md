@@ -133,7 +133,11 @@ swarm pipeline delete api-refactor  # Clean up worktree and state
 
 Each non-default pipeline gets its own git branch (`pipeline/{name}`) and worktree, so agents in different pipelines never conflict on files. When creating a pipeline, existing artifacts (REQUIREMENTS.md, SPEC.md, etc.) are copied to the new worktree.
 
-The dashboard includes a **pipeline selector** dropdown (top-left header) to switch between pipelines and a **Compare** button for side-by-side stage comparison.
+Pipelines can also be managed directly from the **dashboard**:
+- **Pipeline selector** dropdown (top-left header) to switch between pipelines
+- **"New pipeline"** button at the bottom of the dropdown to create pipelines from the UI
+- **Delete** button (trash icon) on each non-default pipeline in the dropdown
+- **Compare** button in the header for side-by-side stage comparison across pipelines
 
 ### Pipeline Resume
 
