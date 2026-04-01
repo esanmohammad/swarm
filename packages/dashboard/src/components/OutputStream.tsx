@@ -5,6 +5,7 @@ import {
   FolderSearch, Globe, Zap, Copy, Check, Download,
 } from 'lucide-react';
 import type { Agent, AgentActivity } from '../types';
+import { DiffViewer } from './DiffViewer';
 
 interface OutputStreamProps {
   agent: Agent | null;
@@ -106,7 +107,7 @@ function ActivityItem({ activity, index }: { activity: AgentActivity; index: num
   );
 }
 
-type ViewMode = 'activity' | 'raw';
+type ViewMode = 'activity' | 'raw' | 'diff';
 
 export function OutputStream({ agent, liveOutput, activities, onSendInput }: OutputStreamProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -248,6 +249,16 @@ export function OutputStream({ agent, liveOutput, activities, onSendInput }: Out
               log
             </button>
             <button
+              onClick={() => setViewMode('diff')}
+              className={`px-2 py-0.5 border-t border-r border-b transition-colors ${
+                viewMode === 'diff'
+                  ? 'bg-stone-800/50 text-stone-300 border-stone-700/50'
+                  : 'text-stone-400 border-stone-700/40 hover:text-stone-300'
+              }`}
+            >
+              changes
+            </button>
+            <button
               onClick={() => setViewMode('raw')}
               className={`px-2 py-0.5 rounded-r border-t border-r border-b transition-colors ${
                 viewMode === 'raw'
@@ -308,7 +319,9 @@ export function OutputStream({ agent, liveOutput, activities, onSendInput }: Out
         onScroll={handleScroll}
         className="flex-1 overflow-auto bg-[#0c0a09]"
       >
-        {viewMode === 'activity' ? (
+        {viewMode === 'diff' ? (
+          <DiffViewer activities={activities} />
+        ) : viewMode === 'activity' ? (
           <div className="min-h-full py-1">
             {feedActivities.length > 0 ? (
               feedActivities.map((activity, i) => (
