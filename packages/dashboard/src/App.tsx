@@ -1,375 +1,241 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { Wifi, WifiOff, Plus, Terminal } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Wifi, WifiOff, Rocket, BarChart3, Clock, Home } from 'lucide-react';
 import { useWebSocket } from './hooks/useWebSocket';
-import { TopBar } from './components/TopBar';
-import { AgentCard } from './components/AgentCard';
-import { CostPanel } from './components/CostPanel';
-import { OutputStream } from './components/OutputStream';
-import { GuardrailAlerts } from './components/GuardrailAlerts';
+import { LaunchView } from './views/LaunchView';
+import { PipelineView } from './views/PipelineView';
+import { ResultsView } from './views/ResultsView';
+import { HistoryView } from './views/HistoryView';
 import { SpawnDialog } from './components/SpawnDialog';
-import { KillConfirmDialog } from './components/KillConfirmDialog';
-import { EmptyState } from './components/EmptyState';
-import { HistoryView } from './components/HistoryView';
-import type { Agent, AgentStatus, StageName } from './types';
+type View = 'launch' | 'pipeline' | 'results' | 'history';
 
-const SHORTCUTS: { keys: string; desc: string }[] = [
-  { keys: '\u2318/Ctrl + N', desc: 'Spawn agent' },
-  { keys: '\u2191 / \u2193', desc: 'Select prev/next agent' },
-  { keys: '\u2318/Ctrl + K', desc: 'Kill selected agent' },
-  { keys: '\u2318/Ctrl + Enter', desc: 'Run next pending stage' },
-  { keys: 'Escape', desc: 'Close dialog' },
-  { keys: '?', desc: 'Toggle this help' },
-];
-
-const STAGE_ORDER: StageName[] = ['analyze', 'architect', 'plan', 'build', 'test'];
-
-function ShortcutsHelp({ onClose }: { onClose: () => void }) {
-  return (
-    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50" onClick={onClose}>
-      <div
-        className="bg-[#0e0c0b] rounded border border-stone-700 w-full max-w-sm font-mono"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between px-4 py-2.5 border-b border-stone-700">
-          <span className="text-xs text-stone-400">keyboard shortcuts</span>
-          <button onClick={onClose} className="text-stone-600 hover:text-stone-400 transition-colors text-xs">
-            [esc]
-          </button>
-        </div>
-        <div className="p-4 space-y-2">
-          {SHORTCUTS.map((s) => (
-            <div key={s.keys} className="flex items-center justify-between">
-              <span className="text-xs text-stone-300 bg-stone-800/60 px-2 py-0.5 rounded border border-stone-700/50">{s.keys}</span>
-              <span className="text-xs text-stone-400">{s.desc}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
+function getInitialView(): View {
+  const hash = window.location.hash.replace('#', '');
+  if (['launch', 'pipeline', 'results', 'history'].includes(hash)) return hash as View;
+  return 'launch';
 }
+
+// Toast system
+interface Toast {
+  id: number;
+  message: string;
+  type: 'info' | 'success' | 'error' | 'warning';
+  timestamp: number;
+}
+
+let toastId = 0;
 
 export default function App() {
   const { state, connected, agentOutputs, agentActivities, violations, historyEntries, sendCommand } = useWebSocket();
-  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+  const [view, setView] = useState<View>(getInitialView);
   const [showSpawn, setShowSpawn] = useState(false);
-  const [killTarget, setKillTarget] = useState<Agent | null>(null);
-  const [showShortcuts, setShowShortcuts] = useState(false);
-
-  const selectedAgent = state?.agents.find((a) => a.id === selectedAgentId) ?? null;
-  const allStagesPending = state
-    ? Object.values(state.stages).every((s) => s.status === 'pending')
-    : false;
-  const showEmptyState = state !== null && state.agents.length === 0 && allStagesPending;
-
-  // --- Browser notifications ---
-  const prevAgentStatusesRef = useRef<Map<string, AgentStatus>>(new Map());
+  const [toasts, setToasts] = useState<Toast[]>([]);
   const prevMaydayStageRef = useRef<string | undefined>(undefined);
-  const prevViolationCountRef = useRef<number>(0);
+  const prevConnectedRef = useRef(connected);
 
-  // Request notification permission on mount
-  useEffect(() => {
-    if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission();
-    }
+  // Navigate and update hash
+  const navigate = useCallback((v: View) => {
+    setView(v);
+    window.location.hash = v;
   }, []);
 
-  const notify = useCallback((title: string, body: string) => {
-    if (
-      'Notification' in window &&
-      Notification.permission === 'granted' &&
-      !document.hasFocus()
-    ) {
-      new Notification(title, { body, icon: '/favicon.ico' });
+  // Auto-navigate based on pipeline state
+  useEffect(() => {
+    if (!state) return;
+
+    const hasRunning = Object.values(state.stages).some((s) => s.status === 'running');
+    const maydayActive = state.mayday?.active;
+    const maydayComplete = state.mayday?.currentStage === 'complete';
+
+    // If pipeline just started running, navigate to pipeline view
+    if ((hasRunning || maydayActive) && view === 'launch') {
+      navigate('pipeline');
     }
+
+    // If pipeline just completed, navigate to results
+    if (maydayComplete && view === 'pipeline') {
+      navigate('results');
+    }
+  }, [state, view, navigate]);
+
+  // Toast helper
+  const addToast = useCallback((message: string, type: Toast['type'] = 'info') => {
+    const id = ++toastId;
+    setToasts((prev) => [...prev.slice(-4), { id, message, type, timestamp: Date.now() }]);
+    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 5000);
   }, []);
 
-  // Watch agent status transitions
+  // Connection status toasts
   useEffect(() => {
-    if (!state?.agents) return;
-
-    const prev = prevAgentStatusesRef.current;
-    for (const agent of state.agents) {
-      const prevStatus = prev.get(agent.id);
-      if (prevStatus && prevStatus !== agent.status) {
-        if (agent.status === 'done') {
-          notify('Agent completed', `${agent.name} finished successfully`);
-        } else if (agent.status === 'error') {
-          notify('Agent failed', `${agent.name} failed: ${agent.error || 'unknown error'}`);
-        }
-      }
+    if (prevConnectedRef.current && !connected) {
+      addToast('Connection lost — reconnecting...', 'warning');
+    } else if (!prevConnectedRef.current && connected) {
+      addToast('Connected', 'success');
     }
+    prevConnectedRef.current = connected;
+  }, [connected, addToast]);
 
-    const next = new Map<string, AgentStatus>();
-    for (const agent of state.agents) {
-      next.set(agent.id, agent.status);
-    }
-    prevAgentStatusesRef.current = next;
-  }, [state?.agents, notify]);
-
-  // Watch MayDay pipeline stage transitions
+  // Mayday stage transition notifications
   useEffect(() => {
     const currentStage = state?.mayday?.currentStage;
     const prevStage = prevMaydayStageRef.current;
 
     if (prevStage && prevStage !== currentStage) {
       if (currentStage === 'complete') {
-        notify('Pipeline completed', 'MayDay pipeline completed!');
+        addToast('Pipeline complete!', 'success');
+        // Browser notification
+        if ('Notification' in window && Notification.permission === 'granted' && !document.hasFocus()) {
+          new Notification('Swarm', { body: 'Pipeline completed!' });
+        }
       } else if (currentStage === 'fix-loop') {
-        notify('Fix iteration', 'MayDay fix iteration starting');
+        addToast('Starting fix iteration...', 'info');
       }
     }
-
     prevMaydayStageRef.current = currentStage;
-  }, [state?.mayday?.currentStage, notify]);
+  }, [state?.mayday?.currentStage, addToast]);
 
-  // Watch guardrail violations
+  // Request notification permission
   useEffect(() => {
-    const currentCount = violations.length;
-    const prevCount = prevViolationCountRef.current;
-
-    if (currentCount > prevCount) {
-      const latest = violations[currentCount - 1];
-      notify('Guardrail violation', latest?.message || 'A guardrail check failed');
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
     }
+  }, []);
 
-    prevViolationCountRef.current = currentCount;
-  }, [violations, notify]);
-
-  // Update browser tab title with project name
+  // Update browser title
   useEffect(() => {
-    document.title = state?.projectName ? `SWARM-${state.projectName}` : 'SWARM';
+    document.title = state?.projectName ? `Swarm — ${state.projectName}` : 'Swarm';
   }, [state?.projectName]);
 
-  // --- Global keyboard shortcuts ---
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't trigger shortcuts when typing in inputs
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-
-      const mod = e.metaKey || e.ctrlKey;
-
-      // ? — toggle shortcuts help
-      if (e.key === '?' && !mod) {
-        e.preventDefault();
-        setShowShortcuts((v) => !v);
-        return;
-      }
-
-      // Escape — close any open dialog
-      if (e.key === 'Escape') {
-        if (showShortcuts) { setShowShortcuts(false); e.preventDefault(); return; }
-        if (showSpawn) { setShowSpawn(false); e.preventDefault(); return; }
-        if (killTarget) { setKillTarget(null); e.preventDefault(); return; }
-        return;
-      }
-
-      // Cmd/Ctrl + N — open spawn dialog
-      if (mod && e.key === 'n') {
-        e.preventDefault();
-        setShowSpawn(true);
-        return;
-      }
-
-      // Cmd/Ctrl + K — kill selected agent
-      if (mod && e.key === 'k') {
-        e.preventDefault();
-        if (selectedAgentId && state) {
-          const agent = state.agents.find((a) => a.id === selectedAgentId);
-          if (agent && agent.status === 'running') {
-            setKillTarget(agent);
-          }
-        }
-        return;
-      }
-
-      // Cmd/Ctrl + Enter — run next pending stage
-      if (mod && e.key === 'Enter') {
-        e.preventDefault();
-        if (state) {
-          const nextStage = STAGE_ORDER.find((s) => state.stages[s]?.status === 'pending');
-          if (nextStage) {
-            // For stages needing prompt (analyze, plan, test), we just trigger the stage click behavior
-            // For architect/build, run directly
-            if (nextStage === 'architect' || nextStage === 'build') {
-              sendCommand({ action: 'run-stage', stage: nextStage });
-            }
-            // analyze/plan/test need prompt input — user should click the stage button
-          }
-        }
-        return;
-      }
-
-      // ArrowUp — select previous agent
-      if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        if (state && state.agents.length > 0) {
-          const idx = state.agents.findIndex((a) => a.id === selectedAgentId);
-          if (idx <= 0) {
-            setSelectedAgentId(state.agents[state.agents.length - 1].id);
-          } else {
-            setSelectedAgentId(state.agents[idx - 1].id);
-          }
-        }
-        return;
-      }
-
-      // ArrowDown — select next agent
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        if (state && state.agents.length > 0) {
-          const idx = state.agents.findIndex((a) => a.id === selectedAgentId);
-          if (idx < 0 || idx >= state.agents.length - 1) {
-            setSelectedAgentId(state.agents[0].id);
-          } else {
-            setSelectedAgentId(state.agents[idx + 1].id);
-          }
-        }
-        return;
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [state, selectedAgentId, showSpawn, killTarget, showShortcuts, sendCommand]);
+  const NAV_ITEMS: { key: View; label: string; icon: typeof Home }[] = [
+    { key: 'launch', label: 'Launch', icon: Home },
+    { key: 'pipeline', label: 'Pipeline', icon: Rocket },
+    { key: 'results', label: 'Results', icon: BarChart3 },
+    { key: 'history', label: 'History', icon: Clock },
+  ];
 
   return (
-    <div className="h-screen flex flex-col bg-[#0c0a09]">
-      {/* Header — terminal title bar */}
-      <header className="flex items-center justify-between px-4 py-2 border-b border-stone-800/50 bg-[#0c0a09]">
-        <div className="flex items-center gap-3">
-          {/* Terminal window dots */}
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-red-600/80" />
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-600/60" />
-            <span className="w-2.5 h-2.5 rounded-full bg-green-600/60" />
-          </div>
-          <div className="w-px h-4 bg-stone-800/50 mx-1" />
-          <Terminal size={14} className="text-red-600" />
-          <h1 className="text-sm font-semibold tracking-[0.2em] text-stone-300 uppercase">
-            swarm{state ? <span className="text-red-500">-{state.projectName}</span> : ''}
+    <div className="h-screen flex flex-col bg-[#0c0a09] text-stone-300">
+      {/* Navigation bar */}
+      <header className="flex items-center justify-between px-4 py-2 border-b border-stone-800/50 bg-[#0e0c0b]">
+        <div className="flex items-center gap-4">
+          <h1 className="text-sm font-semibold tracking-wide text-stone-300">
+            swarm
+            {state && <span className="text-blue-400 ml-1 font-normal">/ {state.projectName}</span>}
           </h1>
-          {state && (
-            <span className="text-xs text-stone-400 font-light">
-              <span className="text-stone-400">:</span>{state.stack}
-            </span>
-          )}
+
+          <nav className="flex items-center gap-1 ml-2">
+            {NAV_ITEMS.map(({ key, label, icon: Icon }) => (
+              <button
+                key={key}
+                onClick={() => navigate(key)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                  view === key
+                    ? 'bg-stone-800/60 text-stone-200'
+                    : 'text-stone-500 hover:text-stone-300 hover:bg-stone-800/30'
+                }`}
+              >
+                <Icon size={13} />
+                {label}
+              </button>
+            ))}
+          </nav>
         </div>
 
         <div className="flex items-center gap-3">
+          {/* Cost display */}
+          {state && state.totalCost.totalUsd > 0 && (
+            <span className="text-xs text-amber-400 font-mono">
+              ${state.totalCost.totalUsd.toFixed(2)}
+            </span>
+          )}
+
+          {/* Connection status */}
           <div className="flex items-center gap-1.5">
             {connected ? (
               <Wifi size={12} className="text-green-500" />
             ) : (
               <WifiOff size={12} className="text-red-500" />
             )}
-            <span className={`text-[10px] font-medium uppercase tracking-wider ${connected ? 'text-green-500' : 'text-red-500'}`}>
+            <span className={`text-[10px] font-medium ${connected ? 'text-green-500' : 'text-red-500'}`}>
               {connected ? 'connected' : 'offline'}
             </span>
           </div>
         </div>
       </header>
 
-      {!state ? (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center text-stone-400">
-            <Terminal size={48} className="mx-auto mb-4 opacity-20" />
-            <p className="text-sm font-mono">$ swarm dashboard --connect</p>
-            <p className="text-xs mt-2 text-stone-400">awaiting connection...</p>
-          </div>
-        </div>
-      ) : (
-        <div className="flex-1 flex overflow-hidden">
-          {/* Left sidebar — agent list */}
-          <aside className="w-72 border-r border-stone-800/50 flex flex-col overflow-hidden bg-[#0e0c0b]">
-            <CostPanel pipeline={state} />
-
-            <div className="border-t border-stone-800/50 flex-1 overflow-y-auto">
-              <div className="flex items-center justify-between px-3 py-2">
-                <span className="text-[10px] text-stone-400 font-medium tracking-widest uppercase">
-                  processes <span className="text-stone-400">({state.agents.length})</span>
-                </span>
-                <button
-                  onClick={() => setShowSpawn(true)}
-                  className="p-1 rounded hover:bg-stone-800 text-stone-400 hover:text-green-500 transition-colors"
-                  title="Spawn agent"
-                >
-                  <Plus size={13} />
-                </button>
-              </div>
-
-              <div className="px-2 pb-3 space-y-1">
-                {state.agents.map((agent) => (
-                  <AgentCard
-                    key={agent.id}
-                    agent={agent}
-                    selected={agent.id === selectedAgentId}
-                    onClick={() => setSelectedAgentId(agent.id)}
-                    onKill={() => setKillTarget(agent)}
-                  />
-                ))}
-                {state.agents.length === 0 && (
-                  <p className="text-[10px] text-stone-400 text-center py-8 font-mono">
-                    no active processes
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {/* History section */}
-            <div className="border-t border-stone-800/50 max-h-64 overflow-hidden flex flex-col">
-              <HistoryView entries={historyEntries} sendCommand={sendCommand} />
-            </div>
-          </aside>
-
-          {/* Main content */}
-          <main className="flex-1 flex flex-col overflow-hidden bg-[#0c0a09]">
-            <TopBar pipeline={state} violationCount={violations.length} onRunStage={sendCommand} />
-
-            {violations.length > 0 && (
-              <div className="border-b border-stone-800/50">
-                <GuardrailAlerts violations={violations} />
-              </div>
-            )}
-
-            <div className="flex-1 overflow-hidden">
-              {showEmptyState ? (
-                <EmptyState sendCommand={sendCommand} />
-              ) : (
-                <OutputStream
-                  agent={selectedAgent}
-                  liveOutput={selectedAgentId ? agentOutputs.get(selectedAgentId) || '' : ''}
-                  activities={selectedAgentId ? agentActivities.get(selectedAgentId) || [] : []}
-                  onSendInput={(agentId, text) =>
-                    sendCommand({ action: 'send-input', agentId, text })
-                  }
-                />
-              )}
-            </div>
-          </main>
+      {/* Reconnecting banner */}
+      {!connected && (
+        <div className="px-4 py-1.5 bg-amber-950/30 border-b border-amber-800/30 text-center">
+          <span className="text-xs text-amber-400">Reconnecting to server...</span>
         </div>
       )}
 
+      {/* Main content */}
+      {!state ? (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center text-stone-500">
+            <Rocket size={36} className="mx-auto mb-3 opacity-20" />
+            <p className="text-sm">Connecting to Swarm...</p>
+          </div>
+        </div>
+      ) : (
+        <>
+          {view === 'launch' && (
+            <LaunchView
+              sendCommand={sendCommand}
+              historyEntries={historyEntries}
+              onNavigate={navigate}
+            />
+          )}
+          {view === 'pipeline' && (
+            <PipelineView
+              pipeline={state}
+              sendCommand={sendCommand}
+              agentOutputs={agentOutputs}
+              agentActivities={agentActivities}
+              violations={violations}
+            />
+          )}
+          {view === 'results' && (
+            <ResultsView
+              pipeline={state}
+              agentActivities={agentActivities}
+              onNavigate={navigate}
+            />
+          )}
+          {view === 'history' && (
+            <HistoryView
+              entries={historyEntries}
+              sendCommand={sendCommand}
+            />
+          )}
+        </>
+      )}
+
+      {/* Toast notifications */}
+      {toasts.length > 0 && (
+        <div className="fixed bottom-4 right-4 space-y-2 z-50">
+          {toasts.map((toast) => (
+            <div
+              key={toast.id}
+              className={`px-4 py-2 rounded-lg text-xs font-medium shadow-lg border transition-all animate-fade-in ${
+                toast.type === 'success' ? 'bg-green-950/80 text-green-300 border-green-800/50' :
+                toast.type === 'error' ? 'bg-red-950/80 text-red-300 border-red-800/50' :
+                toast.type === 'warning' ? 'bg-amber-950/80 text-amber-300 border-amber-800/50' :
+                'bg-stone-900/80 text-stone-300 border-stone-700/50'
+              }`}
+            >
+              {toast.message}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Spawn dialog (accessible via keyboard shortcut) */}
       {showSpawn && (
         <SpawnDialog
           onSpawn={sendCommand}
           onClose={() => setShowSpawn(false)}
         />
-      )}
-
-      {killTarget && (
-        <KillConfirmDialog
-          agent={killTarget}
-          onConfirm={() => {
-            sendCommand({ action: 'kill', agentId: killTarget.id });
-            setKillTarget(null);
-          }}
-          onCancel={() => setKillTarget(null)}
-        />
-      )}
-
-      {showShortcuts && (
-        <ShortcutsHelp onClose={() => setShowShortcuts(false)} />
       )}
     </div>
   );

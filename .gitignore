@@ -3,3 +3,8 @@ dist/
 .swarm/state.json
 .swarm/logs/
 *.tsbuildinfo
+
+# Internal planning docs
+release/
+product/
+docs/

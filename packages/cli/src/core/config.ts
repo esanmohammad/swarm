@@ -78,8 +78,8 @@ export function autoInit(projectName: string, stack: TechStack, cwd: string = pr
     ...DEFAULT_CONFIG,
     projectName,
     stack,
-    model: 'opus',
-    maxBudgetUsd: null,
+    model: 'sonnet',
+    maxBudgetUsd: 5,
     wsPort,
     dashboardPort,
   };

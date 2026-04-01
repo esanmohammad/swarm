@@ -23,11 +23,14 @@ import { createContext } from '../src/commands/shared.js';
 
 const program = new Command();
 
+// Check if --all flag was passed for extended help
+const showAll = process.argv.includes('--all');
+
 program
   .name('swarm')
-  .description('Claude Agent Orchestration CLI — manage your agent swarm')
+  .description('AI builds your feature while you watch')
   .version('0.1.0')
-  .argument('[feature-request]', 'Feature request — auto-inits and runs MayDay pipeline')
+  .argument('[feature-request]', 'Describe what to build — runs the full pipeline automatically')
   .action(async (featureRequest: string | undefined) => {
     // Only trigger when a feature-request string is provided and no subcommand matched
     if (!featureRequest) return;
@@ -62,20 +65,50 @@ program
     }
   });
 
-// Register all commands
+// --- Primary commands (always visible) ---
 registerInit(program);
+registerMayday(program);
+registerDashboard(program);
+registerStatus(program);
+registerDoctor(program);
+
+// --- Pipeline stage commands (always visible) ---
 registerAnalyze(program);
 registerArchitect(program);
 registerPlan(program);
 registerBuild(program);
 registerTest(program);
-registerEvaluate(program);
-registerStatus(program);
-registerAgent(program);
-registerDashboard(program);
-registerMayday(program);
-registerDoctor(program);
-registerRecover(program);
-registerAudit(program);
+
+// --- Advanced commands (hidden unless --all) ---
+const advancedCommands = [registerEvaluate, registerAgent, registerRecover, registerAudit];
+for (const register of advancedCommands) {
+  register(program);
+}
+
+// Hide advanced commands from default help
+if (!showAll) {
+  for (const cmd of program.commands) {
+    const name = cmd.name();
+    if (['evaluate', 'eval', 'agent', 'recover', 'audit'].includes(name)) {
+      (cmd as unknown as { _hidden: boolean })._hidden = true;
+    }
+  }
+}
+
+// Override help to add usage examples and --all hint
+program.addHelpText('after', () => {
+  const lines = [
+    '',
+    chalk.bold('Quick start:'),
+    `  ${chalk.cyan('swarm "add a login page with JWT auth"')}  Build a feature end-to-end`,
+    `  ${chalk.cyan('swarm init')}                               Set up a new project`,
+    `  ${chalk.cyan('swarm dashboard')}                          Open the web UI`,
+  ];
+  if (!showAll) {
+    lines.push('');
+    lines.push(chalk.dim('  Run swarm --help --all to see all commands'));
+  }
+  return lines.join('\n');
+});
 
 program.parse();

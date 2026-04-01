@@ -1,0 +1,6 @@
+# Build output
+dist/
+
+# Assets copied by bundle-assets.js (for npm publishing only)
+LICENSE
+README.md

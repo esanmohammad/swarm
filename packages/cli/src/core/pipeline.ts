@@ -1432,9 +1432,11 @@ export class Pipeline {
       console.log(chalk.dim(`Skipping stages before "${fromStage}"`));
     }
 
-    console.log(chalk.red.bold(`\n🚨 MAYDAY — Autonomous pipeline engaged`));
+    console.log(chalk.bold(`\nSwarm Pipeline — building your feature`));
     console.log(chalk.dim(`Feature: ${featureRequest}`));
-    console.log(chalk.dim(`Max fix iterations: ${maxIterations}\n`));
+    console.log(chalk.dim(`Model: ${this.config.model} | Budget: ${this.config.maxBudgetUsd ? '$' + this.config.maxBudgetUsd : 'unlimited'} | Max fix iterations: ${maxIterations}\n`));
+
+    const pipelineStart = Date.now();
 
     try {
       await this.executeMaydayPipeline(stack, opts.parallel);
@@ -1448,6 +1450,14 @@ export class Pipeline {
       this.webhooks.maydayError(this.config.projectName, errMsg).catch(() => {});
       throw err;
     }
+
+    // Print summary
+    const totalElapsed = Date.now() - pipelineStart;
+    const totalCost = this.state.getState().totalCost.totalUsd;
+    const elapsedMin = (totalElapsed / 60000).toFixed(1);
+    console.log(chalk.bold(`\nPipeline complete`));
+    console.log(chalk.dim(`  Total time: ${elapsedMin}m | Total cost: $${totalCost.toFixed(2)}`));
+    console.log(chalk.dim(`  Run ${chalk.bold('swarm status')} to see details or ${chalk.bold('swarm dashboard')} to view in browser\n`));
   }
 
   async resumeMayday(opts: { parallel?: number } = {}): Promise<void> {
@@ -1459,7 +1469,7 @@ export class Pipeline {
     const stack = this.state.getState().stack;
     this.state.updateMayday({ pausedAt: null });
 
-    console.log(chalk.red.bold(`\n🚨 MAYDAY — Resuming from ${mayday.currentStage}`));
+    console.log(chalk.bold(`\nSwarm Pipeline — resuming from ${mayday.currentStage}`));
     if (mayday.currentStage === 'fix-loop') {
       console.log(chalk.dim(`Fix iteration: ${mayday.fixIteration}/${mayday.maxFixIterations}`));
     }
@@ -1507,6 +1517,14 @@ export class Pipeline {
     const stages: StageName[] = ['analyze', 'architect', 'plan', 'build', 'test'];
     const startIdx = stages.indexOf(mayday.currentStage as StageName);
 
+    const STAGE_LABELS: Record<string, string> = {
+      analyze: 'Analyzing requirements',
+      architect: 'Designing architecture',
+      plan: 'Planning tasks',
+      build: 'Building code',
+      test: 'Running tests',
+    };
+
     // Run pipeline stages (or resume from where we left off)
     if (startIdx >= 0) {
       for (let i = startIdx; i < stages.length; i++) {
@@ -1514,18 +1532,22 @@ export class Pipeline {
 
         // Check if mayday was stopped
         if (!this.state.getMayday()?.active) {
-          console.log(chalk.yellow(`\n[mayday] Stopped by user.`));
+          console.log(chalk.yellow(`\nStopped by user.`));
           return;
         }
 
         // Consume any queued user messages and log them
         const userMsgs = this.state.consumeMaydayMessages();
         if (userMsgs.length > 0) {
-          console.log(chalk.magenta(`[mayday] User guidance received: ${userMsgs.join(' | ')}`));
+          console.log(chalk.magenta(`  User guidance: ${userMsgs.join(' | ')}`));
         }
 
         this.state.updateMayday({ currentStage: stage });
-        console.log(chalk.red(`[mayday] ▸ ${stage}`));
+        const stageNum = i + 1;
+        const stageLabel = STAGE_LABELS[stage] || stage;
+        const costBefore = this.state.getState().totalCost.totalUsd;
+        const stageStart = Date.now();
+        process.stdout.write(chalk.cyan(`  [${stageNum}/5] ${stageLabel}...`));
 
         await this.runStageWithRetry(stage, async () => {
           switch (stage) {
@@ -1548,6 +1570,14 @@ export class Pipeline {
               break;
           }
         });
+
+        // Log stage completion with elapsed time and cost
+        const stageElapsed = Date.now() - stageStart;
+        const stageCost = this.state.getState().totalCost.totalUsd - costBefore;
+        const elapsedStr = stageElapsed < 60000
+          ? `${(stageElapsed / 1000).toFixed(0)}s`
+          : `${(stageElapsed / 60000).toFixed(1)}m`;
+        console.log(chalk.green(` done`) + chalk.dim(` (${elapsedStr}, $${stageCost.toFixed(2)})`));
 
         // Auto-commit after each stage completes
         this.autoCommitStage(stage, STAGE_ARTIFACT_MAP[stage]);
@@ -1600,7 +1630,7 @@ export class Pipeline {
     });
 
     if (testResults.passed) {
-      console.log(chalk.green.bold(`\n[mayday] ✓ All tests passed on first run!`));
+      console.log(chalk.green.bold(`\n  All tests passed on first run!`));
       this.state.updateMayday({ active: false, currentStage: 'complete' });
       return;
     }
@@ -1743,7 +1773,7 @@ export class Pipeline {
       });
 
       if (testResults.passed) {
-        console.log(chalk.green.bold(`\n[mayday] ✓ All tests passed after ${iteration} fix iteration(s)!`));
+        console.log(chalk.green.bold(`\n  All tests passed after ${iteration} fix iteration(s)!`));
         this.state.updateMayday({ active: false, currentStage: 'complete' });
         return;
       }

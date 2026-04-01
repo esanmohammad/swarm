@@ -301,8 +301,8 @@ export interface SwarmConfig {
 export const DEFAULT_CONFIG: SwarmConfig = {
   projectName: 'my-project',
   stack: 'react',
-  model: 'opus',
-  maxBudgetUsd: 20,
+  model: 'sonnet',
+  maxBudgetUsd: 5,
   promptsDir: 'bundled',
   wsPort: 3847,
   dashboardPort: 3848,

@@ -7,9 +7,23 @@ import type { Persona, TechStack } from '../types.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-// Bundled prompts shipped with the repo (prompts/ at project root)
-// From dist/src/prompts/ → 5 levels up to repo root: dist/src/prompts → dist/src → dist → packages/cli → packages → swarm
-const BUNDLED_PROMPTS_DIR = resolve(__dirname, '..', '..', '..', '..', '..', 'prompts');
+// Bundled prompts shipped with the package.
+// When published: dist/prompts/ (copied by prepublishOnly script)
+// When developing in monorepo: ../../prompts/ (repo root)
+function findBundledPromptsDir(): string {
+  // 1. Check inside dist/ (npm-published layout: dist/prompts/)
+  const distPrompts = resolve(__dirname, '..', '..', 'prompts');
+  if (existsSync(distPrompts)) return distPrompts;
+
+  // 2. Monorepo dev layout: dist/src/prompts/ → 5 levels up → repo root/prompts/
+  const repoPrompts = resolve(__dirname, '..', '..', '..', '..', '..', 'prompts');
+  if (existsSync(repoPrompts)) return repoPrompts;
+
+  // Fallback to dist path (will gracefully fail at load time with a helpful error)
+  return distPrompts;
+}
+
+const BUNDLED_PROMPTS_DIR = findBundledPromptsDir();
 
 // Maps persona + stack to possible filenames (handles inconsistent casing)
 const PROMPT_FILENAME_MAP: Record<Persona, (stack: TechStack) => string[]> = {

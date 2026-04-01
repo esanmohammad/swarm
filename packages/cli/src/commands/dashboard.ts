@@ -32,8 +32,12 @@ export function registerDashboard(program: Command): void {
       console.log(chalk.dim(`WebSocket server on ws://localhost:${config.wsPort}`));
 
       // Try to serve built dashboard
+      // When published: dist/dashboard/ (copied by prepublishOnly script)
+      // When developing in monorepo: ../../../../dashboard/dist
       const __dirname = dirname(fileURLToPath(import.meta.url));
-      const dashboardDist = join(__dirname, '..', '..', '..', '..', 'dashboard', 'dist');
+      const distDashboard = join(__dirname, '..', '..', 'dashboard');
+      const repoDashboard = join(__dirname, '..', '..', '..', '..', 'dashboard', 'dist');
+      const dashboardDist = existsSync(join(distDashboard, 'index.html')) ? distDashboard : repoDashboard;
       const dashboardIndex = join(dashboardDist, 'index.html');
 
       if (existsSync(dashboardIndex)) {

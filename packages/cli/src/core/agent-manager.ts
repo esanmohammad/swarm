@@ -78,7 +78,10 @@ export class AgentManager extends EventEmitter {
 
     // Listen for aggregate budget exceeded — kill all agents immediately
     this.costTracker.on('budget-exceeded', (total: CostInfo) => {
-      console.error(`[agent-manager] Budget limit of $${this.costTracker.getBudget()} exceeded (spent $${total.totalUsd.toFixed(4)}). Killing all agents.`);
+      const budget = this.costTracker.getBudget();
+      console.error(`\n\x1b[31mBudget reached: $${total.totalUsd.toFixed(2)} spent (limit: $${budget})\x1b[0m`);
+      console.error(`To increase: swarm mayday --budget 15 or edit .swarm/config.yaml (maxBudgetUsd)`);
+      console.error(`To remove limit: swarm init --budget 0\n`);
       this.killAll();
       this.emit('budget-exceeded', total);
     });

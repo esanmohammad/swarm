@@ -5,6 +5,7 @@ import { AgentManager } from '../core/agent-manager.js';
 import { Pipeline } from '../core/pipeline.js';
 import { SwarmWsServer } from '../core/ws-server.js';
 import { AuditLog } from '../core/audit.js';
+import { requireClaudeCli } from '../core/preflight.js';
 import type { SwarmConfig, Agent } from '../types.js';
 
 export interface SwarmContext {
@@ -18,6 +19,8 @@ export interface SwarmContext {
 }
 
 export function createContext(swarmDir: string, config: SwarmConfig): SwarmContext {
+  // Ensure Claude CLI is available before wiring up any agents
+  requireClaudeCli();
   const state = new StateManager(swarmDir);
   state.killOrphanProcesses(); // Kill any orphans before starting new work
   const costTracker = new CostTracker();

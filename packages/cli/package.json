@@ -1,15 +1,42 @@
 {
-  "name": "@swarm/cli",
+  "name": "swarm-pipeline",
   "version": "0.1.0",
-  "description": "Claude Agent Orchestration CLI",
+  "description": "AI builds your feature while you watch — orchestrate Claude Code agents through a structured 5-stage pipeline",
   "type": "module",
+  "license": "MIT",
+  "author": "Esan Mohammad",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/esanmohammad/swarm"
+  },
+  "homepage": "https://github.com/esanmohammad/swarm#readme",
+  "keywords": [
+    "claude",
+    "ai",
+    "agent",
+    "pipeline",
+    "cli",
+    "code-generation",
+    "orchestration",
+    "vibe-coding",
+    "anthropic"
+  ],
   "bin": {
     "swarm": "./dist/bin/swarm.js"
+  },
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "build": "tsc",
     "dev": "tsx bin/swarm.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build && cd ../.. && npm run build:dashboard && cd packages/cli && node scripts/bundle-assets.js"
   },
   "dependencies": {
     "chalk": "^5.4.1",

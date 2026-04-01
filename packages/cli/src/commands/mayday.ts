@@ -31,6 +31,7 @@ export function registerMayday(program: Command): void {
     .option('-p, --parallel <n>', 'Max parallel agents', '3')
     .option('-n, --max-iterations <n>', 'Max fix-retest iterations', '5')
     .option('--figma <url>', 'Figma design URL')
+    .option('-b, --budget <amount>', 'Max total budget in USD (default: from config, "none" for no limit)')
     .option('--fix-budget <amount>', 'Max USD to spend on fix iterations (default: 15, "none" for no limit)', '15')
     .option('-f, --file', 'Treat argument as a file path to read')
     .option('--resume', 'Resume a previously interrupted MayDay session')
@@ -53,6 +54,9 @@ export function registerMayday(program: Command): void {
       }
       const config = loadConfig();
       if (opts.model) config.model = opts.model;
+      if (opts.budget) {
+        config.maxBudgetUsd = opts.budget === 'none' ? null : (parseFloat(opts.budget) || null);
+      }
 
       const stack = (opts.stack as TechStack) || config.stack;
       const { pipeline, state, cleanup } = createContext(swarmDir, config);

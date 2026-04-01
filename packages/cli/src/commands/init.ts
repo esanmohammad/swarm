@@ -20,8 +20,8 @@ export function registerInit(program: Command): void {
     .command('init')
     .description('Initialize a Swarm project in the current directory')
     .option('-s, --stack <stack>', 'Tech stack (react, node, go)', 'react')
-    .option('-m, --model <model>', 'Default model (sonnet, opus, haiku)', 'opus')
-    .option('-b, --budget <amount>', 'Max budget per agent in USD (0 = no limit)', '0')
+    .option('-m, --model <model>', 'Default model (sonnet, opus, haiku)', 'sonnet')
+    .option('-b, --budget <amount>', 'Max budget per agent in USD (0 = no limit)', '5')
     .option('-n, --name <name>', 'Project name')
     .action(async (opts) => {
       const cwd = process.cwd();
@@ -46,7 +46,7 @@ export function registerInit(program: Command): void {
         projectName,
         stack,
         model: opts.model,
-        maxBudgetUsd: parseFloat(opts.budget) || null,
+        maxBudgetUsd: opts.budget === '0' ? null : (parseFloat(opts.budget) || DEFAULT_CONFIG.maxBudgetUsd),
         wsPort,
         dashboardPort,
       };
