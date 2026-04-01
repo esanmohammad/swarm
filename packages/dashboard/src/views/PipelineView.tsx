@@ -238,10 +238,19 @@ export function PipelineView({ pipeline, sendCommand, agentOutputs, agentActivit
                   </option>
                 ))}
               </select>
-              {agents.some(a => a.status === 'running') && (
+              {selectedAgent?.status === 'running' && (
+                <button
+                  onClick={() => sendCommand({ action: 'kill', agentId: selectedAgent.id })}
+                  className="text-[9px] text-red-500/60 hover:text-red-400 transition-colors flex items-center gap-0.5 shrink-0 px-2 py-1 rounded bg-red-950/30"
+                  aria-label={`Stop ${selectedAgent.name}`}
+                >
+                  Stop
+                </button>
+              )}
+              {agents.filter(a => a.status === 'running').length > 1 && (
                 <button
                   onClick={() => agents.filter(a => a.status === 'running').forEach(a => sendCommand({ action: 'kill', agentId: a.id }))}
-                  className="text-[9px] text-red-500/60 hover:text-red-400 transition-colors flex items-center gap-0.5 shrink-0 min-h-[36px] px-2"
+                  className="text-[9px] text-red-500/60 hover:text-red-400 transition-colors flex items-center gap-0.5 shrink-0 px-2 py-1"
                   aria-label="Stop all running agents"
                 >
                   <Trash2 size={9} />
@@ -291,7 +300,20 @@ export function PipelineView({ pipeline, sendCommand, agentOutputs, agentActivit
                         }`}
                         aria-hidden="true"
                       />
-                      <span className="truncate">{agent.name}</span>
+                      <span className="truncate flex-1">{agent.name}</span>
+                      {agent.status === 'running' && (
+                        <span
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            sendCommand({ action: 'kill', agentId: agent.id });
+                          }}
+                          className="text-[9px] text-red-600 hover:text-red-400 px-1 py-0.5 rounded bg-red-950/40 hover:bg-red-950/60 uppercase tracking-wider font-semibold transition-colors cursor-pointer shrink-0"
+                          role="button"
+                          aria-label={`Stop ${agent.name}`}
+                        >
+                          stop
+                        </span>
+                      )}
                     </div>
                     {agent.status === 'running' && agent.startedAt && (
                       <div className="text-[10px] text-stone-500 mt-0.5 ml-3.5 font-mono">

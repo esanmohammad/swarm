@@ -66,7 +66,8 @@ export default function App() {
     }
 
     // Auto-advance onboarding steps based on pipeline state
-    if (currentStep === 'first-launch' && (hasRunning || maydayActive)) {
+    // Only advance for mayday pipeline runs, not individual agent spawns
+    if (currentStep === 'first-launch' && maydayActive) {
       advanceStep('analyzing');
     }
     if (currentStep === 'analyzing' && state.stages.analyze?.status === 'done') {
