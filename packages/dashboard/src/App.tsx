@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Wifi, WifiOff, Rocket, BarChart3, Clock, Home } from 'lucide-react';
+import { Wifi, WifiOff, Rocket, BarChart3, Clock, Home, UserPlus } from 'lucide-react';
 import { useWebSocket } from './hooks/useWebSocket';
 import { LaunchView } from './views/LaunchView';
 import { PipelineView } from './views/PipelineView';
@@ -100,6 +100,18 @@ export default function App() {
     }
   }, []);
 
+  // Keyboard shortcut: Ctrl/Cmd+K to open Spawn Agent dialog
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setShowSpawn((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   // Update browser title
   useEffect(() => {
     document.title = state?.projectName ? `Swarm — ${state.projectName}` : 'Swarm';
@@ -141,6 +153,18 @@ export default function App() {
         </div>
 
         <div className="flex items-center gap-3">
+          {/* Spawn Agent button */}
+          {connected && state && (
+            <button
+              onClick={() => setShowSpawn(true)}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-stone-400 hover:text-stone-200 hover:bg-stone-800/40 border border-stone-800/40 hover:border-stone-700/50 transition-colors"
+              title="Spawn individual agent"
+            >
+              <UserPlus size={13} />
+              Spawn Agent
+            </button>
+          )}
+
           {/* Cost display */}
           {state && state.totalCost.totalUsd > 0 && (
             <span className="text-xs text-amber-400 font-mono">
