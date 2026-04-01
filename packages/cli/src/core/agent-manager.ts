@@ -29,12 +29,33 @@ export interface SpawnOptions {
   disallowedTools?: string[];
   /** Appended system prompt — system-level enforcement the agent cannot ignore */
   appendSystemPrompt?: string;
+  /** Timeout in ms — kill agent if no output for this duration. Default: 30 min */
+  timeoutMs?: number;
 }
+
+/** Max in-memory output per agent (50KB). Full output is in JSONL logs. */
+const MAX_OUTPUT_BYTES = 50 * 1024;
+/** Max output stored in state.json per agent (2KB) to keep state file small. */
+const MAX_STATE_OUTPUT_BYTES = 2 * 1024;
 
 export class AgentManager extends EventEmitter {
   private agents = new Map<string, { agent: Agent; process: AgentProcess }>();
   /** Maps Claude-internal Agent tool_use_id → virtual agent id */
   private subAgentMap = new Map<string, string>();
+
+  /** Cap agent output to MAX_OUTPUT_BYTES, keeping the tail (ring-buffer style) */
+  private appendOutput(agent: Agent, chunk: string): void {
+    agent.output += chunk;
+    if (agent.output.length > MAX_OUTPUT_BYTES) {
+      agent.output = agent.output.slice(-MAX_OUTPUT_BYTES);
+    }
+  }
+
+  /** Get truncated output for state.json (last 2KB) */
+  getStateOutput(agent: Agent): string {
+    if (agent.output.length <= MAX_STATE_OUTPUT_BYTES) return agent.output;
+    return agent.output.slice(-MAX_STATE_OUTPUT_BYTES);
+  }
 
   /** Append a JSONL log entry for an agent to .swarm/logs/{agentId}.jsonl */
   private appendLog(agentId: string, entry: Record<string, unknown>): void {
@@ -108,11 +129,12 @@ export class AgentManager extends EventEmitter {
       disallowedTools: opts.disallowedTools ?? this.config.permissions.disallowedTools,
       cwd: opts.cwd,
       interactive: opts.interactive,
+      timeoutMs: opts.timeoutMs,
     });
 
     // Wire events
     agentProcess.on('content', (chunk) => {
-      agent.output += chunk;
+      this.appendOutput(agent, chunk);
       this.emit('agent-output', { agentId: agent.id, chunk });
       this.appendLog(agent.id, { type: 'output', timestamp: Date.now(), chunk });
     });
@@ -143,7 +165,13 @@ export class AgentManager extends EventEmitter {
 
     agentProcess.on('exit', (code) => {
       if (agent.status === 'done') return; // already handled by result event
-      if (code !== 0) {
+      if (agentProcess.timedOut) {
+        agent.status = 'error';
+        agent.finishedAt = Date.now();
+        agent.error = agent.error || 'Agent killed due to inactivity timeout';
+        this.state.updateAgent(agent);
+        this.emit('agent-error', agent);
+      } else if (code !== 0) {
         agent.status = 'error';
         agent.finishedAt = Date.now();
         if (!agent.error) {
@@ -234,7 +262,7 @@ export class AgentManager extends EventEmitter {
 
     // Wire events to the same agent
     resumeProcess.on('content', (chunk) => {
-      agent.output += chunk;
+      this.appendOutput(agent, chunk);
       this.emit('agent-output', { agentId, chunk });
       this.appendLog(agentId, { type: 'output', timestamp: Date.now(), chunk });
     });

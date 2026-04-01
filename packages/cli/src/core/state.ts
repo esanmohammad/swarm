@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync, unlinkSync, readdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync, unlinkSync, readdirSync, copyFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { EventEmitter } from 'node:events';
@@ -15,23 +15,49 @@ export class StateManager extends EventEmitter {
     super();
     this.filePath = join(swarmDir, 'state.json');
 
+    this.state = this.loadStateWithRecovery();
+  }
+
+  /** Try loading state.json, fall back to state.json.bak, then empty state */
+  private loadStateWithRecovery(): PipelineState {
+    const backupPath = this.filePath + '.bak';
+
+    // Try primary file
     if (existsSync(this.filePath)) {
       try {
         const raw = readFileSync(this.filePath, 'utf-8');
-        this.state = JSON.parse(raw);
-        // Migrate: ensure all expected stages exist (e.g. 'test' added later)
-        const emptyStage = (): StageState => ({ status: 'pending', agentIds: [], artifact: null });
-        const expectedStages: StageName[] = ['analyze', 'architect', 'plan', 'build', 'test', 'evaluate'];
-        for (const stage of expectedStages) {
-          if (!this.state.stages[stage]) {
-            this.state.stages[stage] = emptyStage();
-          }
-        }
+        const state = JSON.parse(raw) as PipelineState;
+        this.migrateStages(state);
+        return state;
       } catch {
-        this.state = createEmptyPipeline('unknown', 'react');
+        console.error('[state] Failed to parse state.json — trying backup...');
       }
-    } else {
-      this.state = createEmptyPipeline('unknown', 'react');
+    }
+
+    // Try backup
+    if (existsSync(backupPath)) {
+      try {
+        const raw = readFileSync(backupPath, 'utf-8');
+        const state = JSON.parse(raw) as PipelineState;
+        this.migrateStages(state);
+        console.log('[state] Recovered from state.json.bak');
+        return state;
+      } catch {
+        console.error('[state] Backup also corrupted — starting fresh.');
+      }
+    }
+
+    return createEmptyPipeline('unknown', 'react');
+  }
+
+  /** Ensure all expected stages exist after loading */
+  private migrateStages(state: PipelineState): void {
+    const emptyStage = (): StageState => ({ status: 'pending', agentIds: [], artifact: null });
+    const expectedStages: StageName[] = ['analyze', 'architect', 'plan', 'build', 'test', 'evaluate'];
+    for (const stage of expectedStages) {
+      if (!state.stages[stage]) {
+        state.stages[stage] = emptyStage();
+      }
     }
   }
 
@@ -295,7 +321,12 @@ export class StateManager extends EventEmitter {
       mkdirSync(dir, { recursive: true });
     }
     const tmpPath = this.filePath + '.tmp';
+    const backupPath = this.filePath + '.bak';
     try {
+      // Create backup of current state before overwriting
+      if (existsSync(this.filePath)) {
+        try { copyFileSync(this.filePath, backupPath); } catch { /* non-critical */ }
+      }
       writeFileSync(tmpPath, JSON.stringify(this.state, null, 2));
       renameSync(tmpPath, this.filePath);
     } catch (err) {

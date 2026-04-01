@@ -1,4 +1,4 @@
-import { watch, readFileSync, writeFileSync, existsSync, readdirSync, FSWatcher } from 'node:fs';
+import { watch, readFileSync, writeFileSync, existsSync, FSWatcher } from 'node:fs';
 import { join } from 'node:path';
 import { WebSocketServer, WebSocket } from 'ws';
 import { stringify as toYaml, parse as parseYaml } from 'yaml';
@@ -45,6 +45,28 @@ function migrateState(state: PipelineState): PipelineState {
     if (!state.stages[stage]) {
       (state.stages as Record<string, unknown>)[stage] = emptyStage();
     }
+  }
+  // Ensure totalCost exists (old state files may lack it)
+  if (!state.totalCost) {
+    state.totalCost = { totalUsd: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, durationMs: 0 };
+  }
+  // Ensure agents have cost objects
+  if (state.agents) {
+    for (const agent of state.agents) {
+      if (!agent.cost) {
+        (agent as unknown as Record<string, unknown>).cost = { totalUsd: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, durationMs: 0 };
+      }
+    }
+  }
+  // Migrate mayday state — add fields introduced in later versions
+  if (state.mayday) {
+    const m = state.mayday as unknown as Record<string, unknown>;
+    if (m.approvalRequired === undefined) m.approvalRequired = false;
+    if (m.pendingApproval === undefined) m.pendingApproval = null;
+    if (m.maxFixBudgetUsd === undefined) m.maxFixBudgetUsd = null;
+    if (m.fixAgentIds === undefined) m.fixAgentIds = [];
+    if (m.userMessages === undefined) m.userMessages = [];
+    if (m.failureCount === undefined) m.failureCount = null;
   }
   return state;
 }
@@ -111,7 +133,7 @@ export class SwarmWsServer {
         const url = new URL(req.url || '/', `http://localhost:${port}`);
         const clientToken = url.searchParams.get('token');
         if (clientToken !== this.authToken) {
-          console.error('[ws] Rejected unauthenticated connection');
+          // Silently reject — avoid log spam from browser reconnect attempts
           ws.close(4001, 'Unauthorized');
           return;
         }

@@ -72,6 +72,18 @@ export interface StageState {
   startedAt?: number;
 }
 
+// Fix history entry for intelligent fix loop
+export interface FixHistoryEntry {
+  iteration: number;
+  failedTests: string[];
+  fixedTests: string[];
+  newFailures: string[];
+  approach: string;
+  agentId: string;
+  cost: number;
+  timestamp: number;
+}
+
 // MayDay autonomous pipeline state
 export interface MaydayState {
   active: boolean;
@@ -93,6 +105,8 @@ export interface MaydayState {
   approvalRequired: boolean;
   pendingApproval?: { stage: StageName; requestedAt: number } | null;
   prUrl?: string;
+  /** Fix loop history — tracks what was tried and what happened */
+  fixHistory?: FixHistoryEntry[];
 }
 
 export interface PipelineState {
@@ -186,7 +200,7 @@ export interface GuardrailRule {
 }
 
 export interface GuardrailCheck {
-  type: 'section-exists' | 'pattern-match' | 'command';
+  type: 'section-exists' | 'pattern-match' | 'command' | 'min-length' | 'word-count' | 'required-patterns';
   value: string;
   message: string;
   severity?: 'error' | 'warning';
@@ -213,6 +227,27 @@ export interface PipelineStageDefinition {
 
 export interface PipelineDefinition {
   stages: PipelineStageDefinition[];
+}
+
+// Test framework configuration per stack
+export type TestFrameworkKind = 'playwright' | 'vitest' | 'jest' | 'go-test' | 'pytest' | 'swift-test' | 'cargo-test';
+
+export interface TestFrameworkConfig {
+  kind: TestFrameworkKind;
+  /** Human-readable name */
+  name: string;
+  /** Directory for test files */
+  testDir: string;
+  /** File extension for test files */
+  testFilePattern: string;
+  /** Command to install the framework */
+  installCmd: string;
+  /** Command to run tests with JSON output to .swarm/test-results.json */
+  runCmd: string;
+  /** Command to run tests normally (human-readable output) */
+  runCmdHuman: string;
+  /** Whether this framework tests UI (browser-based) or backend (API/unit) */
+  category: 'e2e' | 'unit' | 'integration' | 'api';
 }
 
 // .swarm/config.yaml shape

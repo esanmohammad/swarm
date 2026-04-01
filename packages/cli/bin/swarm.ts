@@ -16,6 +16,7 @@ import { registerAgent } from '../src/commands/agent.js';
 import { registerDashboard } from '../src/commands/dashboard.js';
 import { registerMayday } from '../src/commands/mayday.js';
 import { registerDoctor } from '../src/commands/doctor.js';
+import { registerRecover } from '../src/commands/recover.js';
 import { autoDetectStack, autoInit, loadConfig } from '../src/core/config.js';
 import { createContext } from '../src/commands/shared.js';
 
@@ -73,5 +74,6 @@ registerAgent(program);
 registerDashboard(program);
 registerMayday(program);
 registerDoctor(program);
+registerRecover(program);
 
 program.parse();

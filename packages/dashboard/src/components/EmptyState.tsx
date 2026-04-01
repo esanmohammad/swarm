@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Siren, FileText, Blocks, ListChecks, Code2, TestTube2, ChevronRight } from 'lucide-react';
 import type { WsCommand } from '../types';
 
@@ -54,6 +55,9 @@ interface EmptyStateProps {
 }
 
 export function EmptyState({ sendCommand }: EmptyStateProps) {
+  const [showInput, setShowInput] = useState(false);
+  const [prompt, setPrompt] = useState('');
+
   return (
     <div className="flex-1 flex items-center justify-center p-8 font-[JetBrains_Mono]">
       <div className="max-w-2xl w-full space-y-8">
@@ -104,13 +108,41 @@ export function EmptyState({ sendCommand }: EmptyStateProps) {
 
         {/* CTA */}
         <div className="text-center pt-4">
-          <button
-            onClick={() => sendCommand({ action: 'run-mayday', prompt: '' })}
-            className="inline-flex items-center gap-2.5 px-6 py-3 rounded-md text-sm font-bold text-red-300 bg-red-950/50 hover:bg-red-950/70 border border-red-800/50 hover:border-red-700/60 shadow-[0_0_16px_rgba(239,68,68,0.1)] hover:shadow-[0_0_24px_rgba(239,68,68,0.2)] transition-all uppercase tracking-wider"
-          >
-            <Siren size={16} className="text-red-400" />
-            Start with MayDay
-          </button>
+          {!showInput ? (
+            <button
+              onClick={() => setShowInput(true)}
+              className="inline-flex items-center gap-2.5 px-6 py-3 rounded-md text-sm font-bold text-red-300 bg-red-950/50 hover:bg-red-950/70 border border-red-800/50 hover:border-red-700/60 shadow-[0_0_16px_rgba(239,68,68,0.1)] hover:shadow-[0_0_24px_rgba(239,68,68,0.2)] transition-all uppercase tracking-wider"
+            >
+              <Siren size={16} className="text-red-400" />
+              Start with MayDay
+            </button>
+          ) : (
+            <div className="flex items-center gap-2 max-w-lg mx-auto">
+              <input
+                type="text"
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && prompt.trim()) {
+                    sendCommand({ action: 'run-mayday', prompt: prompt.trim() });
+                    setShowInput(false);
+                    setPrompt('');
+                  }
+                  if (e.key === 'Escape') { setShowInput(false); setPrompt(''); }
+                }}
+                placeholder="describe the feature to build..."
+                className="flex-1 px-3 py-2 bg-transparent border border-red-800/50 rounded text-sm text-stone-200 placeholder-stone-500 focus:border-red-600 focus:outline-none"
+                autoFocus
+              />
+              <button
+                onClick={() => { if (prompt.trim()) { sendCommand({ action: 'run-mayday', prompt: prompt.trim() }); setShowInput(false); setPrompt(''); } }}
+                disabled={!prompt.trim()}
+                className="px-4 py-2 text-xs font-bold text-red-400 hover:text-red-300 bg-red-950/50 hover:bg-red-950/70 border border-red-800/50 rounded disabled:opacity-30 transition-all uppercase"
+              >
+                Launch
+              </button>
+            </div>
+          )}
           <p className="text-[11px] text-stone-400 mt-3">
             MayDay runs the full pipeline autonomously — analyze, architect, plan, build, and test.
           </p>

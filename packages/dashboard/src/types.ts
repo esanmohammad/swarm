@@ -61,6 +61,18 @@ export interface PipelineDefinition {
   stages: PipelineStageDefinition[];
 }
 
+// Fix history entry for intelligent fix loop
+export interface FixHistoryEntry {
+  iteration: number;
+  failedTests: string[];
+  fixedTests: string[];
+  newFailures: string[];
+  approach: string;
+  agentId: string;
+  cost: number;
+  timestamp: number;
+}
+
 // MayDay autonomous pipeline state
 export interface MaydayState {
   active: boolean;
@@ -82,6 +94,8 @@ export interface MaydayState {
   approvalRequired: boolean;
   pendingApproval?: { stage: StageName; requestedAt: number } | null;
   prUrl?: string;
+  /** Fix loop history — tracks what was tried and what happened */
+  fixHistory?: FixHistoryEntry[];
 }
 
 export interface HistoryEntry {

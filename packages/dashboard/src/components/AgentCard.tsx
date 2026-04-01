@@ -112,11 +112,11 @@ export function AgentCard({ agent, selected, onClick, onKill, latestActivity }: 
       <div className="flex items-center gap-2.5 text-[10px] text-stone-400">
         <span className="flex items-center gap-0.5 text-amber-500">
           <DollarSign size={8} />
-          {agent.cost.totalUsd.toFixed(4)}
+          {(agent.cost?.totalUsd ?? 0).toFixed(4)}
         </span>
-        {(agent.cost.inputTokens > 0 || agent.cost.outputTokens > 0) && (
+        {((agent.cost?.inputTokens ?? 0) > 0 || (agent.cost?.outputTokens ?? 0) > 0) && (
           <span className="text-stone-400">
-            {Math.round(agent.cost.inputTokens / 1000)}k<span className="text-stone-500">/</span>{Math.round(agent.cost.outputTokens / 1000)}k
+            {Math.round((agent.cost?.inputTokens ?? 0) / 1000)}k<span className="text-stone-500">/</span>{Math.round((agent.cost?.outputTokens ?? 0) / 1000)}k
           </span>
         )}
         {elapsed > 0 && (

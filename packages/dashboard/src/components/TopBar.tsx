@@ -552,7 +552,7 @@ export function TopBar({ pipeline, violationCount, onRunStage }: TopBarProps) {
 
         <span className="flex items-center gap-1 text-amber-500">
           <DollarSign size={9} />
-          {totalCost.totalUsd.toFixed(4)}
+          {(totalCost?.totalUsd ?? 0).toFixed(4)}
         </span>
 
         {(totalCost.inputTokens > 0 || totalCost.outputTokens > 0) && (

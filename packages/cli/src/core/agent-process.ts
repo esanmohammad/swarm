@@ -22,6 +22,8 @@ export interface AgentProcessConfig {
   /** Run in interactive mode — user can converse with the agent via terminal.
    *  stdio is inherited, no stream-json parsing. Used for analyst. */
   interactive?: boolean;
+  /** Timeout in ms — if no output received for this duration, kill the agent. Default: 30 min */
+  timeoutMs?: number;
 }
 
 export interface SubAgentInfo {
@@ -48,10 +50,18 @@ export class AgentProcess extends EventEmitter {
   private tempFiles: string[] = [];
   /** Track pending Agent tool_use IDs to correlate with tool_result */
   private pendingSubAgents = new Map<string, SubAgentInfo>();
+  /** Watchdog timer — kills agent if no output for timeoutMs */
+  private watchdogTimer: ReturnType<typeof setTimeout> | null = null;
+  private _timedOut = false;
 
   constructor(config: AgentProcessConfig) {
     super();
     this.config = config;
+  }
+
+  /** Whether this agent was killed due to inactivity timeout */
+  get timedOut(): boolean {
+    return this._timedOut;
   }
 
   override on<K extends keyof AgentProcessEvents>(event: K, listener: AgentProcessEvents[K]): this {
@@ -176,16 +186,27 @@ export class AgentProcess extends EventEmitter {
 
     this.proc.stdin?.end();
 
-    this.proc.stdout?.on('data', (data: Buffer) => this.parseStreamJson(data));
-    this.proc.stderr?.on('data', (data: Buffer) => this.emit('error-output', data.toString()));
+    this.proc.stdout?.on('data', (data: Buffer) => {
+      this.resetWatchdog();
+      this.parseStreamJson(data);
+    });
+    this.proc.stderr?.on('data', (data: Buffer) => {
+      this.resetWatchdog();
+      this.emit('error-output', data.toString());
+    });
     this.proc.on('error', (err) => this.emit('error-output', err.message));
     this.proc.on('exit', (code) => {
+      this.stopWatchdog();
       this.cleanupTempFiles();
       this.emit('exit', code);
     });
+
+    // Start the watchdog
+    this.resetWatchdog();
   }
 
   kill(): void {
+    this.stopWatchdog();
     if (this.proc && !this.proc.killed) {
       this.proc.kill('SIGTERM');
       setTimeout(() => {
@@ -193,6 +214,25 @@ export class AgentProcess extends EventEmitter {
           this.proc.kill('SIGKILL');
         }
       }, 5000);
+    }
+  }
+
+  /** Start or reset the inactivity watchdog timer */
+  private resetWatchdog(): void {
+    const timeout = this.config.timeoutMs ?? 30 * 60 * 1000; // default 30 min
+    if (timeout <= 0) return; // disabled
+    this.stopWatchdog();
+    this.watchdogTimer = setTimeout(() => {
+      this._timedOut = true;
+      this.emit('error-output', `Agent timed out after ${Math.round(timeout / 60000)}m of inactivity`);
+      this.kill();
+    }, timeout);
+  }
+
+  private stopWatchdog(): void {
+    if (this.watchdogTimer) {
+      clearTimeout(this.watchdogTimer);
+      this.watchdogTimer = null;
     }
   }
 

@@ -1,10 +1,13 @@
 import type { PipelineState } from '../types';
 
+const EMPTY_COST = { totalUsd: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, durationMs: 0 };
+
 export function CostPanel({ pipeline }: { pipeline: PipelineState }) {
-  const { totalCost, agents } = pipeline;
+  const totalCost = pipeline.totalCost ?? EMPTY_COST;
+  const { agents } = pipeline;
 
   const agentsByPersona = agents.reduce((acc, a) => {
-    acc[a.persona] = (acc[a.persona] ?? 0) + a.cost.totalUsd;
+    acc[a.persona] = (acc[a.persona] ?? 0) + (a.cost?.totalUsd ?? 0);
     return acc;
   }, {} as Record<string, number>);
 

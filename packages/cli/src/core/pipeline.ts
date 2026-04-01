@@ -4,7 +4,7 @@ import { execSync } from 'node:child_process';
 import chalk from 'chalk';
 import { AgentManager } from './agent-manager.js';
 import { StateManager } from './state.js';
-import type { SwarmConfig, StageName, TechStack, PlaywrightConfig, MaydayState } from '../types.js';
+import type { SwarmConfig, StageName, TechStack, PlaywrightConfig, MaydayState, TestFrameworkConfig, TestFrameworkKind } from '../types.js';
 import { STAGE_ARTIFACT_MAP } from '../types.js';
 import { parse as parseYaml } from 'yaml';
 import { isGhInstalled, createPR, buildPRBody, getCurrentBranch, hasUncommittedChanges } from './git.js';
@@ -62,6 +62,95 @@ function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+/** Default test framework configurations per stack */
+const TEST_FRAMEWORKS: Record<string, TestFrameworkConfig> = {
+  // Frontend stacks → Playwright E2E + Vitest unit
+  'react-e2e': {
+    kind: 'playwright', name: 'Playwright', testDir: 'e2e', testFilePattern: '*.spec.ts',
+    installCmd: 'npm init playwright@latest -- --quiet',
+    runCmd: 'PLAYWRIGHT_JSON_OUTPUT_NAME=.swarm/test-results.json npx playwright test --reporter=json,list',
+    runCmdHuman: 'npx playwright test',
+    category: 'e2e',
+  },
+  'react-unit': {
+    kind: 'vitest', name: 'Vitest', testDir: 'src/__tests__', testFilePattern: '*.test.ts{,x}',
+    installCmd: 'npm install -D vitest @testing-library/react @testing-library/jest-dom jsdom',
+    runCmd: 'npx vitest run --reporter=json --outputFile=.swarm/test-results.json',
+    runCmdHuman: 'npx vitest run',
+    category: 'unit',
+  },
+  // Node backend → Vitest unit/integration
+  'node-unit': {
+    kind: 'vitest', name: 'Vitest', testDir: 'src/__tests__', testFilePattern: '*.test.ts',
+    installCmd: 'npm install -D vitest',
+    runCmd: 'npx vitest run --reporter=json --outputFile=.swarm/test-results.json',
+    runCmdHuman: 'npx vitest run',
+    category: 'integration',
+  },
+  'node-api': {
+    kind: 'vitest', name: 'Vitest + Supertest', testDir: 'test', testFilePattern: '*.test.ts',
+    installCmd: 'npm install -D vitest supertest @types/supertest',
+    runCmd: 'npx vitest run --reporter=json --outputFile=.swarm/test-results.json',
+    runCmdHuman: 'npx vitest run',
+    category: 'api',
+  },
+  // Go → go test
+  'go-unit': {
+    kind: 'go-test', name: 'go test', testDir: '.', testFilePattern: '*_test.go',
+    installCmd: '', // go test is built-in
+    runCmd: 'go test -json ./... > .swarm/test-results.json 2>&1',
+    runCmdHuman: 'go test -v ./...',
+    category: 'unit',
+  },
+  // Python → pytest
+  'python-unit': {
+    kind: 'pytest', name: 'pytest', testDir: 'tests', testFilePattern: 'test_*.py',
+    installCmd: 'pip install pytest pytest-json-report',
+    runCmd: 'pytest --json-report --json-report-file=.swarm/test-results.json -v',
+    runCmdHuman: 'pytest -v',
+    category: 'unit',
+  },
+  // Rust → cargo test
+  'rust-unit': {
+    kind: 'cargo-test', name: 'cargo test', testDir: 'src', testFilePattern: '*.rs',
+    installCmd: '', // built-in
+    runCmd: 'cargo test -- -Z unstable-options --format json > .swarm/test-results.json 2>&1 || cargo test 2>&1 | tee .swarm/test-results.txt',
+    runCmdHuman: 'cargo test',
+    category: 'unit',
+  },
+  // Swift → swift test
+  'swift-unit': {
+    kind: 'swift-test', name: 'swift test', testDir: 'Tests', testFilePattern: '*Tests.swift',
+    installCmd: '', // built-in
+    runCmd: 'swift test 2>&1 | tee .swarm/test-results.txt',
+    runCmdHuman: 'swift test',
+    category: 'unit',
+  },
+};
+
+/** Resolve which test frameworks to use for a given stack */
+function getTestFrameworks(stack: TechStack): TestFrameworkConfig[] {
+  switch (stack) {
+    case 'react':
+      return [TEST_FRAMEWORKS['react-unit'], TEST_FRAMEWORKS['react-e2e']];
+    case 'node':
+      return [TEST_FRAMEWORKS['node-unit'], TEST_FRAMEWORKS['node-api']];
+    case 'go':
+      return [TEST_FRAMEWORKS['go-unit']];
+    case 'python':
+      return [TEST_FRAMEWORKS['python-unit']];
+    case 'rust':
+      return [TEST_FRAMEWORKS['rust-unit']];
+    case 'swift':
+      return [TEST_FRAMEWORKS['swift-unit']];
+    case 'custom':
+      // Default to vitest for custom stacks
+      return [TEST_FRAMEWORKS['node-unit']];
+    default:
+      return [TEST_FRAMEWORKS['react-e2e']];
+  }
+}
+
 export class Pipeline {
   private budgetExceeded = false;
   gitEnabled = true;
@@ -84,7 +173,7 @@ export class Pipeline {
    */
   private async waitForAgentWithBudgetCheck(agentId: string): Promise<import('../types.js').Agent> {
     try {
-      return await this.waitForAgentWithBudgetCheck(agentId);
+      return await this.agentManager.waitForAgent(agentId);
     } catch (err) {
       if (this.budgetExceeded) {
         const budget = this.config.maxBudgetUsd ?? 0;
@@ -613,12 +702,16 @@ export class Pipeline {
 
     const s = opts.stack ?? this.config.stack;
     const interactive = opts.interactive ?? false;
+    const frameworks = getTestFrameworks(s);
+    const primaryFramework = frameworks[0];
 
     this.state.updateStage('test', { status: 'running', startedAt: Date.now() });
 
     const testplanPath = join(process.cwd(), 'TESTPLAN.md');
     const pwConfig = this.buildPlaywrightContext();
     let testerCost = 0;
+
+    console.log(chalk.dim(`[test] Stack: ${s} → frameworks: ${frameworks.map(f => f.name).join(', ')}`));
 
     // ── Phase 1: Tester persona → generate TESTPLAN.md (skip if already exists) ──
     if (existsSync(testplanPath)) {
@@ -628,7 +721,6 @@ export class Pipeline {
 
       const contextParts: string[] = [];
 
-      // Gather all available artifacts
       const reqPath = join(process.cwd(), 'REQUIREMENTS.md');
       const specPath = join(process.cwd(), 'SPEC.md');
       const tasksPath = join(process.cwd(), 'TASKS.md');
@@ -647,53 +739,7 @@ export class Pipeline {
         throw new Error('No pipeline artifacts found. Run at least `swarm analyze` first.');
       }
 
-      const testerPromptParts = [
-        'Read the pipeline artifacts below and produce TESTPLAN.md — a comprehensive E2E test plan.',
-        '',
-        '⚠️ CRITICAL CONSTRAINTS — VIOLATION WILL CAUSE PIPELINE FAILURE:',
-        '- Your ONLY deliverable is TESTPLAN.md. Do NOT create any other file.',
-        '- Do NOT write implementation code — no test files, no scripts, no source changes.',
-        '- Do NOT modify existing artifacts (REQUIREMENTS.md, SPEC.md, TASKS.md).',
-        '- Once TESTPLAN.md is written, STOP IMMEDIATELY.',
-        '',
-        '⚠️ FILENAME — The file MUST be named exactly `TESTPLAN.md` in the project root.',
-        '',
-        '⚠️ OUTPUT FORMAT — TESTPLAN.md MUST follow this structure:',
-        '- ## Overview — what is being tested, scope',
-        '- ## Test Strategy — approach (Playwright E2E), browsers, environments',
-        '- ## Authentication — login method, storageState pattern, global setup needs',
-        '- ## Test Data — required fixtures, seed data, mock APIs',
-        '- ## E2E Test Cases — each test case with:',
-        '  - **ID**: TC-001, TC-002, etc.',
-        '  - **Title**: descriptive name',
-        '  - **User Story**: which US-n / user flow this covers',
-        '  - **Preconditions**: auth required, data needed',
-        '  - **Steps**: numbered user actions (navigate, click, fill, etc.)',
-        '  - **Expected**: specific assertions (element visible, text matches, URL changes, etc.)',
-        '  - **File**: target test file path (e.g. `e2e/user-login.spec.ts`)',
-        '- ## Acceptance Criteria — overall pass/fail criteria for the test suite',
-        '',
-        `Playwright config: testDir=${pwConfig.testDir}`,
-      ];
-
-      if (pwConfig.baseUrl) {
-        testerPromptParts.push(`Base URL: ${pwConfig.baseUrl}`);
-      }
-      if (pwConfig.authStorageState) {
-        testerPromptParts.push(`Auth storageState path: ${pwConfig.authStorageState}`);
-      }
-
-      const figmaUrl = opts.figmaUrl;
-      if (figmaUrl) {
-        testerPromptParts.push(
-          '',
-          `Figma design URL: ${figmaUrl}`,
-          'Use Figma MCP tools (get_design_context, get_screenshot) to extract UI details.',
-          'Derive visual E2E test cases from the designs: verify layout, component states,',
-          'responsiveness, and visual accuracy. Reference Figma frames/nodes in test cases.',
-        );
-      }
-
+      const testerPromptParts = this.buildTesterPrompt(s, frameworks, pwConfig, opts.figmaUrl);
       testerPromptParts.push('', '---', '', ...contextParts);
 
       if (interactive) {
@@ -724,47 +770,11 @@ export class Pipeline {
       }
     }
 
-    // ── Phase 2: Engineer → implement and run Playwright tests ──
-    console.log(chalk.cyan(`\n[test] Phase 2: Implementing and running E2E tests...\n`));
+    // ── Phase 2: Engineer → implement and run tests ──
+    console.log(chalk.cyan(`\n[test] Phase 2: Implementing and running ${primaryFramework.name} tests...\n`));
 
     const testplan = readFileSync(testplanPath, 'utf-8');
-    const runnerPromptParts = [
-      'You are a TEST ENGINEER. Implement and run Playwright E2E tests based on TESTPLAN.md.',
-      '',
-      '⚠️ CRITICAL CONSTRAINTS:',
-      '- Do NOT modify application source code. Only create/modify test files.',
-      '- If a test fails, fix the TEST, not the application.',
-      '- If Playwright is not installed, install it first: `npm init playwright@latest` or `npx playwright install`.',
-      '',
-      'Your job:',
-      '1. Read TESTPLAN.md and implement each test case as a Playwright spec file',
-      `2. Place test files in the \`${pwConfig.testDir}/\` directory with \`.spec.ts\` extension`,
-      '3. Create playwright.config.ts if it does not exist',
-    ];
-
-    if (pwConfig.baseUrl) {
-      runnerPromptParts.push(`4. Set baseURL to: ${pwConfig.baseUrl}`);
-    }
-    if (pwConfig.authStorageState) {
-      runnerPromptParts.push(`5. Configure storageState: ${pwConfig.authStorageState}`);
-      runnerPromptParts.push('   If storageState file does not exist, create a global setup script that performs login.');
-    }
-    if (pwConfig.globalSetupScript) {
-      runnerPromptParts.push(`6. Use global setup script: ${pwConfig.globalSetupScript}`);
-    }
-
-    runnerPromptParts.push(
-      '',
-      'After implementing all tests:',
-      '- Run `npx playwright test` to execute the full suite',
-      '- If any test fails, read the error, fix the test, and re-run',
-      '- Keep iterating until all tests pass or you have exhausted debugging',
-      '- Report final results summary',
-      '',
-      '---',
-      '',
-      testplan,
-    );
+    const runnerPromptParts = this.buildRunnerPrompt(s, frameworks, pwConfig, testplan);
 
     const runnerAgent = await this.agentManager.spawn({
       name: `test-runner-${s}`,
@@ -779,7 +789,203 @@ export class Pipeline {
     await this.waitForAgentWithBudgetCheck(runnerAgent.id);
 
     this.finishStage('test', 'TESTPLAN.md');
-    console.log(chalk.green(`\n[test] E2E tests complete. Cost: $${(testerCost + runnerAgent.cost.totalUsd).toFixed(4)}`));
+    console.log(chalk.green(`\n[test] Tests complete. Cost: $${(testerCost + runnerAgent.cost.totalUsd).toFixed(4)}`));
+  }
+
+  /** Build the Phase 1 tester prompt — framework-aware */
+  private buildTesterPrompt(
+    stack: TechStack,
+    frameworks: TestFrameworkConfig[],
+    pwConfig: Required<Pick<PlaywrightConfig, 'testDir'>> & PlaywrightConfig,
+    figmaUrl?: string,
+  ): string[] {
+    const primary = frameworks[0];
+    const isE2E = primary.category === 'e2e';
+    const hasMultiple = frameworks.length > 1;
+
+    const parts = [
+      `Read the pipeline artifacts below and produce TESTPLAN.md — a comprehensive test plan for a ${stack} project.`,
+      '',
+      `## Test Frameworks`,
+      ...frameworks.map((f, i) => `${i + 1}. **${f.name}** (${f.category}) — test dir: \`${f.testDir}/\`, pattern: \`${f.testFilePattern}\``),
+      '',
+      '⚠️ CRITICAL CONSTRAINTS — VIOLATION WILL CAUSE PIPELINE FAILURE:',
+      '- Your ONLY deliverable is TESTPLAN.md. Do NOT create any other file.',
+      '- Do NOT write implementation code — no test files, no scripts, no source changes.',
+      '- Do NOT modify existing artifacts (REQUIREMENTS.md, SPEC.md, TASKS.md).',
+      '- Once TESTPLAN.md is written, STOP IMMEDIATELY.',
+      '',
+      '⚠️ FILENAME — The file MUST be named exactly `TESTPLAN.md` in the project root.',
+      '',
+      '⚠️ OUTPUT FORMAT — TESTPLAN.md MUST follow this structure:',
+      '- ## Overview — what is being tested, scope, tech stack',
+      `- ## Test Strategy — frameworks: ${frameworks.map(f => f.name).join(', ')}; categories: ${frameworks.map(f => f.category).join(', ')}`,
+    ];
+
+    if (isE2E) {
+      parts.push(
+        '- ## Authentication — login method, storageState pattern, global setup needs',
+      );
+    }
+
+    parts.push(
+      '- ## Test Data — required fixtures, seed data, mock APIs',
+      '- ## Test Cases — each test case with:',
+      '  - **ID**: TC-001, TC-002, etc.',
+      '  - **Title**: descriptive name',
+      `  - **Framework**: which framework (${frameworks.map(f => f.name).join(' / ')})`,
+      '  - **Category**: unit / integration / api / e2e',
+      '  - **User Story**: which US-n / user flow this covers',
+      '  - **Preconditions**: setup needed',
+    );
+
+    if (isE2E) {
+      parts.push(
+        '  - **Steps**: numbered user actions (navigate, click, fill, etc.)',
+        '  - **Expected**: specific assertions (element visible, text matches, URL changes, etc.)',
+      );
+    } else {
+      parts.push(
+        '  - **Input**: function/endpoint being tested with input data',
+        '  - **Expected**: expected return value, status code, side effects, or error',
+      );
+    }
+
+    parts.push(
+      `  - **File**: target test file path (e.g. \`${primary.testDir}/example${primary.testFilePattern.replace('*', '')}\`)`,
+      '- ## Acceptance Criteria — overall pass/fail criteria for the test suite',
+    );
+
+    // Stack-specific guidance
+    switch (stack) {
+      case 'node':
+        parts.push(
+          '',
+          '## Node.js-Specific Guidance:',
+          '- Test API endpoints with Supertest (HTTP assertions)',
+          '- Test service/business logic with unit tests',
+          '- Mock external dependencies (databases, third-party APIs)',
+          '- Test error handling and edge cases (invalid input, auth failures)',
+          '- Test middleware (auth, validation, rate limiting)',
+        );
+        break;
+      case 'go':
+        parts.push(
+          '',
+          '## Go-Specific Guidance:',
+          '- Use table-driven tests for multiple input/output cases',
+          '- Test HTTP handlers with httptest.NewServer or httptest.NewRecorder',
+          '- Use testify/assert for cleaner assertions (if available)',
+          '- Test error paths and edge cases',
+          '- Test interfaces with mock implementations',
+        );
+        break;
+      case 'python':
+        parts.push(
+          '',
+          '## Python-Specific Guidance:',
+          '- Use pytest fixtures for test setup/teardown',
+          '- Test API endpoints with the test client (FastAPI: TestClient, Django: Client, Flask: test_client)',
+          '- Use unittest.mock or pytest-mock for mocking external services',
+          '- Test edge cases, error handling, and validation',
+          '- Parametrize tests for multiple input scenarios',
+        );
+        break;
+      case 'rust':
+        parts.push(
+          '',
+          '## Rust-Specific Guidance:',
+          '- Use #[test] functions in the same file or in a tests/ directory',
+          '- Use assert!, assert_eq!, assert_ne! macros',
+          '- Test error types with Result and matches! macro',
+          '- Test async code with #[tokio::test] if using tokio',
+        );
+        break;
+    }
+
+    if (isE2E) {
+      parts.push('', `Playwright config: testDir=${pwConfig.testDir}`);
+      if (pwConfig.baseUrl) parts.push(`Base URL: ${pwConfig.baseUrl}`);
+      if (pwConfig.authStorageState) parts.push(`Auth storageState path: ${pwConfig.authStorageState}`);
+    }
+
+    if (figmaUrl) {
+      parts.push(
+        '',
+        `Figma design URL: ${figmaUrl}`,
+        'Use Figma MCP tools (get_design_context, get_screenshot) to extract UI details.',
+        'Derive visual E2E test cases from the designs: verify layout, component states,',
+        'responsiveness, and visual accuracy.',
+      );
+    }
+
+    return parts;
+  }
+
+  /** Build the Phase 2 runner prompt — framework-aware */
+  private buildRunnerPrompt(
+    stack: TechStack,
+    frameworks: TestFrameworkConfig[],
+    pwConfig: Required<Pick<PlaywrightConfig, 'testDir'>> & PlaywrightConfig,
+    testplan: string,
+  ): string[] {
+    const primary = frameworks[0];
+    const isE2E = primary.category === 'e2e';
+
+    const parts = [
+      `You are a TEST ENGINEER. Implement and run tests based on TESTPLAN.md for a ${stack} project.`,
+      '',
+      '## Test Frameworks to Use:',
+      ...frameworks.map((f, i) => [
+        `### ${i + 1}. ${f.name} (${f.category})`,
+        `- Test dir: \`${f.testDir}/\``,
+        `- File pattern: \`${f.testFilePattern}\``,
+        f.installCmd ? `- Install: \`${f.installCmd}\`` : '- (built-in, no install needed)',
+        `- Run: \`${f.runCmd}\``,
+      ].join('\n')),
+      '',
+      '⚠️ CRITICAL CONSTRAINTS:',
+      '- Do NOT modify application source code. Only create/modify test files and test config.',
+      '- If a test fails, fix the TEST, not the application.',
+    ];
+
+    if (isE2E) {
+      parts.push(
+        `- If Playwright is not installed, run: \`${primary.installCmd}\``,
+      );
+      if (pwConfig.baseUrl) {
+        parts.push(`- Set baseURL to: ${pwConfig.baseUrl}`);
+      }
+      if (pwConfig.authStorageState) {
+        parts.push(
+          `- Configure storageState: ${pwConfig.authStorageState}`,
+          '  If storageState file does not exist, create a global setup script that performs login.',
+        );
+      }
+    }
+
+    parts.push(
+      '',
+      'Your job:',
+      '1. Read TESTPLAN.md and implement each test case',
+      `2. Place test files in the correct directories (${frameworks.map(f => `\`${f.testDir}/\` for ${f.name}`).join(', ')})`,
+      `3. Create/update test config files as needed`,
+      '',
+      'After implementing all tests:',
+      ...frameworks.map(f =>
+        `- Run ${f.name} tests: \`${f.runCmd}\``
+      ),
+      '- If any test fails, read the error, fix the test, and re-run',
+      '- Keep iterating until all tests pass or you have exhausted debugging',
+      '- Always re-run with JSON output so structured results are captured in `.swarm/test-results.json`',
+      '- Report final results summary',
+      '',
+      '---',
+      '',
+      testplan,
+    );
+
+    return parts;
   }
 
   async runFull(featureRequest: string, opts?: StageOpts): Promise<void> {
@@ -885,6 +1091,34 @@ export class Pipeline {
     }
 
     console.log(chalk.green(`\n[pipeline] Custom pipeline complete (${completed.size}/${definition.stages.length} stages).`));
+  }
+
+  /**
+   * Run a stage with retry. On first failure: log, wait 5s, retry.
+   * On second failure: throw (caller decides whether to abort or skip).
+   */
+  private async runStageWithRetry(
+    stage: StageName,
+    fn: () => Promise<void>,
+    maxAttempts = 2,
+  ): Promise<void> {
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        await fn();
+        return;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (attempt < maxAttempts) {
+          console.log(chalk.yellow(`[mayday] Stage "${stage}" failed (attempt ${attempt}/${maxAttempts}): ${msg}`));
+          console.log(chalk.yellow(`[mayday] Retrying in 5s...`));
+          // Reset stage status for retry
+          this.state.updateStage(stage, { status: 'pending' });
+          await sleep(5000);
+        } else {
+          throw err;
+        }
+      }
+    }
   }
 
   /**
@@ -1248,25 +1482,27 @@ export class Pipeline {
         this.state.updateMayday({ currentStage: stage });
         console.log(chalk.red(`[mayday] ▸ ${stage}`));
 
-        switch (stage) {
-          case 'analyze':
-            await this.runAnalyze(mayday.featureRequest, stageOpts);
-            break;
-          case 'architect':
-            await this.runArchitect(stageOpts);
-            break;
-          case 'plan': {
-            const guidance = userMsgs.length > 0 ? userMsgs.join('\n') : undefined;
-            await this.runPlan({ ...stageOpts, prompt: guidance });
-            break;
+        await this.runStageWithRetry(stage, async () => {
+          switch (stage) {
+            case 'analyze':
+              await this.runAnalyze(mayday.featureRequest, stageOpts);
+              break;
+            case 'architect':
+              await this.runArchitect(stageOpts);
+              break;
+            case 'plan': {
+              const guidance = userMsgs.length > 0 ? userMsgs.join('\n') : undefined;
+              await this.runPlan({ ...stageOpts, prompt: guidance });
+              break;
+            }
+            case 'build':
+              await this.runBuild({ stack, parallel: parallel ?? 3 });
+              break;
+            case 'test':
+              await this.runTest({ stack, figmaUrl: mayday.figmaUrl });
+              break;
           }
-          case 'build':
-            await this.runBuild({ stack, parallel: parallel ?? 3 });
-            break;
-          case 'test':
-            await this.runTest({ stack, figmaUrl: mayday.figmaUrl });
-            break;
-        }
+        });
 
         // Auto-commit after each stage completes
         this.autoCommitStage(stage, STAGE_ARTIFACT_MAP[stage]);
@@ -1301,13 +1537,21 @@ export class Pipeline {
   }
 
   private async maydayFixLoop(stack: TechStack, parallel?: number): Promise<void> {
+    // Resolve test framework run command for this stack
+    const frameworks = getTestFrameworks(stack);
+    const testRunCmd = frameworks[0]?.runCmd ?? 'npx playwright test';
+
     // Evaluate initial test results
     let testResults = this.evaluateTestResults();
+    const fixHistory: import('../types.js').FixHistoryEntry[] =
+      this.state.getMayday()?.fixHistory ?? [];
+
     this.state.updateMayday({
       currentStage: 'fix-loop',
       lastTestPassed: testResults.passed,
       lastTestOutput: testResults.output,
       failureCount: testResults.failureCount,
+      fixHistory,
     });
 
     if (testResults.passed) {
@@ -1318,6 +1562,8 @@ export class Pipeline {
 
     const mayday = this.state.getMayday()!;
     const maxIter = mayday.maxFixIterations;
+    let previousFailedTests = testResults.failures.map(f => f.testName);
+    let stuckCount = 0;
 
     for (let iteration = mayday.fixIteration + 1; iteration <= maxIter; iteration++) {
       // Check if stopped
@@ -1342,42 +1588,127 @@ export class Pipeline {
       // Consume user messages for guidance
       const userMsgs = this.state.consumeMaydayMessages();
 
-      // Spawn fix engineer
-      const fixPrompt = this.buildFixPrompt(testResults, userMsgs);
+      // Group failures by file for targeted fixing (I1)
+      const failureGroups = this.groupFailuresByFile(testResults.failures);
 
-      const fixAgent = await this.agentManager.spawn({
-        name: `fix-engineer-${iteration}`,
-        persona: 'engineer',
-        stack,
-        prompt: fixPrompt,
-        cwd: process.cwd(),
-        interactive: false,
-        permissionMode: 'auto',
-      });
+      // Determine approach based on history (I2 — stuck detection)
+      let approach = 'standard';
+      if (stuckCount >= 2) {
+        approach = 'broader-context';
+        console.log(chalk.yellow(`[mayday] Stuck on same failures for ${stuckCount} iterations — trying broader context approach`));
+      }
+
+      // Spawn fix agents — one per failure group if multiple, or one for all
+      const fixAgentIds: string[] = [];
+      if (failureGroups.length > 1 && approach === 'standard') {
+        console.log(chalk.cyan(`[mayday] Spawning ${failureGroups.length} targeted fix agents...`));
+        const fixAgents = await Promise.all(
+          failureGroups.map((group, idx) =>
+            this.agentManager.spawn({
+              name: `fix-engineer-${iteration}-g${idx + 1}`,
+              persona: 'engineer',
+              stack,
+              prompt: this.buildTargetedFixPrompt(group, fixHistory, userMsgs, testRunCmd),
+              cwd: process.cwd(),
+              interactive: false,
+              permissionMode: 'auto',
+            }),
+          ),
+        );
+
+        for (const a of fixAgents) fixAgentIds.push(a.id);
+        await Promise.allSettled(fixAgents.map(a => this.waitForAgentWithBudgetCheck(a.id)));
+
+        const totalFixCost = fixAgents.reduce((sum, a) => sum + a.cost.totalUsd, 0);
+        console.log(chalk.green(`[mayday] ${fixAgents.length} fix agents done. Cost: $${totalFixCost.toFixed(4)}`));
+      } else {
+        // Single fix agent for all failures
+        const fixPrompt = this.buildFixPrompt(testResults, userMsgs, fixHistory, approach, testRunCmd);
+        const fixAgent = await this.agentManager.spawn({
+          name: `fix-engineer-${iteration}`,
+          persona: 'engineer',
+          stack,
+          prompt: fixPrompt,
+          cwd: process.cwd(),
+          interactive: false,
+          permissionMode: 'auto',
+        });
+
+        fixAgentIds.push(fixAgent.id);
+        await this.waitForAgentWithBudgetCheck(fixAgent.id);
+        console.log(chalk.green(`[mayday] Fix engineer done. Cost: $${fixAgent.cost.totalUsd.toFixed(4)}`));
+      }
 
       this.state.updateMayday({
-        fixAgentIds: [...(this.state.getMayday()?.fixAgentIds ?? []), fixAgent.id],
+        fixAgentIds: [...(this.state.getMayday()?.fixAgentIds ?? []), ...fixAgentIds],
       });
 
-      await this.waitForAgentWithBudgetCheck(fixAgent.id);
-      console.log(chalk.green(`[mayday] Fix engineer done. Cost: $${fixAgent.cost.totalUsd.toFixed(4)}`));
-
-      // Re-run tests (phase 2 only — TESTPLAN.md already exists)
+      // Re-run tests
       console.log(chalk.red(`[mayday] Re-running tests...`));
       this.state.updateStage('test', { status: 'pending' });
       await this.runTest({ stack });
 
       // Evaluate results
-      testResults = this.evaluateTestResults();
+      const newTestResults = this.evaluateTestResults();
+      const currentFailedTests = newTestResults.failures.map(f => f.testName);
+
+      // I2: Regression detection
+      const fixedTests = previousFailedTests.filter(t => !currentFailedTests.includes(t));
+      const newFailures = currentFailedTests.filter(t => !previousFailedTests.includes(t));
+      const sameFailures = currentFailedTests.filter(t => previousFailedTests.includes(t));
+
+      if (newFailures.length > 0) {
+        console.log(chalk.yellow(`[mayday] ⚠ Regressions detected: ${newFailures.length} new failure(s)`));
+      }
+      if (fixedTests.length > 0) {
+        console.log(chalk.green(`[mayday] Fixed: ${fixedTests.length} test(s)`));
+      }
+      if (sameFailures.length > 0 && sameFailures.length === previousFailedTests.length) {
+        stuckCount++;
+        console.log(chalk.yellow(`[mayday] Same failures persisting (stuck count: ${stuckCount})`));
+      } else {
+        stuckCount = 0; // Reset if any progress
+      }
+
+      // I3: Record fix history
+      const historyEntry: import('../types.js').FixHistoryEntry = {
+        iteration,
+        failedTests: previousFailedTests,
+        fixedTests,
+        newFailures,
+        approach,
+        agentId: fixAgentIds[0],
+        cost: this.state.getState().agents
+          .filter(a => fixAgentIds.includes(a.id))
+          .reduce((sum, a) => sum + a.cost.totalUsd, 0),
+        timestamp: Date.now(),
+      };
+      fixHistory.push(historyEntry);
+
+      testResults = newTestResults;
+      previousFailedTests = currentFailedTests;
+
       this.state.updateMayday({
         lastTestPassed: testResults.passed,
         lastTestOutput: testResults.output,
         failureCount: testResults.failureCount,
+        fixHistory,
       });
 
       if (testResults.passed) {
         console.log(chalk.green.bold(`\n[mayday] ✓ All tests passed after ${iteration} fix iteration(s)!`));
         this.state.updateMayday({ active: false, currentStage: 'complete' });
+        return;
+      }
+
+      // If stuck for 3+ iterations, abort to avoid wasting budget
+      if (stuckCount >= 3) {
+        console.log(chalk.red.bold(`\n[mayday] Stuck on same failures for ${stuckCount} iterations. Aborting fix loop.`));
+        this.state.updateMayday({
+          active: false,
+          currentStage: 'complete',
+          error: `Stuck: same ${currentFailedTests.length} test(s) failing for ${stuckCount} iterations.`,
+        });
         return;
       }
     }
@@ -1391,17 +1722,110 @@ export class Pipeline {
     });
   }
 
-  private buildFixPrompt(testResults: TestEvaluation, userMessages: string[]): string {
+  /** Group test failures by source file for targeted fixing (I1) */
+  private groupFailuresByFile(failures: TestFailure[]): Array<{ file: string; failures: TestFailure[] }> {
+    if (failures.length === 0) return [];
+    const groups = new Map<string, TestFailure[]>();
+    for (const f of failures) {
+      const key = f.file || 'unknown';
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(f);
+    }
+    return Array.from(groups.entries()).map(([file, failures]) => ({ file, failures }));
+  }
+
+  /** Build a targeted fix prompt for a specific failure group */
+  private buildTargetedFixPrompt(
+    group: { file: string; failures: TestFailure[] },
+    history: import('../types.js').FixHistoryEntry[],
+    userMessages: string[],
+    testRunCmd?: string,
+  ): string {
+    const parts = [
+      `You are a BUG FIX ENGINEER. Fix the ${group.failures.length} failing test(s) in ${group.file}.`,
+      '',
+      '## Failures:',
+      ...group.failures.map(f => `- **${f.testName}**: ${f.error.slice(0, 300)}`),
+    ];
+
+    if (history.length > 0) {
+      parts.push(
+        '',
+        '## Fix History (what was already tried):',
+        ...history.slice(-3).map(h =>
+          `- Iteration ${h.iteration} (${h.approach}): fixed ${h.fixedTests.length}, regressed ${h.newFailures.length}`,
+        ),
+      );
+    }
+
+    if (userMessages.length > 0) {
+      parts.push('', '## User Guidance:', ...userMessages.map(m => `- ${m}`));
+    }
+
+    parts.push(
+      '',
+      '## Rules:',
+      '- Read the failing test files to understand what is expected',
+      '- Fix the APPLICATION code (not the tests, unless the test itself is clearly wrong)',
+      '- Do NOT break passing tests',
+      `- Run \`${testRunCmd ?? 'npx playwright test'}\` after fixing to verify`,
+      '- Focus only on these specific failures. Do not refactor unrelated code.',
+    );
+
+    return parts.join('\n');
+  }
+
+  private buildFixPrompt(
+    testResults: TestEvaluation,
+    userMessages: string[],
+    history: import('../types.js').FixHistoryEntry[] = [],
+    approach = 'standard',
+    testRunCmd?: string,
+  ): string {
     const parts = [
       'You are a BUG FIX ENGINEER. Tests are failing after a build. Fix the bugs.',
+    ];
+
+    if (approach === 'broader-context') {
+      parts.push(
+        '',
+        '⚠️ Previous fix attempts with the same approach have not resolved these failures.',
+        'Try a DIFFERENT strategy: read more surrounding code, check imports/types carefully,',
+        'or consider that the test expectations may need updating.',
+      );
+    }
+
+    // Use structured failures if available
+    if (testResults.failures.length > 0) {
+      parts.push(
+        '',
+        '## Specific Failures:',
+        ...testResults.failures.map(f =>
+          `- **${f.testName}** (${f.file}): ${f.error.slice(0, 300)}`,
+        ),
+      );
+    }
+
+    parts.push(
       '',
-      '## Test Failures (from last run):',
+      '## Test Output (last run):',
       '```',
       testResults.output?.slice(-3000) ?? 'No test output captured.',
       '```',
       '',
       `Summary: ${testResults.summary}`,
-    ];
+    );
+
+    // I3: Include fix history so agent knows what was tried
+    if (history.length > 0) {
+      parts.push(
+        '',
+        '## Fix History (what was already tried — do NOT repeat the same approach):',
+        ...history.slice(-5).map(h =>
+          `- Iteration ${h.iteration} (${h.approach}): fixed=[${h.fixedTests.join(', ')}], new_failures=[${h.newFailures.join(', ')}]`,
+        ),
+      );
+    }
 
     if (userMessages.length > 0) {
       parts.push(
@@ -1418,7 +1842,7 @@ export class Pipeline {
       '- Read the application code to find the bug',
       '- Fix the APPLICATION code (not the tests, unless the test itself is clearly wrong)',
       '- Do NOT break passing tests',
-      '- Run `npx playwright test` after fixing to verify your changes',
+      `- Run \`${testRunCmd ?? 'npx playwright test'}\` after fixing to verify`,
       '- If you cannot fix a bug, document why in a code comment',
       '- Focus only on the failures. Do not refactor unrelated code.',
     );
@@ -1427,33 +1851,272 @@ export class Pipeline {
   }
 
   private evaluateTestResults(): TestEvaluation {
-    // Find the most recent test-runner agent output
+    // 1. Try structured JSON results first
+    const jsonPath = join(process.cwd(), '.swarm', 'test-results.json');
+    if (existsSync(jsonPath)) {
+      try {
+        const raw = readFileSync(jsonPath, 'utf-8');
+        try {
+          // Try standard JSON parse first
+          const json = JSON.parse(raw);
+          return this.parseStructuredTestResults(json);
+        } catch {
+          // Might be NDJSON (go test -json) — parse as string
+          return this.parseGoTestJson(raw);
+        }
+      } catch {
+        // File read failed — fall through to regex
+      }
+    }
+
+    // Also check .swarm/test-results.txt for frameworks that don't produce JSON
+    const txtPath = join(process.cwd(), '.swarm', 'test-results.txt');
+    if (existsSync(txtPath)) {
+      try {
+        const raw = readFileSync(txtPath, 'utf-8');
+        return this.parseTestOutputRegex(raw);
+      } catch { /* fall through */ }
+    }
+
+    // 2. Fall back to regex parsing of agent output
     const agents = this.state.getState().agents;
     const testRunner = [...agents]
       .reverse()
       .find((a) => a.name.startsWith('test-runner-'));
 
     if (!testRunner) {
-      return { passed: false, failureCount: null, summary: 'No test runner output found.', output: null };
+      return { passed: false, failureCount: null, failures: [], summary: 'No test runner output found.', output: null };
     }
 
-    const output = testRunner.output;
-    return this.parseTestOutput(output);
+    return this.parseTestOutputRegex(testRunner.output);
   }
 
-  private parseTestOutput(output: string): TestEvaluation {
-    if (!output) {
-      return { passed: false, failureCount: null, summary: 'Empty test output.', output: null };
+  /** Parse structured test results JSON — auto-detects format (Playwright, Vitest, go test, pytest) */
+  private parseStructuredTestResults(json: unknown): TestEvaluation {
+    // Detect format and dispatch
+    if (typeof json === 'object' && json !== null) {
+      const obj = json as Record<string, unknown>;
+
+      // Playwright: has `suites` array at top level
+      if (Array.isArray(obj.suites)) {
+        return this.parsePlaywrightJson(obj);
+      }
+
+      // Vitest: has `testResults` array (Vitest JSON reporter)
+      if (Array.isArray(obj.testResults)) {
+        return this.parseVitestJson(obj);
+      }
+
+      // pytest-json-report: has `tests` array and `summary`
+      if (Array.isArray(obj.tests) && obj.summary) {
+        return this.parsePytestJson(obj);
+      }
     }
 
-    // Playwright patterns
+    // go test -json: NDJSON lines (each line is an object with Action/Test/Output)
+    if (typeof json === 'string') {
+      return this.parseGoTestJson(json);
+    }
+
+    // If it's already parsed as an array of NDJSON objects
+    if (Array.isArray(json)) {
+      return this.parseGoTestJsonLines(json as Array<Record<string, unknown>>);
+    }
+
+    return { passed: false, failureCount: null, failures: [], summary: 'Unknown JSON test results format', output: null };
+  }
+
+  /** Parse Playwright JSON reporter output */
+  private parsePlaywrightJson(json: Record<string, unknown>): TestEvaluation {
+    const failures: TestFailure[] = [];
+    let passedCount = 0;
+    let failedCount = 0;
+
+    const walkSpecs = (specs: Array<Record<string, unknown>>) => {
+      for (const spec of specs) {
+        const tests = spec.tests as Array<Record<string, unknown>> | undefined;
+        if (!tests) continue;
+        for (const test of tests) {
+          const results = test.results as Array<Record<string, unknown>> | undefined;
+          if (!results || results.length === 0) continue;
+          const lastResult = results[results.length - 1];
+          const status = lastResult.status as string;
+          if (status === 'passed') {
+            passedCount++;
+          } else if (status === 'failed' || status === 'timedOut') {
+            failedCount++;
+            const errorMsg = lastResult.error
+              ? (lastResult.error as Record<string, unknown>).message as string ?? ''
+              : '';
+            failures.push({
+              testName: `${spec.title ?? ''} > ${test.title ?? ''}`.trim(),
+              file: spec.file as string ?? '',
+              error: errorMsg.slice(0, 500),
+            });
+          }
+        }
+      }
+    };
+
+    const walkSuites = (suiteList: Array<Record<string, unknown>>) => {
+      for (const suite of suiteList) {
+        const specs = suite.specs as Array<Record<string, unknown>> | undefined;
+        if (specs) walkSpecs(specs);
+        const childSuites = suite.suites as Array<Record<string, unknown>> | undefined;
+        if (childSuites) walkSuites(childSuites);
+      }
+    };
+
+    walkSuites(json.suites as Array<Record<string, unknown>>);
+
+    const passed = failedCount === 0 && passedCount > 0;
+    const summary = `${passedCount} passed, ${failedCount} failed (Playwright JSON)`;
+    const output = failures.length > 0
+      ? failures.map(f => `FAIL: ${f.testName}\n  File: ${f.file}\n  Error: ${f.error}`).join('\n\n')
+      : `All ${passedCount} tests passed.`;
+
+    return { passed, failureCount: failedCount, failures, summary, output };
+  }
+
+  /** Parse Vitest JSON reporter output */
+  private parseVitestJson(json: Record<string, unknown>): TestEvaluation {
+    const failures: TestFailure[] = [];
+    let passedCount = 0;
+    let failedCount = 0;
+
+    const testResults = json.testResults as Array<Record<string, unknown>> | undefined;
+    if (!testResults) {
+      return { passed: false, failureCount: null, failures: [], summary: 'Empty Vitest results', output: null };
+    }
+
+    for (const suite of testResults) {
+      const assertionResults = suite.assertionResults as Array<Record<string, unknown>> | undefined;
+      if (!assertionResults) continue;
+
+      for (const test of assertionResults) {
+        const status = test.status as string;
+        if (status === 'passed') {
+          passedCount++;
+        } else if (status === 'failed') {
+          failedCount++;
+          const msgs = test.failureMessages as string[] | undefined;
+          failures.push({
+            testName: (test.fullName ?? test.title ?? 'unknown') as string,
+            file: (suite.name ?? '') as string,
+            error: (msgs?.[0] ?? '').slice(0, 500),
+          });
+        }
+      }
+    }
+
+    const passed = failedCount === 0 && passedCount > 0;
+    const summary = `${passedCount} passed, ${failedCount} failed (Vitest JSON)`;
+    const output = failures.length > 0
+      ? failures.map(f => `FAIL: ${f.testName}\n  File: ${f.file}\n  Error: ${f.error}`).join('\n\n')
+      : `All ${passedCount} tests passed.`;
+
+    return { passed, failureCount: failedCount, failures, summary, output };
+  }
+
+  /** Parse pytest-json-report output */
+  private parsePytestJson(json: Record<string, unknown>): TestEvaluation {
+    const failures: TestFailure[] = [];
+    let passedCount = 0;
+    let failedCount = 0;
+
+    const tests = json.tests as Array<Record<string, unknown>> | undefined;
+    if (!tests) {
+      return { passed: false, failureCount: null, failures: [], summary: 'Empty pytest results', output: null };
+    }
+
+    for (const test of tests) {
+      const outcome = test.outcome as string;
+      if (outcome === 'passed') {
+        passedCount++;
+      } else if (outcome === 'failed') {
+        failedCount++;
+        const call = test.call as Record<string, unknown> | undefined;
+        const longrepr = call?.longrepr as string ?? '';
+        failures.push({
+          testName: (test.nodeid ?? 'unknown') as string,
+          file: ((test.nodeid as string) ?? '').split('::')[0] ?? '',
+          error: longrepr.slice(0, 500),
+        });
+      }
+    }
+
+    const passed = failedCount === 0 && passedCount > 0;
+    const summary = `${passedCount} passed, ${failedCount} failed (pytest JSON)`;
+    const output = failures.length > 0
+      ? failures.map(f => `FAIL: ${f.testName}\n  File: ${f.file}\n  Error: ${f.error}`).join('\n\n')
+      : `All ${passedCount} tests passed.`;
+
+    return { passed, failureCount: failedCount, failures, summary, output };
+  }
+
+  /** Parse go test -json NDJSON string */
+  private parseGoTestJson(raw: string): TestEvaluation {
+    const lines: Array<Record<string, unknown>> = [];
+    for (const line of raw.split('\n')) {
+      if (!line.trim()) continue;
+      try {
+        lines.push(JSON.parse(line));
+      } catch { /* skip non-JSON lines */ }
+    }
+    return this.parseGoTestJsonLines(lines);
+  }
+
+  /** Parse go test -json NDJSON lines */
+  private parseGoTestJsonLines(lines: Array<Record<string, unknown>>): TestEvaluation {
+    const failures: TestFailure[] = [];
+    let passedCount = 0;
+    let failedCount = 0;
+    const failOutputs = new Map<string, string>();
+
+    for (const line of lines) {
+      const action = line.Action as string;
+      const testName = line.Test as string;
+      const pkg = line.Package as string ?? '';
+
+      if (!testName) continue; // Package-level events
+
+      if (action === 'pass') {
+        passedCount++;
+      } else if (action === 'fail') {
+        failedCount++;
+        failures.push({
+          testName: `${pkg}/${testName}`,
+          file: pkg,
+          error: (failOutputs.get(`${pkg}/${testName}`) ?? '').slice(0, 500),
+        });
+      } else if (action === 'output') {
+        const key = `${pkg}/${testName}`;
+        const prev = failOutputs.get(key) ?? '';
+        failOutputs.set(key, prev + (line.Output as string ?? ''));
+      }
+    }
+
+    const passed = failedCount === 0 && passedCount > 0;
+    const summary = `${passedCount} passed, ${failedCount} failed (go test JSON)`;
+    const output = failures.length > 0
+      ? failures.map(f => `FAIL: ${f.testName}\n  File: ${f.file}\n  Error: ${f.error}`).join('\n\n')
+      : `All ${passedCount} tests passed.`;
+
+    return { passed, failureCount: failedCount, failures, summary, output };
+  }
+
+  /** Regex-based fallback for parsing test output */
+  private parseTestOutputRegex(output: string): TestEvaluation {
+    if (!output) {
+      return { passed: false, failureCount: null, failures: [], summary: 'Empty test output.', output: null };
+    }
+
     const passedMatch = output.match(/(\d+)\s+passed/);
     const failedMatch = output.match(/(\d+)\s+failed/);
 
     const passedCount = passedMatch ? parseInt(passedMatch[1], 10) : 0;
     const failedCount = failedMatch ? parseInt(failedMatch[1], 10) : 0;
 
-    // Also check for generic failure indicators
     const hasGenericFail = /(?:FAIL|Error:|✗|AssertionError|expect\(.*\)\.to)/i.test(output);
 
     const passed = failedCount === 0 && !hasGenericFail && passedCount > 0;
@@ -1464,10 +2127,9 @@ export class Pipeline {
         ? 'Test failures detected (non-Playwright output)'
         : 'Could not parse test results';
 
-    // Truncate output for storage
     const truncated = output.length > 5000 ? output.slice(-5000) : output;
 
-    return { passed, failureCount: failedCount || (hasGenericFail ? -1 : 0), summary, output: truncated };
+    return { passed, failureCount: failedCount || (hasGenericFail ? -1 : 0), failures: [], summary, output: truncated };
   }
 
   private chunk<T>(arr: T[], size: number): T[][] {
@@ -1496,9 +2158,16 @@ export class Pipeline {
   }
 }
 
+interface TestFailure {
+  testName: string;
+  file: string;
+  error: string;
+}
+
 interface TestEvaluation {
   passed: boolean;
   failureCount: number | null;
+  failures: TestFailure[];
   summary: string;
   output: string | null;
 }

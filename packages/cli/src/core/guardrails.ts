@@ -22,6 +22,8 @@ const DEFAULT_RULES: GuardrailRule[] = [
       { type: 'pattern-match', value: 'As a .+ I want .+ So that', message: 'No user stories found (As a/I want/So that format)', severity: 'warning' },
       { type: 'pattern-match', value: 'Given .+ [Ww]hen .+ [Tt]hen', message: 'No Given/When/Then acceptance criteria found', severity: 'warning' },
       { type: 'pattern-match', value: 'E2E', message: 'No E2E scenarios in Testing section', severity: 'warning' },
+      { type: 'min-length', value: '200', message: 'REQUIREMENTS.md is too short — likely incomplete', severity: 'warning' },
+      { type: 'word-count', value: 'Functional Requirements:20', message: 'Functional Requirements section has too few words — needs more detail', severity: 'warning' },
     ],
   },
   {
@@ -42,6 +44,8 @@ const DEFAULT_RULES: GuardrailRule[] = [
       { type: 'section-exists', value: 'Open Questions', message: 'Missing "Open Questions" section', severity: 'warning' },
       { type: 'pattern-match', value: '```mermaid', message: 'No Mermaid diagrams found', severity: 'warning' },
       { type: 'pattern-match', value: 'ADR-\\d', message: 'No ADR entries found (ADR-1, ADR-2 pattern)', severity: 'warning' },
+      { type: 'min-length', value: '300', message: 'SPEC.md is too short — likely incomplete', severity: 'warning' },
+      { type: 'word-count', value: 'Architecture:30', message: 'Architecture section needs more detail', severity: 'warning' },
     ],
   },
   {
@@ -178,6 +182,73 @@ export class GuardrailsEngine {
             severity: check.severity ?? 'error',
           };
         }
+      }
+
+      case 'min-length': {
+        // value is the minimum character count (e.g., "50")
+        const minLen = parseInt(check.value, 10);
+        if (isNaN(minLen)) return null;
+        if (content.trim().length < minLen) {
+          return {
+            rule: ruleName,
+            check: `min-length: ${check.value}`,
+            file: filePath,
+            message: check.message || `Content too short (${content.trim().length} < ${minLen} chars)`,
+            severity: check.severity ?? 'warning',
+          };
+        }
+        return null;
+      }
+
+      case 'word-count': {
+        // value format: "sectionName:minWords" e.g., "Functional Requirements:20"
+        const [sectionName, minWordsStr] = check.value.split(':');
+        const minWords = parseInt(minWordsStr, 10);
+        if (!sectionName || isNaN(minWords)) return null;
+
+        // Extract section content between this heading and the next
+        const sectionPattern = new RegExp(
+          `^#{1,4}\\s+.*${this.escapeRegex(sectionName)}.*$([\\s\\S]*?)(?=^#{1,4}\\s|$)`,
+          'mi',
+        );
+        const sectionMatch = content.match(sectionPattern);
+        const sectionContent = sectionMatch?.[1] ?? '';
+        const wordCount = sectionContent.trim().split(/\s+/).filter(Boolean).length;
+
+        if (wordCount < minWords) {
+          return {
+            rule: ruleName,
+            check: `word-count: ${check.value}`,
+            file: filePath,
+            message: check.message || `Section "${sectionName}" has only ${wordCount} words (min: ${minWords})`,
+            severity: check.severity ?? 'warning',
+          };
+        }
+        return null;
+      }
+
+      case 'required-patterns': {
+        // value is comma-separated patterns that ALL must match
+        // e.g., "Given,When,Then" or "ADR-\\d,```mermaid"
+        const patterns = check.value.split(',').map(p => p.trim());
+        const missing = patterns.filter(p => {
+          try {
+            return !new RegExp(p, 'm').test(content);
+          } catch {
+            return false;
+          }
+        });
+
+        if (missing.length > 0) {
+          return {
+            rule: ruleName,
+            check: `required-patterns: ${check.value}`,
+            file: filePath,
+            message: check.message || `Missing required patterns: ${missing.join(', ')}`,
+            severity: check.severity ?? 'warning',
+          };
+        }
+        return null;
       }
 
       default:
