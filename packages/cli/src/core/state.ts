@@ -10,11 +10,48 @@ export class StateManager extends EventEmitter {
   private filePath: string;
   private writeTimer: ReturnType<typeof setTimeout> | null = null;
   private dirty = false;
+  private namespace: string;
 
-  constructor(private swarmDir: string) {
+  constructor(private swarmDir: string, namespace = 'default') {
     super();
-    this.filePath = join(swarmDir, 'state.json');
+    this.namespace = namespace;
+    this.filePath = namespace === 'default'
+      ? join(swarmDir, 'state.json')
+      : join(swarmDir, 'pipelines', `${namespace}.json`);
 
+    this.state = this.loadStateWithRecovery();
+  }
+
+  getNamespace(): string {
+    return this.namespace;
+  }
+
+  /** List all pipeline namespaces */
+  static listPipelines(swarmDir: string): string[] {
+    const names = ['default'];
+    const pipelinesDir = join(swarmDir, 'pipelines');
+    if (existsSync(pipelinesDir)) {
+      try {
+        const files = readdirSync(pipelinesDir).filter(f => f.endsWith('.json'));
+        for (const f of files) {
+          names.push(f.replace('.json', ''));
+        }
+      } catch { /* ignore */ }
+    }
+    return names;
+  }
+
+  /** Switch to a different pipeline namespace */
+  switchTo(namespace: string): void {
+    this.flush();
+    this.namespace = namespace;
+    this.filePath = namespace === 'default'
+      ? join(this.swarmDir, 'state.json')
+      : join(this.swarmDir, 'pipelines', `${namespace}.json`);
+    if (namespace !== 'default') {
+      const dir = join(this.swarmDir, 'pipelines');
+      if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+    }
     this.state = this.loadStateWithRecovery();
   }
 
@@ -300,6 +337,11 @@ export class StateManager extends EventEmitter {
       (acc, a) => addCosts(acc, a.cost),
       emptyCost(),
     );
+  }
+
+  /** Trigger a debounced save (public for Pipeline quality scoring) */
+  scheduleSavePublic(): void {
+    this.scheduleSave();
   }
 
   private scheduleSave(): void {

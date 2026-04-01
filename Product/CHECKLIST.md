@@ -127,35 +127,35 @@
   Add login (email/password or OAuth). Track which user initiated each action. Show user avatars on agent cards. Require auth for WS commands.
   _Files: `ws-server.ts`, `dashboard.ts`, new auth module, dashboard login page_
 
-- [ ] **P3-02 — GitHub Action**
+- [x] **P3-02 — GitHub Action**
   Publish `swarm-action` that runs MayDay on issue creation or PR comment. Posts results as PR comment. Supports matrix builds (multiple stacks).
   _Files: new `.github/actions/swarm/` or separate repo_
 
-- [ ] **P3-03 — Webhooks on Completion**
+- [x] **P3-03 — Webhooks on Completion**
   Fire configurable webhooks when: stage completes, pipeline finishes, agent errors, budget threshold hit. Support Slack, Discord, and generic HTTP POST.
   _Files: new `core/webhooks.ts`, `types.ts` (SwarmConfig), `pipeline.ts`_
 
-- [ ] **P3-04 — Feature Isolation (Multi-Pipeline)**
+- [x] **P3-04 — Feature Isolation (Multi-Pipeline)**
   Support multiple concurrent pipelines per project. Each pipeline gets its own state, artifacts directory, and git branch. Dashboard shows pipeline selector.
   _Files: `state.ts`, `pipeline.ts`, `types.ts`, `App.tsx`, `TopBar.tsx`_
 
-- [ ] **P3-05 — Persistent Audit Trail**
+- [x] **P3-05 — Persistent Audit Trail**
   Write structured logs to `.swarm/audit.jsonl`. Each entry: timestamp, user, action, agentId, cost, files changed. Queryable via `swarm audit` CLI command.
   _Files: new `core/audit.ts`, `agent-manager.ts`, `ws-server.ts`, new `commands/audit.ts`_
 
-- [ ] **P3-06 — Multi-Model Per Stage**
+- [x] **P3-06 — Multi-Model Per Stage**
   Configure model per persona in `.swarm/config.yaml` (e.g., Haiku for analyst, Sonnet for architect, Opus for engineer). Dashboard shows model per agent.
   _Files: `types.ts` (SwarmConfig), `pipeline.ts`, `config.ts`_
 
-- [ ] **P3-07 — Plugin System for Custom Personas**
+- [x] **P3-07 — Plugin System for Custom Personas**
   Allow `.swarm/personas/` directory with custom persona definitions (prompt + tool restrictions + artifact expectations). Register custom personas in config.
   _Files: `types.ts`, `loader.ts`, `pipeline.ts`, `SpawnDialog.tsx`_
 
-- [ ] **P3-08 — Quality Scoring**
+- [x] **P3-08 — Quality Scoring**
   Beyond structural guardrails — evaluate artifact quality using a secondary LLM call. Score requirements completeness, spec consistency, test coverage. Show scores in dashboard.
   _Files: `guardrails.ts`, new `core/quality.ts`, `TopBar.tsx`_
 
-- [ ] **P3-09 — Multi-Repo Support**
+- [x] **P3-09 — Multi-Repo Support**
   Allow MayDay to operate across multiple repos (e.g., frontend + backend). Coordinate agents across directories. Unified dashboard view.
   _Files: `pipeline.ts`, `state.ts`, `types.ts`, `config.ts`_
 
@@ -172,5 +172,5 @@
 | Tier 0 — Safety | 6 | 6 | 0 |
 | Tier 1 — MVP | 10 | 10 | 0 |
 | Tier 2 — Competitive | 10 | 10 | 0 |
-| Tier 3 — Growth | 10 | 0 | 10 |
-| **Total** | **36** | **26** | **10** |
+| Tier 3 — Growth | 10 | 8 | 2 |
+| **Total** | **36** | **34** | **2** |

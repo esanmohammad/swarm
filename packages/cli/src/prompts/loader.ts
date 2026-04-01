@@ -1,7 +1,8 @@
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
+import { parse as parseYaml } from 'yaml';
 import type { Persona, TechStack } from '../types.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -44,19 +45,79 @@ function getSearchDirs(customDir?: string, stack?: TechStack): string[] {
   return dirs;
 }
 
+/** Custom persona definition from .swarm/personas/{name}.yaml */
+export interface CustomPersonaDefinition {
+  name: string;
+  /** System prompt — can be inline or a path to a .md file */
+  prompt: string;
+  /** Expected output artifact filename (e.g., "ANALYSIS.md") */
+  artifact?: string;
+  /** Tools the persona is allowed to use */
+  allowedTools?: string[];
+  /** Tools the persona is NOT allowed to use */
+  disallowedTools?: string[];
+  /** Description shown in dashboard spawn dialog */
+  description?: string;
+}
+
 export class PromptLoader {
   private customDir?: string;
+  private swarmDir?: string;
+  private customPersonas = new Map<string, CustomPersonaDefinition>();
 
-  constructor(customDir?: string) {
+  constructor(customDir?: string, swarmDir?: string) {
     this.customDir = customDir;
+    this.swarmDir = swarmDir;
+    if (swarmDir) this.loadCustomPersonas(swarmDir);
+  }
+
+  /** Load custom persona definitions from .swarm/personas/ */
+  private loadCustomPersonas(swarmDir: string): void {
+    const personasDir = join(swarmDir, 'personas');
+    if (!existsSync(personasDir)) return;
+
+    try {
+      const files = readdirSync(personasDir).filter(f => f.endsWith('.yaml') || f.endsWith('.yml'));
+      for (const file of files) {
+        try {
+          const raw = readFileSync(join(personasDir, file), 'utf-8');
+          const def = parseYaml(raw) as CustomPersonaDefinition;
+          if (def.name && def.prompt) {
+            // If prompt is a file path, resolve and read it
+            if (def.prompt.endsWith('.md') && existsSync(join(personasDir, def.prompt))) {
+              def.prompt = readFileSync(join(personasDir, def.prompt), 'utf-8');
+            }
+            this.customPersonas.set(def.name, def);
+          }
+        } catch { /* skip malformed YAML */ }
+      }
+    } catch { /* personas dir unreadable */ }
+  }
+
+  /** Get a custom persona definition by name */
+  getCustomPersona(name: string): CustomPersonaDefinition | undefined {
+    return this.customPersonas.get(name);
+  }
+
+  /** List all loaded custom personas */
+  listCustomPersonas(): CustomPersonaDefinition[] {
+    return Array.from(this.customPersonas.values());
   }
 
   private getSearchDirsForStack(stack: TechStack): string[] {
     return getSearchDirs(this.customDir, stack);
   }
 
-  async load(persona: Persona, stack: TechStack): Promise<string> {
-    const filenames = PROMPT_FILENAME_MAP[persona](stack);
+  async load(persona: Persona | string, stack: TechStack): Promise<string> {
+    // Check custom personas first
+    const custom = this.customPersonas.get(persona);
+    if (custom) return custom.prompt;
+
+    const filenameFn = PROMPT_FILENAME_MAP[persona as Persona];
+    if (!filenameFn) {
+      throw new Error(`Unknown persona "${persona}". Available: ${Object.keys(PROMPT_FILENAME_MAP).join(', ')}, or define a custom persona in .swarm/personas/`);
+    }
+    const filenames = filenameFn(stack);
     const searchDirs = this.getSearchDirsForStack(stack);
 
     for (const dir of searchDirs) {

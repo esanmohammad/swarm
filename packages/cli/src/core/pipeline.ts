@@ -8,6 +8,9 @@ import type { SwarmConfig, StageName, TechStack, PlaywrightConfig, MaydayState, 
 import { STAGE_ARTIFACT_MAP } from '../types.js';
 import { parse as parseYaml } from 'yaml';
 import { isGhInstalled, createPR, buildPRBody, getCurrentBranch, hasUncommittedChanges } from './git.js';
+import { WebhookManager } from './webhooks.js';
+import type { WebhookConfig } from './webhooks.js';
+import { QualityScorer } from './quality.js';
 import { loadPipelineDefinition, getDefaultPipelineDefinition, stageNameForDefinition } from './pipeline-loader.js';
 import type { PipelineDefinition, PipelineStageDefinition } from './pipeline-loader.js';
 
@@ -155,12 +158,16 @@ export class Pipeline {
   private budgetExceeded = false;
   gitEnabled = true;
   autoPR = true;
+  private webhooks: WebhookManager;
+  private quality: QualityScorer;
 
   constructor(
     private agentManager: AgentManager,
     private state: StateManager,
     private config: SwarmConfig,
   ) {
+    this.webhooks = new WebhookManager((config.webhooks ?? []) as WebhookConfig[]);
+    this.quality = new QualityScorer();
     // Track budget exceeded so we can surface a clear error from waitForAgent rejections
     this.agentManager.on('budget-exceeded', () => {
       this.budgetExceeded = true;
@@ -184,6 +191,11 @@ export class Pipeline {
       }
       throw err;
     }
+  }
+
+  /** Resolve model for a persona — checks per-persona overrides, then falls back to default */
+  private modelFor(persona: import('../types.js').Persona): string {
+    return this.config.models?.[persona] ?? this.config.model;
   }
 
   private slugify(text: string): string {
@@ -348,6 +360,7 @@ export class Pipeline {
       persona: 'analyst',
       stack: s,
       prompt,
+      model: this.modelFor('analyst'),
       cwd: process.cwd(),
       interactive,
       permissionMode: headlessPermission(interactive),
@@ -406,6 +419,7 @@ export class Pipeline {
       persona: 'architect',
       stack: s,
       prompt,
+      model: this.modelFor('architect'),
       cwd: process.cwd(),
       interactive,
       permissionMode: headlessPermission(interactive),
@@ -466,6 +480,7 @@ export class Pipeline {
       persona: 'lead',
       stack: s,
       prompt,
+      model: this.modelFor('lead'),
       cwd: process.cwd(),
       interactive,
       permissionMode: headlessPermission(interactive),
@@ -505,6 +520,7 @@ export class Pipeline {
         persona: 'engineer',
         stack: s,
         prompt,
+        model: this.modelFor('engineer'),
         cwd: process.cwd(),
         interactive: false,
         permissionMode: 'auto',
@@ -526,6 +542,7 @@ export class Pipeline {
           persona: 'engineer',
           stack: s,
           prompt,
+          model: this.modelFor('engineer'),
           cwd: process.cwd(),
           interactive: false,
           permissionMode: 'auto',
@@ -566,6 +583,7 @@ export class Pipeline {
           persona: 'engineer',
           stack: s,
           prompt: orchestratorPrompt,
+          model: this.modelFor('engineer'),
           cwd: process.cwd(),
           interactive: false,
           permissionMode: 'auto',
@@ -593,6 +611,7 @@ export class Pipeline {
                   name: `engineer-${taskId}`,
                   persona: 'engineer',
                   stack: s,
+                  model: this.modelFor('engineer'),
                   prompt: [
                     `You are a SUB-ENGINEER. Implement ONLY task ${taskId}. Do not touch other tasks.`,
                     `Focus exclusively on ${taskId}. When complete, stop.`,
@@ -751,6 +770,7 @@ export class Pipeline {
         persona: 'tester',
         stack: s,
         prompt: testerPromptParts.join('\n'),
+        model: this.modelFor('tester'),
         cwd: process.cwd(),
         interactive,
         permissionMode: headlessPermission(interactive),
@@ -781,6 +801,7 @@ export class Pipeline {
       persona: 'engineer',
       stack: s,
       prompt: runnerPromptParts.join('\n'),
+      model: this.modelFor('engineer'),
       cwd: process.cwd(),
       interactive: false,
       permissionMode: 'auto',
@@ -1152,6 +1173,26 @@ export class Pipeline {
     } else {
       console.log(chalk.green(`\n[${stage}] Session complete.`));
     }
+
+    // Run quality scoring on the artifact
+    const score = this.quality.scoreArtifact(process.cwd(), stage);
+    if (score) {
+      const pipelineState = this.state.getState();
+      const scores = pipelineState.qualityScores ?? [];
+      // Replace existing score for this stage
+      const filtered = scores.filter(s => s.stage !== stage);
+      filtered.push(score);
+      pipelineState.qualityScores = filtered;
+      this.state.scheduleSavePublic();
+
+      const color = score.overall >= 80 ? chalk.green : score.overall >= 50 ? chalk.yellow : chalk.red;
+      console.log(color(`[quality] ${expectedArtifact}: ${score.overall}/100`));
+      for (const d of score.dimensions) {
+        console.log(chalk.dim(`  ${d.name}: ${d.score}/100 — ${d.detail}`));
+      }
+    }
+
+    this.webhooks.stageComplete(this.config.projectName, stage, this.state.getState().totalCost).catch(() => {});
   }
 
   /**
@@ -1399,10 +1440,12 @@ export class Pipeline {
       await this.executeMaydayPipeline(stack, opts.parallel);
       this.state.archiveRun();
       this.attemptAutoCreatePR();
+      this.webhooks.maydayComplete(this.config.projectName, this.state.getState()).catch(() => {});
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
       this.state.updateMayday({ active: false, error: errMsg });
       this.state.archiveRun();
+      this.webhooks.maydayError(this.config.projectName, errMsg).catch(() => {});
       throw err;
     }
   }
@@ -1426,10 +1469,12 @@ export class Pipeline {
       await this.executeMaydayPipeline(stack, opts.parallel);
       this.state.archiveRun();
       this.attemptAutoCreatePR();
+      this.webhooks.maydayComplete(this.config.projectName, this.state.getState()).catch(() => {});
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
       this.state.updateMayday({ active: false, error: errMsg });
       this.state.archiveRun();
+      this.webhooks.maydayError(this.config.projectName, errMsg).catch(() => {});
       throw err;
     }
   }
@@ -1609,6 +1654,7 @@ export class Pipeline {
               persona: 'engineer',
               stack,
               prompt: this.buildTargetedFixPrompt(group, fixHistory, userMsgs, testRunCmd),
+              model: this.modelFor('engineer'),
               cwd: process.cwd(),
               interactive: false,
               permissionMode: 'auto',
@@ -1629,6 +1675,7 @@ export class Pipeline {
           persona: 'engineer',
           stack,
           prompt: fixPrompt,
+          model: this.modelFor('engineer'),
           cwd: process.cwd(),
           interactive: false,
           permissionMode: 'auto',

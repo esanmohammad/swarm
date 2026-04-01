@@ -4,7 +4,8 @@ import { PromptLoader } from '../prompts/loader.js';
 import { AgentManager } from '../core/agent-manager.js';
 import { Pipeline } from '../core/pipeline.js';
 import { SwarmWsServer } from '../core/ws-server.js';
-import type { SwarmConfig } from '../types.js';
+import { AuditLog } from '../core/audit.js';
+import type { SwarmConfig, Agent } from '../types.js';
 
 export interface SwarmContext {
   state: StateManager;
@@ -21,9 +22,22 @@ export function createContext(swarmDir: string, config: SwarmConfig): SwarmConte
   state.killOrphanProcesses(); // Kill any orphans before starting new work
   const costTracker = new CostTracker();
   costTracker.setBudget(config.maxBudgetUsd);
-  const promptLoader = new PromptLoader(config.promptsDir);
+  const promptLoader = new PromptLoader(config.promptsDir, swarmDir);
   const agentManager = new AgentManager(state, costTracker, promptLoader, config);
   const pipeline = new Pipeline(agentManager, state, config);
+  const audit = new AuditLog(swarmDir);
+
+  // Wire audit logging to agent lifecycle events
+  agentManager.on('agent-spawned', (agent: Agent) => {
+    audit.agentSpawned(agent.id, agent.name, agent.persona);
+  });
+  agentManager.on('agent-done', (agent: Agent) => {
+    audit.agentDone(agent.id, agent.name, agent.cost.totalUsd);
+  });
+  agentManager.on('agent-error', (agent: Agent) => {
+    audit.agentError(agent.id, agent.name, agent.error ?? 'Unknown error');
+  });
+
   // Pass cwd so dashboard-spawned agents run in the right directory
   const wsServer = new SwarmWsServer(state, agentManager, config, process.cwd());
 

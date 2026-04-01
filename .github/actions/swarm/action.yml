@@ -1,0 +1,166 @@
+name: 'Swarm MayDay'
+description: 'Run Swarm MayDay pipeline on a feature request — orchestrates Claude Code agents through analyze, architect, plan, build, and test stages.'
+author: 'Swarm'
+
+inputs:
+  prompt:
+    description: 'Feature request / prompt for the MayDay pipeline'
+    required: true
+  stack:
+    description: 'Tech stack (react, node, go, python, rust, swift)'
+    required: false
+    default: 'auto'
+  model:
+    description: 'Claude model to use (opus, sonnet, haiku)'
+    required: false
+    default: 'sonnet'
+  max-budget:
+    description: 'Maximum budget in USD'
+    required: false
+    default: '20'
+  max-iterations:
+    description: 'Maximum fix-loop iterations'
+    required: false
+    default: '3'
+  from-stage:
+    description: 'Skip to a specific stage (analyze, architect, plan, build, test)'
+    required: false
+    default: ''
+  working-directory:
+    description: 'Working directory for the pipeline'
+    required: false
+    default: '.'
+  create-pr:
+    description: 'Auto-create a PR on completion'
+    required: false
+    default: 'true'
+  anthropic-api-key:
+    description: 'Anthropic API key (if not using ANTHROPIC_API_KEY env var)'
+    required: false
+
+outputs:
+  cost:
+    description: 'Total cost of the pipeline run in USD'
+  status:
+    description: 'Final pipeline status (complete, error)'
+  pr-url:
+    description: 'URL of the created PR (if applicable)'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Install Claude CLI
+      shell: bash
+      run: npm install -g @anthropic-ai/claude-code
+
+    - name: Install Swarm
+      shell: bash
+      run: |
+        cd ${{ github.action_path }}/../../..
+        npm install
+        npm run build
+
+    - name: Set API key
+      if: inputs.anthropic-api-key != ''
+      shell: bash
+      run: echo "ANTHROPIC_API_KEY=${{ inputs.anthropic-api-key }}" >> $GITHUB_ENV
+
+    - name: Auto-detect stack
+      if: inputs.stack == 'auto'
+      id: detect-stack
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        if [ -f "go.mod" ]; then
+          echo "stack=go" >> $GITHUB_OUTPUT
+        elif [ -f "Cargo.toml" ]; then
+          echo "stack=rust" >> $GITHUB_OUTPUT
+        elif [ -f "requirements.txt" ] || [ -f "pyproject.toml" ]; then
+          echo "stack=python" >> $GITHUB_OUTPUT
+        elif [ -f "Package.swift" ]; then
+          echo "stack=swift" >> $GITHUB_OUTPUT
+        elif grep -q '"react"' package.json 2>/dev/null; then
+          echo "stack=react" >> $GITHUB_OUTPUT
+        else
+          echo "stack=node" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Run Swarm MayDay
+      id: mayday
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        STACK="${{ inputs.stack }}"
+        if [ "$STACK" = "auto" ]; then
+          STACK="${{ steps.detect-stack.outputs.stack }}"
+        fi
+
+        ARGS="--yes --model ${{ inputs.model }} --max-budget ${{ inputs.max-budget }} --max-iterations ${{ inputs.max-iterations }}"
+
+        if [ -n "${{ inputs.from-stage }}" ]; then
+          ARGS="$ARGS --from ${{ inputs.from-stage }}"
+        fi
+
+        if [ "${{ inputs.create-pr }}" = "false" ]; then
+          ARGS="$ARGS --no-git"
+        fi
+
+        # Run MayDay
+        swarm mayday "${{ inputs.prompt }}" $ARGS 2>&1 | tee .swarm/mayday-output.txt
+        EXIT_CODE=${PIPESTATUS[0]}
+
+        # Extract results
+        if [ -f ".swarm/state.json" ]; then
+          COST=$(cat .swarm/state.json | node -e "const s=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));console.log(s.totalCost?.totalUsd?.toFixed(4)??'0')")
+          echo "cost=$COST" >> $GITHUB_OUTPUT
+
+          PR_URL=$(cat .swarm/state.json | node -e "const s=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));console.log(s.mayday?.prUrl??'')")
+          echo "pr-url=$PR_URL" >> $GITHUB_OUTPUT
+        fi
+
+        if [ $EXIT_CODE -eq 0 ]; then
+          echo "status=complete" >> $GITHUB_OUTPUT
+        else
+          echo "status=error" >> $GITHUB_OUTPUT
+          exit $EXIT_CODE
+        fi
+
+    - name: Comment on PR
+      if: github.event_name == 'pull_request' || github.event_name == 'issue_comment'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        COST="${{ steps.mayday.outputs.cost }}"
+        STATUS="${{ steps.mayday.outputs.status }}"
+        PR_URL="${{ steps.mayday.outputs.pr-url }}"
+
+        BODY="## Swarm MayDay Results
+
+        **Status**: ${STATUS}
+        **Cost**: \$${COST}
+        **Model**: ${{ inputs.model }}
+
+        ${PR_URL:+**PR**: ${PR_URL}}
+
+        <details>
+        <summary>Pipeline Output (last 100 lines)</summary>
+
+        \`\`\`
+        $(tail -100 .swarm/mayday-output.txt 2>/dev/null || echo 'No output captured')
+        \`\`\`
+        </details>
+
+        ---
+        *Generated by [Swarm](https://github.com/esanmohammad/swarm) MayDay pipeline*"
+
+        if [ "${{ github.event_name }}" = "pull_request" ]; then
+          gh pr comment ${{ github.event.pull_request.number }} --body "$BODY"
+        elif [ "${{ github.event_name }}" = "issue_comment" ]; then
+          gh issue comment ${{ github.event.issue.number }} --body "$BODY"
+        fi

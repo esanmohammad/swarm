@@ -109,6 +109,14 @@ export interface MaydayState {
   fixHistory?: FixHistoryEntry[];
 }
 
+export interface QualityScoreInfo {
+  stage: StageName;
+  artifact: string;
+  overall: number;
+  dimensions: Array<{ name: string; score: number; detail: string }>;
+  timestamp: number;
+}
+
 export interface PipelineState {
   projectName: string;
   stack: TechStack;
@@ -116,6 +124,7 @@ export interface PipelineState {
   agents: Agent[];
   totalCost: CostInfo;
   violations: GuardrailViolation[];
+  qualityScores?: QualityScoreInfo[];
   updatedAt: number;
   mayday?: MaydayState;
 }
@@ -262,6 +271,8 @@ export interface SwarmConfig {
   projectName: string;
   stack: TechStack;
   model: string;
+  /** Per-persona model overrides. E.g., { analyst: 'haiku', architect: 'sonnet', engineer: 'opus' } */
+  models?: Partial<Record<Persona, string>>;
   maxBudgetUsd: number | null;
   promptsDir: string;
   wsPort: number;
@@ -274,6 +285,17 @@ export interface SwarmConfig {
   playwright?: PlaywrightConfig;
   /** Path to custom pipeline YAML (relative to .swarm/ or absolute). Defaults to .swarm/pipeline.yaml */
   customPipeline?: string;
+  /** Active pipeline namespace (for multi-pipeline support). Default: 'default' */
+  activePipeline?: string;
+  /** Additional repos for multi-repo mode. Each entry maps a label to an absolute path. */
+  repos?: Record<string, string>;
+  /** Webhook configurations for event notifications */
+  webhooks?: Array<{
+    url: string;
+    events?: string[];
+    secret?: string;
+    format?: 'slack' | 'discord' | 'generic';
+  }>;
 }
 
 export const DEFAULT_CONFIG: SwarmConfig = {

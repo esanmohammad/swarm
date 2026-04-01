@@ -109,6 +109,14 @@ export interface HistoryEntry {
   durationMs: number;
 }
 
+export interface QualityScoreInfo {
+  stage: StageName;
+  artifact: string;
+  overall: number;
+  dimensions: Array<{ name: string; score: number; detail: string }>;
+  timestamp: number;
+}
+
 export interface PipelineState {
   projectName: string;
   stack: TechStack;
@@ -116,6 +124,7 @@ export interface PipelineState {
   agents: Agent[];
   totalCost: CostInfo;
   violations: GuardrailViolation[];
+  qualityScores?: QualityScoreInfo[];
   updatedAt: number;
   mayday?: MaydayState;
 }
