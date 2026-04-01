@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { X } from 'lucide-react';
 import type { Agent } from '../types';
 
@@ -8,6 +9,17 @@ interface KillConfirmDialogProps {
 }
 
 export function KillConfirmDialog({ agent, onConfirm, onCancel }: KillConfirmDialogProps) {
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onCancel();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onCancel]);
+
   return (
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50" onClick={onCancel}>
       <div

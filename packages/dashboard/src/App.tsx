@@ -9,13 +9,52 @@ import { GuardrailAlerts } from './components/GuardrailAlerts';
 import { SpawnDialog } from './components/SpawnDialog';
 import { KillConfirmDialog } from './components/KillConfirmDialog';
 import { EmptyState } from './components/EmptyState';
-import type { Agent, AgentStatus } from './types';
+import { HistoryView } from './components/HistoryView';
+import type { Agent, AgentStatus, StageName } from './types';
+
+const SHORTCUTS: { keys: string; desc: string }[] = [
+  { keys: '\u2318/Ctrl + N', desc: 'Spawn agent' },
+  { keys: '\u2191 / \u2193', desc: 'Select prev/next agent' },
+  { keys: '\u2318/Ctrl + K', desc: 'Kill selected agent' },
+  { keys: '\u2318/Ctrl + Enter', desc: 'Run next pending stage' },
+  { keys: 'Escape', desc: 'Close dialog' },
+  { keys: '?', desc: 'Toggle this help' },
+];
+
+const STAGE_ORDER: StageName[] = ['analyze', 'architect', 'plan', 'build', 'test'];
+
+function ShortcutsHelp({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50" onClick={onClose}>
+      <div
+        className="bg-[#0e0c0b] rounded border border-stone-700 w-full max-w-sm font-mono"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-4 py-2.5 border-b border-stone-700">
+          <span className="text-xs text-stone-400">keyboard shortcuts</span>
+          <button onClick={onClose} className="text-stone-600 hover:text-stone-400 transition-colors text-xs">
+            [esc]
+          </button>
+        </div>
+        <div className="p-4 space-y-2">
+          {SHORTCUTS.map((s) => (
+            <div key={s.keys} className="flex items-center justify-between">
+              <span className="text-xs text-stone-300 bg-stone-800/60 px-2 py-0.5 rounded border border-stone-700/50">{s.keys}</span>
+              <span className="text-xs text-stone-400">{s.desc}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function App() {
-  const { state, connected, agentOutputs, agentActivities, violations, sendCommand } = useWebSocket();
+  const { state, connected, agentOutputs, agentActivities, violations, historyEntries, sendCommand } = useWebSocket();
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [showSpawn, setShowSpawn] = useState(false);
   const [killTarget, setKillTarget] = useState<Agent | null>(null);
+  const [showShortcuts, setShowShortcuts] = useState(false);
 
   const selectedAgent = state?.agents.find((a) => a.id === selectedAgentId) ?? null;
   const allStagesPending = state
@@ -102,6 +141,98 @@ export default function App() {
     document.title = state?.projectName ? `SWARM-${state.projectName}` : 'SWARM';
   }, [state?.projectName]);
 
+  // --- Global keyboard shortcuts ---
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger shortcuts when typing in inputs
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+      const mod = e.metaKey || e.ctrlKey;
+
+      // ? — toggle shortcuts help
+      if (e.key === '?' && !mod) {
+        e.preventDefault();
+        setShowShortcuts((v) => !v);
+        return;
+      }
+
+      // Escape — close any open dialog
+      if (e.key === 'Escape') {
+        if (showShortcuts) { setShowShortcuts(false); e.preventDefault(); return; }
+        if (showSpawn) { setShowSpawn(false); e.preventDefault(); return; }
+        if (killTarget) { setKillTarget(null); e.preventDefault(); return; }
+        return;
+      }
+
+      // Cmd/Ctrl + N — open spawn dialog
+      if (mod && e.key === 'n') {
+        e.preventDefault();
+        setShowSpawn(true);
+        return;
+      }
+
+      // Cmd/Ctrl + K — kill selected agent
+      if (mod && e.key === 'k') {
+        e.preventDefault();
+        if (selectedAgentId && state) {
+          const agent = state.agents.find((a) => a.id === selectedAgentId);
+          if (agent && agent.status === 'running') {
+            setKillTarget(agent);
+          }
+        }
+        return;
+      }
+
+      // Cmd/Ctrl + Enter — run next pending stage
+      if (mod && e.key === 'Enter') {
+        e.preventDefault();
+        if (state) {
+          const nextStage = STAGE_ORDER.find((s) => state.stages[s]?.status === 'pending');
+          if (nextStage) {
+            // For stages needing prompt (analyze, plan, test), we just trigger the stage click behavior
+            // For architect/build, run directly
+            if (nextStage === 'architect' || nextStage === 'build') {
+              sendCommand({ action: 'run-stage', stage: nextStage });
+            }
+            // analyze/plan/test need prompt input — user should click the stage button
+          }
+        }
+        return;
+      }
+
+      // ArrowUp — select previous agent
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (state && state.agents.length > 0) {
+          const idx = state.agents.findIndex((a) => a.id === selectedAgentId);
+          if (idx <= 0) {
+            setSelectedAgentId(state.agents[state.agents.length - 1].id);
+          } else {
+            setSelectedAgentId(state.agents[idx - 1].id);
+          }
+        }
+        return;
+      }
+
+      // ArrowDown — select next agent
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (state && state.agents.length > 0) {
+          const idx = state.agents.findIndex((a) => a.id === selectedAgentId);
+          if (idx < 0 || idx >= state.agents.length - 1) {
+            setSelectedAgentId(state.agents[0].id);
+          } else {
+            setSelectedAgentId(state.agents[idx + 1].id);
+          }
+        }
+        return;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [state, selectedAgentId, showSpawn, killTarget, showShortcuts, sendCommand]);
+
   return (
     <div className="h-screen flex flex-col bg-[#0c0a09]">
       {/* Header — terminal title bar */}
@@ -184,6 +315,11 @@ export default function App() {
                 )}
               </div>
             </div>
+
+            {/* History section */}
+            <div className="border-t border-stone-800/50 max-h-64 overflow-hidden flex flex-col">
+              <HistoryView entries={historyEntries} sendCommand={sendCommand} />
+            </div>
           </aside>
 
           {/* Main content */}
@@ -230,6 +366,10 @@ export default function App() {
           }}
           onCancel={() => setKillTarget(null)}
         />
+      )}
+
+      {showShortcuts && (
+        <ShortcutsHelp onClose={() => setShowShortcuts(false)} />
       )}
     </div>
   );

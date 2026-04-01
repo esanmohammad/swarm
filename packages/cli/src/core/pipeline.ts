@@ -982,9 +982,11 @@ export class Pipeline {
 
     try {
       await this.executeMaydayPipeline(stack, opts.parallel);
+      this.state.archiveRun();
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
       this.state.updateMayday({ active: false, error: errMsg });
+      this.state.archiveRun();
       throw err;
     }
   }
@@ -1006,9 +1008,11 @@ export class Pipeline {
 
     try {
       await this.executeMaydayPipeline(stack, opts.parallel);
+      this.state.archiveRun();
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
       this.state.updateMayday({ active: false, error: errMsg });
+      this.state.archiveRun();
       throw err;
     }
   }

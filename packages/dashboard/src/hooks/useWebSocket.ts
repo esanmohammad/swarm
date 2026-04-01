@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import type { PipelineState, WsMessage, WsCommand, GuardrailViolation, AgentActivity } from '../types';
+import type { PipelineState, WsMessage, WsCommand, GuardrailViolation, AgentActivity, HistoryEntry } from '../types';
 
 // WS port is injected by the dashboard HTTP server into window.__SWARM_WS_PORT__
 // Falls back to deriving from dashboard port (wsPort = dashboardPort - 1) or default 3847
@@ -19,6 +19,7 @@ interface UseWebSocketReturn {
   agentOutputs: Map<string, string>;
   agentActivities: Map<string, AgentActivity[]>;
   violations: GuardrailViolation[];
+  historyEntries: HistoryEntry[];
   sendCommand: (cmd: WsCommand) => void;
 }
 
@@ -26,6 +27,7 @@ export function useWebSocket(): UseWebSocketReturn {
   const [state, setState] = useState<PipelineState | null>(null);
   const [connected, setConnected] = useState(false);
   const [violations, setViolations] = useState<GuardrailViolation[]>([]);
+  const [historyEntries, setHistoryEntries] = useState<HistoryEntry[]>([]);
   const agentOutputsRef = useRef(new Map<string, string>());
   const agentActivitiesRef = useRef(new Map<string, AgentActivity[]>());
   const [, forceUpdate] = useState(0);
@@ -124,6 +126,10 @@ export function useWebSocket(): UseWebSocketReturn {
           case 'cost-update':
             setState((prev) => prev ? { ...prev, totalCost: msg.payload } : prev);
             break;
+
+          case 'history-list':
+            setHistoryEntries(msg.payload);
+            break;
         }
       } catch {
         // ignore malformed messages
@@ -150,6 +156,7 @@ export function useWebSocket(): UseWebSocketReturn {
     agentOutputs: agentOutputsRef.current,
     agentActivities: agentActivitiesRef.current,
     violations,
+    historyEntries,
     sendCommand,
   };
 }

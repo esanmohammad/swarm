@@ -509,6 +509,13 @@ export class SwarmWsServer {
         }
         break;
       }
+
+      case 'get-history': {
+        const entries = this.state.listHistory();
+        const msg: WsMessage = { type: 'history-list', payload: entries };
+        _ws.send(JSON.stringify(msg));
+        break;
+      }
     }
   }
 

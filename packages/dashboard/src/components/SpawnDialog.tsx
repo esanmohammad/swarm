@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import type { WsCommand, Persona, TechStack, PermissionMode } from '../types';
 
@@ -21,6 +21,17 @@ export function SpawnDialog({ onSpawn, onClose }: SpawnDialogProps) {
   const [model, setModel] = useState('opus');
   const [prompt, setPrompt] = useState('');
   const [permissionMode, setPermissionMode] = useState<PermissionMode>('acceptEdits');
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

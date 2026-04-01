@@ -66,6 +66,17 @@ export interface MaydayState {
   maxFixBudgetUsd: number | null;
 }
 
+export interface HistoryEntry {
+  runId: string;
+  timestamp: number;
+  projectName: string;
+  stack: TechStack;
+  totalCost: CostInfo;
+  stagesSummary: Record<StageName, 'done' | 'error' | 'skipped' | 'pending'>;
+  featureRequest?: string;
+  durationMs: number;
+}
+
 export interface PipelineState {
   projectName: string;
   stack: TechStack;
@@ -105,7 +116,8 @@ export type WsMessage =
   | { type: 'agent-activity'; payload: AgentActivity }
   | { type: 'agent-logs'; payload: { agentId: string; output: string; activities: AgentActivity[] } }
   | { type: 'guardrail-alert'; payload: GuardrailViolation }
-  | { type: 'cost-update'; payload: CostInfo };
+  | { type: 'cost-update'; payload: CostInfo }
+  | { type: 'history-list'; payload: HistoryEntry[] };
 
 export type WsCommand =
   | { action: 'spawn'; name: string; persona: Persona; stack: TechStack; model?: string; prompt?: string; permissionMode?: PermissionMode }
@@ -115,4 +127,5 @@ export type WsCommand =
   | { action: 'run-stage'; stage: 'analyze' | 'architect' | 'plan' | 'build' | 'test'; prompt?: string; parallel?: number; taskId?: string; figmaUrl?: string; baseUrl?: string; authStorageState?: string }
   | { action: 'run-mayday'; prompt: string; maxIterations?: number; figmaUrl?: string; parallel?: number; resume?: boolean; model?: string; maxFixBudgetUsd?: number | null; fromStage?: StageName }
   | { action: 'mayday-input'; text: string }
-  | { action: 'mayday-stop' };
+  | { action: 'mayday-stop' }
+  | { action: 'get-history' };

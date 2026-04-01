@@ -1,7 +1,8 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync, unlinkSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync, unlinkSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { EventEmitter } from 'node:events';
-import type { PipelineState, Agent, StageName, StageState, MaydayState } from '../types.js';
+import type { PipelineState, Agent, StageName, StageState, MaydayState, HistoryEntry } from '../types.js';
 import { createEmptyPipeline, emptyCost, addCosts } from '../types.js';
 
 export class StateManager extends EventEmitter {
@@ -192,6 +193,80 @@ export class StateManager extends EventEmitter {
     this.state.mayday.userMessages = [];
     this.scheduleSave();
     return msgs;
+  }
+
+  /** Returns the path to .swarm/history/, creating it on first call. */
+  getHistoryDir(): string {
+    const historyDir = join(this.swarmDir, 'history');
+    if (!existsSync(historyDir)) {
+      mkdirSync(historyDir, { recursive: true });
+    }
+    return historyDir;
+  }
+
+  /** Copy current state to .swarm/history/{timestamp}-{projectName}.json, return the runId. */
+  archiveRun(): string {
+    this.flush(); // ensure state is fully written before archiving
+
+    const runId = randomUUID();
+    const now = Date.now();
+    const safeProjectName = this.state.projectName.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const filename = `${now}-${safeProjectName}.json`;
+    const historyDir = this.getHistoryDir();
+
+    // Build a HistoryEntry
+    const stagesSummary: Record<string, string> = {};
+    for (const [name, stage] of Object.entries(this.state.stages)) {
+      stagesSummary[name] = stage.status === 'running' ? 'error' : stage.status;
+    }
+
+    const startedAt = this.state.mayday?.startedAt
+      ?? Math.min(...this.state.agents.filter(a => a.startedAt).map(a => a.startedAt!), now);
+    const durationMs = now - startedAt;
+
+    const entry: HistoryEntry = {
+      runId,
+      timestamp: now,
+      projectName: this.state.projectName,
+      stack: this.state.stack,
+      totalCost: { ...this.state.totalCost },
+      stagesSummary: stagesSummary as HistoryEntry['stagesSummary'],
+      featureRequest: this.state.mayday?.featureRequest,
+      durationMs,
+    };
+
+    try {
+      writeFileSync(join(historyDir, filename), JSON.stringify(entry, null, 2));
+      console.log(`[state] Archived run to history/${filename}`);
+    } catch (err) {
+      console.error(`[state] Failed to archive run: ${err instanceof Error ? err.message : err}`);
+    }
+
+    return runId;
+  }
+
+  /** Read all JSON files in history dir, parse each, return sorted by timestamp desc. */
+  listHistory(): HistoryEntry[] {
+    const historyDir = join(this.swarmDir, 'history');
+    if (!existsSync(historyDir)) return [];
+
+    const entries: HistoryEntry[] = [];
+    try {
+      const files = readdirSync(historyDir).filter(f => f.endsWith('.json'));
+      for (const file of files) {
+        try {
+          const raw = readFileSync(join(historyDir, file), 'utf-8');
+          const entry: HistoryEntry = JSON.parse(raw);
+          entries.push(entry);
+        } catch {
+          // Skip malformed history files
+        }
+      }
+    } catch {
+      // History dir unreadable
+    }
+
+    return entries.sort((a, b) => b.timestamp - a.timestamp);
   }
 
   private recalcTotalCost(): void {
