@@ -51,6 +51,16 @@ export class AgentManager extends EventEmitter {
     }
   }
 
+  /** Get an agent by ID */
+  getAgent(agentId: string): Agent | undefined {
+    return this.agents.get(agentId)?.agent;
+  }
+
+  /** List all agents */
+  listAgents(): Agent[] {
+    return Array.from(this.agents.values()).map(e => e.agent);
+  }
+
   /** Get truncated output for state.json (last 2KB) */
   getStateOutput(agent: Agent): string {
     if (agent.output.length <= MAX_STATE_OUTPUT_BYTES) return agent.output;

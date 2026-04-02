@@ -426,6 +426,14 @@ export class StateManager extends EventEmitter {
       ?? Math.min(...this.state.agents.filter(a => a.startedAt).map(a => a.startedAt!), now);
     const durationMs = now - startedAt;
 
+    // Build per-stage breakdowns
+    const stageBreakdowns = Object.entries(this.state.stages).map(([name, stage]) => ({
+      name,
+      cost: stage.stageCost ?? 0,
+      durationMs: (stage.finishedAt ?? 0) - (stage.startedAt ?? 0),
+      status: (stage.status === 'running' ? 'error' : stage.status) as 'done' | 'error' | 'skipped' | 'pending',
+    }));
+
     const entry: HistoryEntry = {
       runId,
       timestamp: now,
@@ -435,6 +443,8 @@ export class StateManager extends EventEmitter {
       stagesSummary: stagesSummary as HistoryEntry['stagesSummary'],
       featureRequest: this.state.mayday?.featureRequest,
       durationMs,
+      stageBreakdowns,
+      fixIterations: this.state.mayday?.fixIteration ?? 0,
     };
 
     try {

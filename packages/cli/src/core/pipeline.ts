@@ -14,6 +14,8 @@ import type { WebhookConfig } from './webhooks.js';
 import { QualityScorer } from './quality.js';
 import { GuardrailsEngine } from './guardrails.js';
 import { scanCodebase } from './codebase-scanner.js';
+import { loadConventions } from '../commands/learn.js';
+import { MemoryStore, recordPipelineSuccess, recordPipelineFailure, recordFlakyTest } from './memory-store.js';
 import { loadPipelineDefinition, getDefaultPipelineDefinition, stageNameForDefinition } from './pipeline-loader.js';
 import type { PipelineDefinition, PipelineStageDefinition } from './pipeline-loader.js';
 
@@ -175,6 +177,9 @@ export class Pipeline {
   private quality: QualityScorer;
   private guardrails: GuardrailsEngine;
   private _codebaseContext: string | null = null;
+  private _conventionPrompt: string | null = null;
+  private _memoryContext: string | null = null;
+  private memoryStore: MemoryStore;
 
   constructor(
     private agentManager: AgentManager,
@@ -184,6 +189,7 @@ export class Pipeline {
     this.webhooks = new WebhookManager((config.webhooks ?? []) as WebhookConfig[]);
     this.quality = new QualityScorer();
     this.guardrails = new GuardrailsEngine(join(this.state.getProjectCwd(), '.swarm'));
+    this.memoryStore = new MemoryStore(join(this.state.getProjectCwd(), '.swarm'));
     // Track budget exceeded so we can surface a clear error from waitForAgent rejections
     this.agentManager.on('budget-exceeded', () => {
       this.budgetExceeded = true;
@@ -220,6 +226,43 @@ export class Pipeline {
       this._codebaseContext = scanCodebase(this.projectCwd, this.config.packages);
     }
     return this._codebaseContext;
+  }
+
+  /** Load and cache project conventions for injection into all agent system prompts. */
+  private getConventionPrompt(): string {
+    if (this._conventionPrompt === null) {
+      const swarmDir = join(this.projectCwd, '.swarm');
+      this._conventionPrompt = loadConventions(swarmDir);
+    }
+    return this._conventionPrompt;
+  }
+
+  /** Load and cache cross-run memory context for injection into agent prompts. */
+  private getMemoryContext(tags: string[] = []): string {
+    if (this._memoryContext === null) {
+      this._memoryContext = this.memoryStore.buildMemoryContext(tags);
+    }
+    return this._memoryContext;
+  }
+
+  /** Build the full appendSystemPrompt for an agent: enforcement rules + conventions + memory. */
+  private buildAppendSystemPrompt(enforcement: string): string {
+    const parts = [enforcement];
+    const conventions = this.getConventionPrompt();
+    if (conventions) parts.push(conventions);
+    const memory = this.getMemoryContext();
+    if (memory) parts.push(memory);
+    return parts.join('\n\n');
+  }
+
+  /** Get conventions + memory system prompt for engineers (no enforcement rules needed). */
+  private getEngineerConventions(): string | undefined {
+    const parts: string[] = [];
+    const conventions = this.getConventionPrompt();
+    if (conventions) parts.push(conventions);
+    const memory = this.getMemoryContext();
+    if (memory) parts.push(memory);
+    return parts.length > 0 ? parts.join('\n\n') : undefined;
   }
 
   /**
@@ -415,7 +458,7 @@ export class Pipeline {
       interactive,
       permissionMode: headlessPermission(interactive),
       disallowedTools: figmaUrl ? undefined : NON_ENGINEER_DISALLOWED_TOOLS,
-      appendSystemPrompt: ANALYST_SYSTEM_ENFORCEMENT,
+      appendSystemPrompt: this.buildAppendSystemPrompt(ANALYST_SYSTEM_ENFORCEMENT),
     });
 
     this.state.updateStage('analyze', { status: 'running', startedAt: Date.now() });
@@ -476,7 +519,7 @@ export class Pipeline {
       interactive,
       permissionMode: headlessPermission(interactive),
       disallowedTools: NON_ENGINEER_DISALLOWED_TOOLS,
-      appendSystemPrompt: ARCHITECT_SYSTEM_ENFORCEMENT,
+      appendSystemPrompt: this.buildAppendSystemPrompt(ARCHITECT_SYSTEM_ENFORCEMENT),
     });
 
     this.state.updateStage('architect', { status: 'running', startedAt: Date.now() });
@@ -539,7 +582,7 @@ export class Pipeline {
       interactive,
       permissionMode: headlessPermission(interactive),
       disallowedTools: NON_ENGINEER_DISALLOWED_TOOLS,
-      appendSystemPrompt: LEAD_SYSTEM_ENFORCEMENT,
+      appendSystemPrompt: this.buildAppendSystemPrompt(LEAD_SYSTEM_ENFORCEMENT),
     });
 
     this.state.updateStage('plan', { status: 'running', startedAt: Date.now() });
@@ -578,6 +621,7 @@ export class Pipeline {
         cwd: this.projectCwd,
         interactive: false,
         permissionMode: 'auto',
+        appendSystemPrompt: this.getEngineerConventions(),
       });
 
       await this.waitForAgentWithBudgetCheck(agent.id);
@@ -600,6 +644,7 @@ export class Pipeline {
           cwd: this.projectCwd,
           interactive: false,
           permissionMode: 'auto',
+          appendSystemPrompt: this.getEngineerConventions(),
         });
 
         await this.waitForAgentWithBudgetCheck(agent.id);
@@ -641,6 +686,7 @@ export class Pipeline {
           cwd: this.projectCwd,
           interactive: false,
           permissionMode: 'auto',
+          appendSystemPrompt: this.getEngineerConventions(),
         });
 
         // Wait for orchestrator to acknowledge the plan
@@ -676,6 +722,7 @@ export class Pipeline {
                   cwd: this.projectCwd,
                   interactive: false,
                   permissionMode: 'auto',
+                  appendSystemPrompt: this.getEngineerConventions(),
                   parentId: orchestrator.id,
                 }),
               ),
@@ -829,7 +876,7 @@ export class Pipeline {
         interactive,
         permissionMode: headlessPermission(interactive),
         disallowedTools: opts.figmaUrl ? undefined : NON_ENGINEER_DISALLOWED_TOOLS,
-        appendSystemPrompt: TESTER_SYSTEM_ENFORCEMENT,
+        appendSystemPrompt: this.buildAppendSystemPrompt(TESTER_SYSTEM_ENFORCEMENT),
       });
 
       await this.waitForAgentWithBudgetCheck(testerAgent.id);
@@ -862,6 +909,7 @@ export class Pipeline {
             cwd: this.projectCwd,
             interactive: false,
             permissionMode: 'auto',
+            appendSystemPrompt: this.getEngineerConventions(),
           });
         }),
       );
@@ -882,6 +930,7 @@ export class Pipeline {
         cwd: this.projectCwd,
         interactive: false,
         permissionMode: 'auto',
+        appendSystemPrompt: this.getEngineerConventions(),
       });
       await this.waitForAgentWithBudgetCheck(runnerAgent.id);
       await this.finishStage('test', 'TESTPLAN.md');
@@ -1991,6 +2040,7 @@ export class Pipeline {
     if (testResults.passed) {
       console.log(chalk.green.bold(`\n  All tests passed on first run!`));
       this.state.updateMayday({ active: false, currentStage: 'complete' });
+      this.recordSuccessMemory(0);
       return;
     }
 
@@ -2066,6 +2116,7 @@ export class Pipeline {
               cwd: this.projectCwd,
               interactive: false,
               permissionMode: 'auto',
+              appendSystemPrompt: this.getEngineerConventions(),
             }),
           ),
         );
@@ -2087,6 +2138,7 @@ export class Pipeline {
           cwd: this.projectCwd,
           interactive: false,
           permissionMode: 'auto',
+          appendSystemPrompt: this.getEngineerConventions(),
         });
 
         fixAgentIds.push(fixAgent.id);
@@ -2153,30 +2205,71 @@ export class Pipeline {
       if (testResults.passed) {
         console.log(chalk.green.bold(`\n  All tests passed after ${iteration} fix iteration(s)!`));
         this.state.updateMayday({ active: false, currentStage: 'complete' });
+        this.recordSuccessMemory(iteration);
         return;
       }
 
       // If stuck for 5+ iterations (all strategies exhausted), abort
       if (stuckCount >= 5) {
         console.log(chalk.red.bold(`\n[mayday] Stuck on same failures for ${stuckCount} iterations (all strategies exhausted). Aborting fix loop.`));
+        const stuckError = `Stuck: same ${currentFailedTests.length} test(s) failing for ${stuckCount} iterations despite strategy escalation (standard → broader-context → rewrite → simplify).`;
         this.state.updateMayday({
           active: false,
           currentStage: 'complete',
-          error: `Stuck: same ${currentFailedTests.length} test(s) failing for ${stuckCount} iterations despite strategy escalation (standard → broader-context → rewrite → simplify).`,
+          error: stuckError,
         });
         this.generateFailureReport();
+        this.recordFailureMemory('fix-loop', stuckError, fixHistory);
         return;
       }
     }
 
     // Max iterations reached
-    console.log(chalk.yellow.bold(`\n[mayday] Max iterations (${maxIter}) reached. ${testResults.failureCount} test(s) still failing.`));
+    const maxIterError = `Max fix iterations reached. ${testResults.failureCount} test(s) still failing.`;
+    console.log(chalk.yellow.bold(`\n[mayday] ${maxIterError}`));
     this.state.updateMayday({
       active: false,
       currentStage: 'complete',
-      error: `Max fix iterations reached. ${testResults.failureCount} test(s) still failing.`,
+      error: maxIterError,
     });
     this.generateFailureReport();
+    this.recordFailureMemory('fix-loop', maxIterError, fixHistory);
+  }
+
+  /** Record a successful pipeline run to memory */
+  private recordSuccessMemory(fixIterations: number): void {
+    try {
+      const mayday = this.state.getMayday();
+      const pState = this.state.getState();
+      const stages = Object.entries(pState.stages)
+        .filter(([, s]) => s.status === 'done')
+        .map(([name, s]) => ({
+          name,
+          cost: s.stageCost ?? 0,
+          durationMs: (s.finishedAt ?? 0) - (s.startedAt ?? 0),
+        }));
+
+      recordPipelineSuccess(this.memoryStore, {
+        featureRequest: mayday?.featureRequest ?? 'unknown',
+        totalCost: pState.totalCost.totalUsd,
+        durationMs: Date.now() - (mayday?.startedAt ?? Date.now()),
+        fixIterations,
+        stages,
+      });
+    } catch { /* non-critical */ }
+  }
+
+  /** Record a failed pipeline run to memory */
+  private recordFailureMemory(failedStage: string, error: string, fixHistory?: import('../types.js').FixHistoryEntry[]): void {
+    try {
+      const mayday = this.state.getMayday();
+      recordPipelineFailure(this.memoryStore, {
+        featureRequest: mayday?.featureRequest ?? 'unknown',
+        failedStage,
+        error,
+        fixHistory: fixHistory?.map(h => ({ approach: h.approach, failedTests: h.failedTests })),
+      });
+    } catch { /* non-critical */ }
   }
 
   /** Group test failures by source file for targeted fixing (I1) */

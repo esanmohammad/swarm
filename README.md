@@ -56,6 +56,13 @@ Not everything needs the full 5-stage pipeline. These commands skip straight to 
 | `swarm spike "question"` | Read-only codebase exploration | haiku | $0.10–0.30 |
 | `swarm refactor "goal"` | Analyze scope → apply changes → verify tests | config default | $2–5 |
 | `swarm ci "feature"` | Headless CI pipeline with JSON output + exit codes | config default | $3–10 |
+| `swarm learn` | Scan codebase, extract conventions for all agents | — | $0 |
+| `swarm explain "question"` | AI-powered codebase Q&A and onboarding | haiku | $0.05–0.50 |
+| `swarm watch start` | File watcher → auto-test → auto-fix | config default | $0–2/fix |
+| `swarm babysit-prs start` | Background PR reviewer daemon | sonnet | $0.50–1.50/PR |
+| `swarm deploy staging` | Deploy using .swarm/deploy.yaml | — | $0 |
+| `swarm migrate "description"` | AI-assisted database migration | sonnet | $0.50–2 |
+| `swarm stats` | Cost intelligence and analytics | — | $0 |
 
 All quick workflows are also available from the **dashboard** Launch view as one-click buttons.
 
@@ -90,6 +97,33 @@ Set `packages: ["packages/api", "packages/web"]` in config to scope all agent wo
 
 ### LLM Quality Gate
 Enable `llmQualityGate: true` in config to run haiku-based semantic quality evaluation after each stage (~$0.01/artifact). Blocks if blended score falls below threshold.
+
+### Convention Learning (`swarm learn`)
+Scan your codebase once to extract naming conventions, import patterns, test structure, component patterns, and more. Saved to `.swarm/conventions.md` and automatically injected into every agent's system prompt — so all generated code matches your project's style.
+
+### Cross-Run Memory
+Swarm remembers what worked and what failed across pipeline runs. Fix patterns, flaky tests, and approach history are stored in `.swarm/memory/` and fed to agents automatically. Add manual notes with `swarm memory add "note"`.
+
+### PR Review Agent (`swarm babysit-prs`)
+Background daemon that polls GitHub PRs, reviews them with project conventions, posts structured comments, and optionally auto-approves. Filter by label, configure poll interval.
+
+### File Watcher (`swarm watch`)
+Watches your project for file changes, automatically runs affected tests, and spawns fix agents when tests fail. Smart test selection maps source files to test files. Optional auto-commit on passing fixes.
+
+### Codebase Explainer (`swarm explain`)
+Interactive codebase Q&A — ask questions, explain files/directories, or generate full project overviews with Mermaid diagrams. Three depth levels (shallow/medium/deep).
+
+### Database Migrations (`swarm migrate`)
+AI-assisted migration generation with ORM auto-detection (Prisma, TypeORM, Knex, Drizzle, Django, SQLAlchemy, goose). Safety checks flag destructive operations, data loss risks, and large table locks.
+
+### Deployment Pipeline (`swarm deploy`)
+Deploy to staging or production using `.swarm/deploy.yaml`. Sequential step execution (build → deploy → healthcheck → smoketest) with auto-rollback on failure and failure reports.
+
+### Cost Intelligence (`swarm stats`)
+Analytics across pipeline runs: per-stage cost breakdown, weekly spend trends, success rates, and automated recommendations for cost optimization.
+
+### Team Server (`swarm server`)
+Run Swarm as a shared HTTP server with job queue, priority levels, concurrent pipeline limits, and daily team budgets.
 
 ## What Does It Cost?
 
@@ -160,6 +194,37 @@ swarm test                         # → Tests
 
 # CI mode (headless, JSON output, exit codes)
 swarm ci "feature" --json --budget 10 --timeout 30
+
+# Project intelligence
+swarm learn                        # Extract conventions from codebase
+swarm learn --refresh              # Re-scan after changes
+swarm explain                      # Full project overview
+swarm explain src/auth/            # Explain a directory
+swarm explain "how does auth?"     # Answer a codebase question
+swarm stats                        # Cost analytics and recommendations
+swarm stats --period 7             # Last 7 days only
+
+# Cross-run memory
+swarm memory list                  # Show stored memories
+swarm memory add "note"            # Add manual memory
+swarm memory clear                 # Reset all memories
+
+# Continuous workflows
+swarm watch start                  # File watcher → auto-test → auto-fix
+swarm watch start --test-only      # Watch + test without auto-fix
+swarm babysit-prs start            # Background PR reviewer
+swarm babysit-prs status           # Review history and stats
+
+# Database & deployment
+swarm migrate "add users table"    # AI migration generation
+swarm migrate "add col" --dry-run  # Plan only, no file changes
+swarm deploy staging               # Deploy to staging
+swarm deploy production --approve  # Deploy to production
+
+# Team server
+swarm server start                 # Run as shared HTTP server
+swarm server submit "feature"      # Submit job to server
+swarm server jobs                  # List queued/running jobs
 
 # Utilities
 swarm status                       # Show pipeline state and costs

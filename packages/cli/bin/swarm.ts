@@ -27,6 +27,15 @@ import { registerReview } from '../src/commands/review.js';
 import { registerRefactor } from '../src/commands/refactor.js';
 import { registerSimplify } from '../src/commands/simplify.js';
 import { registerCi } from '../src/commands/ci.js';
+import { registerLearn } from '../src/commands/learn.js';
+import { registerMemory } from '../src/commands/memory.js';
+import { registerBabysitPrs } from '../src/commands/babysit-prs.js';
+import { registerWatch } from '../src/commands/watch.js';
+import { registerExplain } from '../src/commands/explain.js';
+import { registerStats } from '../src/commands/stats.js';
+import { registerDeploy } from '../src/commands/deploy.js';
+import { registerMigrate } from '../src/commands/migrate.js';
+import { registerServer } from '../src/commands/server.js';
 import { autoDetectStack, autoInit, loadConfig } from '../src/core/config.js';
 import { createContext } from '../src/commands/shared.js';
 
@@ -97,6 +106,29 @@ registerSimplify(program);
 
 // --- CI mode ---
 registerCi(program);
+
+// --- Convention learning ---
+registerLearn(program);
+
+// --- Cross-run memory ---
+registerMemory(program);
+
+// --- PR babysitter ---
+registerBabysitPrs(program);
+
+// --- File watcher ---
+registerWatch(program);
+
+// --- Codebase explainer ---
+registerExplain(program);
+
+// --- Cost stats ---
+registerStats(program);
+
+// --- Deploy, migrate, server ---
+registerDeploy(program);
+registerMigrate(program);
+registerServer(program);
 
 // --- Pipeline management ---
 registerPipeline(program);

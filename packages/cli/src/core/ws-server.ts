@@ -7,6 +7,7 @@ import { emptyCost } from '../types.js';
 import { StateManager } from './state.js';
 import { AgentManager } from './agent-manager.js';
 import { Pipeline } from './pipeline.js';
+import { AgentBus } from './agent-bus.js';
 import type { Agent, SwarmConfig, PlaywrightConfig } from '../types.js';
 
 // Non-engineer personas get tool restrictions + system enforcement
@@ -72,6 +73,34 @@ function migrateState(state: PipelineState): PipelineState {
   return state;
 }
 
+function resolveStackTestCmd(stack: string): string {
+  switch (stack) {
+    case 'react': case 'node': case 'custom': return detectJsTestCmd();
+    case 'go': return 'go test ./...';
+    case 'python': return 'pytest -v';
+    case 'rust': return 'cargo test';
+    case 'swift': return 'swift test';
+    default: return detectJsTestCmd();
+  }
+}
+
+function detectJsTestCmd(): string {
+  const cwd = process.cwd();
+  try {
+    const pkg = JSON.parse(readFileSync(join(cwd, 'package.json'), 'utf-8'));
+    const testScript = pkg.scripts?.test || '';
+    if (testScript.includes('vitest')) return 'npx vitest run';
+    if (testScript.includes('jest')) return 'npx jest';
+    if (testScript.includes('react-scripts test')) return 'npx react-scripts test --watchAll=false';
+    if (testScript && testScript !== 'echo "Error: no test specified" && exit 1') return 'npm test';
+  } catch { /* ignore */ }
+  if (existsSync(join(cwd, 'vitest.config.ts')) || existsSync(join(cwd, 'vitest.config.js'))) return 'npx vitest run';
+  if (existsSync(join(cwd, 'jest.config.ts')) || existsSync(join(cwd, 'jest.config.js'))) return 'npx jest';
+  if (existsSync(join(cwd, 'node_modules', '.bin', 'vitest'))) return 'npx vitest run';
+  if (existsSync(join(cwd, 'node_modules', '.bin', 'jest'))) return 'npx jest';
+  return 'npm test';
+}
+
 function isNonEngineer(persona: Persona): boolean {
   return persona === 'analyst' || persona === 'architect' || persona === 'lead' || persona === 'tester';
 }
@@ -82,6 +111,7 @@ export class SwarmWsServer {
   private fileWatcher: FSWatcher | null = null;
   private lastStateJson = '';
   private pipeline: Pipeline;
+  private agentBus: AgentBus;
   private authToken: string | null = null;
   private swarmConfig: SwarmConfig;
 
@@ -93,6 +123,20 @@ export class SwarmWsServer {
   ) {
     this.swarmConfig = config;
     this.pipeline = new Pipeline(agentManager, state, config);
+    this.agentBus = new AgentBus(agentManager);
+
+    // Broadcast bus messages to dashboard
+    this.agentBus.on('message', () => {
+      this.broadcast({ type: 'bus-messages', payload: { messages: this.agentBus.getMessages() } });
+    });
+    this.agentBus.on('delivered', () => {
+      this.broadcast({ type: 'bus-messages', payload: { messages: this.agentBus.getMessages() } });
+    });
+
+    // Deliver queued bus messages when agents complete
+    this.agentManager.on('agent-done', () => {
+      this.agentBus.deliverQueued();
+    });
 
     // Subscribe to in-process state events (for agents spawned via dashboard)
     this.state.on('agent-update', (agent: Agent) => {
@@ -963,6 +1007,512 @@ export class SwarmWsServer {
             console.error(`[ws] Refactor failed: ${err instanceof Error ? err.message : err}`);
           }
         })();
+        break;
+      }
+
+      case 'get-memories': {
+        const { MemoryStore } = await import('./memory-store.js');
+        const swarmDir = join(this.state.getFilePath(), '..');
+        const store = new MemoryStore(swarmDir);
+        const entries = store.list();
+        _ws.send(JSON.stringify({ type: 'memories', payload: { entries } }));
+        break;
+      }
+
+      case 'add-memory': {
+        const { MemoryStore } = await import('./memory-store.js');
+        const swarmDir = join(this.state.getFilePath(), '..');
+        const store = new MemoryStore(swarmDir);
+        store.add({
+          kind: (cmd.kind as 'manual') || 'manual',
+          content: cmd.content,
+          confidence: 80,
+          source: 'dashboard',
+          tags: cmd.tags || [],
+        });
+        // Broadcast updated list
+        const entries = store.list();
+        this.broadcast({ type: 'memories', payload: { entries } });
+        break;
+      }
+
+      case 'remove-memory': {
+        const { MemoryStore } = await import('./memory-store.js');
+        const swarmDir = join(this.state.getFilePath(), '..');
+        const store = new MemoryStore(swarmDir);
+        store.remove(cmd.id);
+        const entries = store.list();
+        this.broadcast({ type: 'memories', payload: { entries } });
+        break;
+      }
+
+      case 'clear-memories': {
+        const { MemoryStore } = await import('./memory-store.js');
+        const swarmDir = join(this.state.getFilePath(), '..');
+        const store = new MemoryStore(swarmDir);
+        store.clear();
+        this.broadcast({ type: 'memories', payload: { entries: [] } });
+        break;
+      }
+
+      case 'run-deploy': {
+        console.log(`[ws] Running deploy: ${cmd.environment}`);
+        (async () => {
+          try {
+            const { loadDeployConfig } = await import('../commands/deploy.js');
+            const { execSync: exec } = await import('node:child_process');
+            const swarmDir = join(this.state.getFilePath(), '..');
+            const config = loadDeployConfig(swarmDir);
+            if (!config || !config[cmd.environment]) {
+              this.broadcast({ type: 'deploy-result', payload: {
+                environment: cmd.environment,
+                steps: [{ name: 'Config', cmd: 'load deploy.yaml', status: 'fail' as const, output: `No deploy config for "${cmd.environment}"`, durationMs: 0 }],
+                success: false, rolledBack: false, timestamp: Date.now(),
+              }});
+              return;
+            }
+            const env = config[cmd.environment];
+            const cwd = this.getEffectiveCwd();
+            const rawSteps = [
+              env.build && { name: 'Build', cmd: env.build },
+              env.deploy && { name: 'Deploy', cmd: env.deploy },
+              env.promote && { name: 'Promote', cmd: env.promote },
+              env.healthcheck && { name: 'Healthcheck', cmd: env.healthcheck },
+              env.smoketest && { name: 'Smoke test', cmd: env.smoketest },
+            ].filter(Boolean) as Array<{ name: string; cmd: string }>;
+
+            const results: Array<{ name: string; cmd: string; status: 'pass' | 'fail' | 'skip'; output?: string; durationMs: number }> = [];
+            let failed = false;
+            let rolledBack = false;
+
+            for (const step of rawSteps) {
+              if (cmd.dryRun) {
+                results.push({ name: step.name, cmd: step.cmd, status: 'skip', durationMs: 0 });
+                continue;
+              }
+              const start = Date.now();
+              try {
+                const out = exec(step.cmd, { cwd, stdio: 'pipe', timeout: 300000, encoding: 'utf-8' });
+                results.push({ name: step.name, cmd: step.cmd, status: 'pass', output: typeof out === 'string' ? out.slice(-1000) : '', durationMs: Date.now() - start });
+                console.log(`[ws] Deploy ${step.name}: OK`);
+              } catch (err: unknown) {
+                const e = err as { stderr?: string; stdout?: string };
+                const output = ((e.stderr || '') + (e.stdout || '')).slice(-1000);
+                results.push({ name: step.name, cmd: step.cmd, status: 'fail', output, durationMs: Date.now() - start });
+                console.error(`[ws] Deploy ${step.name}: FAILED`);
+                failed = true;
+                if (env.rollback) {
+                  try { exec(env.rollback, { cwd, stdio: 'pipe', timeout: 60000 }); rolledBack = true; } catch {}
+                }
+                break;
+              }
+              // Broadcast progress after each step
+              this.broadcast({ type: 'deploy-result', payload: {
+                environment: cmd.environment, steps: results, success: !failed, rolledBack, timestamp: Date.now(),
+              }});
+            }
+
+            // Final broadcast
+            this.broadcast({ type: 'deploy-result', payload: {
+              environment: cmd.environment, steps: results, success: !failed, rolledBack, timestamp: Date.now(),
+            }});
+          } catch (err) {
+            this.broadcast({ type: 'deploy-result', payload: {
+              environment: cmd.environment,
+              steps: [{ name: 'Error', cmd: '', status: 'fail' as const, output: err instanceof Error ? err.message : String(err), durationMs: 0 }],
+              success: false, rolledBack: false, timestamp: Date.now(),
+            }});
+          }
+        })();
+        break;
+      }
+
+      case 'run-migrate': {
+        console.log(`[ws] Running migrate: ${cmd.description.slice(0, 60)}`);
+        const migrateStack = this.state.getState().stack;
+        const migrateModel = cmd.model || 'sonnet';
+        (async () => {
+          try {
+            const prompt = [
+              'You are a database migration specialist. Generate a safe database migration.',
+              `\nMigration request: ${cmd.description}`,
+              '\n1. Analyze current schema from existing migration files.',
+              '2. Generate migration + rollback in the correct ORM format.',
+              '3. Flag any destructive operations or data loss risk.',
+              cmd.dryRun ? '\nDRY RUN: Only output the plan, do NOT create files.' : '\nGenerate files, then test: apply → rollback → re-apply.',
+            ].join('\n');
+
+            await this.agentManager.spawn({
+              name: `migrate-${migrateStack}`,
+              persona: 'engineer',
+              stack: migrateStack,
+              prompt,
+              model: migrateModel,
+              cwd: this.getEffectiveCwd(),
+              interactive: false,
+              permissionMode: 'auto',
+              disallowedTools: cmd.dryRun ? ['Edit', 'Write', 'NotebookEdit'] : undefined,
+            });
+            console.log(`[ws] Migrate complete`);
+          } catch (err) {
+            console.error(`[ws] Migrate failed: ${err instanceof Error ? err.message : err}`);
+          }
+        })();
+        break;
+      }
+
+      case 'get-stats': {
+        const { computeStats } = await import('../commands/stats.js');
+        const history = this.state.listHistory();
+        const periodDays = cmd.period ?? 30;
+        const cutoff = Date.now() - periodDays * 86400000;
+        const recent = history.filter(h => h.timestamp >= cutoff);
+        const stats = computeStats(recent);
+        _ws.send(JSON.stringify({ type: 'stats', payload: stats }));
+        break;
+      }
+
+      case 'agent-message': {
+        const fromAgent = this.agentManager.getAgent(cmd.fromAgentId);
+        const toAgent = this.agentManager.getAgent(cmd.toAgentId);
+        if (!fromAgent || !toAgent) {
+          throw new Error('Source or target agent not found');
+        }
+        const result = this.agentBus.sendTo(
+          cmd.fromAgentId, fromAgent.persona,
+          cmd.toAgentId, toAgent.persona,
+          cmd.kind as 'question' | 'clarification' | 'blocker' | 'status-update',
+          cmd.content,
+        );
+        if (!result) {
+          throw new Error('Message not allowed (route denied or exchange limit reached)');
+        }
+        break;
+      }
+
+      case 'get-bus-messages': {
+        _ws.send(JSON.stringify({
+          type: 'bus-messages',
+          payload: { messages: this.agentBus.getMessages() },
+        }));
+        break;
+      }
+
+      case 'run-explain': {
+        console.log(`[ws] Running explain: ${cmd.target?.slice(0, 60) || 'full overview'}`);
+        const explainStack = this.state.getState().stack;
+        const explainModel = cmd.model || 'haiku';
+        (async () => {
+          try {
+            const { scanCodebase } = await import('./codebase-scanner.js');
+            const { loadConventions } = await import('../commands/learn.js');
+            const { existsSync: efs, readFileSync: rfs, statSync: ss } = await import('node:fs');
+            const { join: pjoin } = await import('node:path');
+            const cwd = this.getEffectiveCwd();
+            const swarmDir = pjoin(this.state.getFilePath(), '..');
+
+            const parts: string[] = [];
+            const ctx = scanCodebase(cwd);
+            if (ctx) parts.push(ctx);
+            const conv = loadConventions(swarmDir);
+            if (conv) parts.push(conv);
+
+            // Existing docs
+            for (const f of ['README.md', 'CLAUDE.md']) {
+              const fp = pjoin(cwd, f);
+              if (efs(fp)) {
+                try { parts.push(`--- ${f} ---\n${rfs(fp, 'utf-8').slice(0, 5000)}`); } catch {}
+              }
+            }
+
+            const depth = cmd.depth || 'medium';
+            const depthInstr = depth === 'shallow' ? 'Brief high-level overview.' :
+              depth === 'deep' ? 'Comprehensive deep-dive with code examples.' :
+              'Thorough explanation covering architecture and key patterns.';
+
+            if (!cmd.target) {
+              parts.push(`TASK: Generate project overview.\n${depthInstr}\nStructure: ## Overview, ## Architecture, ## Key Patterns, ## Data Flow, ## Entry Points`);
+              if (cmd.diagram) parts.push('Include Mermaid diagrams.');
+            } else if (efs(pjoin(cwd, cmd.target))) {
+              const isDir = ss(pjoin(cwd, cmd.target)).isDirectory();
+              parts.push(`TASK: Explain ${isDir ? 'directory' : 'file'} \`${cmd.target}\`.\n${depthInstr}`);
+              if (cmd.diagram) parts.push('Include Mermaid diagrams.');
+            } else {
+              parts.push(`TASK: Answer about the codebase: "${cmd.target}"\n${depthInstr}\nCite specific files. Do NOT guess.`);
+              if (cmd.diagram) parts.push('Include Mermaid diagrams.');
+            }
+
+            await this.agentManager.spawn({
+              name: `explain-${explainStack}`,
+              persona: 'engineer',
+              stack: explainStack,
+              prompt: parts.join('\n'),
+              model: explainModel,
+              cwd,
+              interactive: false,
+              permissionMode: 'auto',
+              disallowedTools: ['Edit', 'Write', 'NotebookEdit', 'Bash'],
+            });
+            console.log(`[ws] Explain complete`);
+          } catch (err) {
+            console.error(`[ws] Explain failed: ${err instanceof Error ? err.message : err}`);
+          }
+        })();
+        break;
+      }
+
+      case 'run-watch-test': {
+        console.log(`[ws] Running test check`);
+        (async () => {
+          try {
+            const { execSync: exec } = await import('node:child_process');
+            const cwd = this.getEffectiveCwd();
+            const stack = this.state.getState().stack;
+            const testCmd = resolveStackTestCmd(stack);
+
+            let passed = false;
+            let output = '';
+            try {
+              output = exec(testCmd, { encoding: 'utf-8', cwd, timeout: 120000, stdio: ['pipe', 'pipe', 'pipe'] });
+              passed = true;
+            } catch (err: unknown) {
+              const e = err as { stdout?: string; stderr?: string };
+              output = (e.stdout || '') + (e.stderr || '');
+            }
+
+            this.broadcast({
+              type: 'watch-result',
+              payload: { passed, output: output.slice(-5000), testCmd, timestamp: Date.now() },
+            });
+            console.log(`[ws] Test check: ${passed ? 'PASS' : 'FAIL'}`);
+          } catch (err) {
+            console.error(`[ws] Test check failed: ${err instanceof Error ? err.message : err}`);
+          }
+        })();
+        break;
+      }
+
+      case 'run-watch-fix': {
+        console.log(`[ws] Running watch fix agent`);
+        const fixStack = this.state.getState().stack;
+        const fixModel = cmd.model || this.swarmConfig.model;
+        (async () => {
+          try {
+            const prompt = [
+              'Fix test failures detected by the file watcher.',
+              '',
+              `Changed files: ${cmd.changedFiles.join(', ')}`,
+              '',
+              'Test output:',
+              '```',
+              cmd.testOutput.slice(-8000),
+              '```',
+              '',
+              '1. Read the failing test output.',
+              '2. Fix the source code with minimal changes.',
+              '3. Run tests to verify.',
+            ].join('\n');
+
+            await this.agentManager.spawn({
+              name: `watch-fixer-${fixStack}`,
+              persona: 'engineer',
+              stack: fixStack,
+              prompt,
+              model: fixModel,
+              cwd: this.getEffectiveCwd(),
+              interactive: false,
+              permissionMode: 'auto',
+            });
+            console.log(`[ws] Watch fix complete`);
+          } catch (err) {
+            console.error(`[ws] Watch fix failed: ${err instanceof Error ? err.message : err}`);
+          }
+        })();
+        break;
+      }
+
+      case 'get-pr-reviews': {
+        const { getReviewHistory } = await import('../commands/babysit-prs.js');
+        const swarmDir = join(this.state.getFilePath(), '..');
+        const reviews = getReviewHistory(swarmDir);
+        _ws.send(JSON.stringify({ type: 'pr-reviews', payload: { reviews } }));
+        break;
+      }
+
+      case 'run-babysit-prs': {
+        console.log(`[ws] Running PR review cycle`);
+        (async () => {
+          try {
+            const { execSync } = await import('node:child_process');
+            const { loadConventions } = await import('../commands/learn.js');
+            const { getReviewHistory } = await import('../commands/babysit-prs.js');
+            const cwd = this.getEffectiveCwd();
+            const swarmDir = join(this.state.getFilePath(), '..');
+            const reviewModel = cmd.model || 'sonnet';
+
+            // Fetch open PRs
+            let prListCmd = 'gh pr list --json number,title,body,headRefOid,author,labels,additions,deletions --limit 20';
+            if (cmd.label) prListCmd += ` --label "${cmd.label}"`;
+
+            let prs: Array<{ number: number; title: string; body: string; headRefOid: string; author: { login: string }; additions: number; deletions: number }>;
+            try {
+              const raw = execSync(prListCmd, { encoding: 'utf-8', cwd }).trim();
+              prs = JSON.parse(raw || '[]');
+            } catch {
+              console.log(`[ws] No open PRs or gh CLI error`);
+              return;
+            }
+
+            // Filter already-reviewed
+            const existingReviews = getReviewHistory(swarmDir);
+            const reviewedKeys = new Set(existingReviews.map(r => `${r.number}-${r.sha}`));
+            const pending = prs.filter(pr => !reviewedKeys.has(`${pr.number}-${pr.headRefOid}`));
+
+            if (pending.length === 0) {
+              console.log(`[ws] All ${prs.length} open PR(s) already reviewed`);
+              return;
+            }
+
+            const conventions = loadConventions(swarmDir);
+
+            for (const pr of pending) {
+              let diff: string;
+              try {
+                diff = execSync(`gh pr diff ${pr.number}`, { encoding: 'utf-8', cwd }).trim();
+              } catch { continue; }
+              if (!diff) continue;
+
+              const maxLen = 50000;
+              const trimmed = diff.length > maxLen ? diff.slice(0, maxLen) : diff;
+
+              const prompt = [
+                `Review PR #${pr.number}: ${pr.title} by @${pr.author.login}`,
+                `+${pr.additions} -${pr.deletions} lines`,
+                pr.body ? `\nDescription: ${pr.body.slice(0, 2000)}` : '',
+                conventions ? `\n${conventions}` : '',
+                '\nProduce: ## Summary, ## Issues, ## Suggestions, ## Verdict (APPROVE/REQUEST_CHANGES/COMMENT)',
+                `\n\`\`\`diff\n${trimmed}\n\`\`\``,
+              ].join('\n');
+
+              const agent = await this.agentManager.spawn({
+                name: `pr-reviewer-${pr.number}`,
+                persona: 'engineer',
+                stack: this.state.getState().stack,
+                prompt,
+                model: reviewModel,
+                cwd,
+                interactive: false,
+                permissionMode: 'auto',
+                disallowedTools: ['Edit', 'Write', 'Bash', 'NotebookEdit'],
+              });
+              await this.agentManager.waitForAgent(agent.id);
+
+              const output = agent.output.trim();
+              let verdict = 'COMMENT';
+              if (output.match(/verdict[:\s]*APPROVE/i)) verdict = 'APPROVE';
+              else if (output.match(/verdict[:\s]*REQUEST_CHANGES/i)) verdict = 'REQUEST_CHANGES';
+
+              // Post comment
+              if (output) {
+                try {
+                  const body = `## Swarm AI Review\n\n${output}\n\n---\n*Reviewed by Swarm (${reviewModel}, $${agent.cost.totalUsd.toFixed(2)})*`;
+                  execSync(`gh pr comment ${pr.number} --body-file -`, {
+                    input: body, cwd, stdio: ['pipe', 'pipe', 'pipe'],
+                  });
+                } catch { /* non-critical */ }
+              }
+
+              // Auto-approve
+              if (cmd.autoApprove && verdict === 'APPROVE') {
+                try {
+                  execSync(`gh pr review ${pr.number} --approve --body "Auto-approved by Swarm"`, { cwd, stdio: 'pipe' });
+                } catch { /* non-critical */ }
+              }
+
+              // Save review
+              const { writeFileSync: wfs, existsSync: efs, readFileSync: rfs, mkdirSync: mds } = await import('node:fs');
+              const memDir = join(swarmDir, 'memory');
+              if (!efs(memDir)) mds(memDir, { recursive: true });
+              const reviewPath = join(memDir, 'pr-reviews.json');
+              const existing = efs(reviewPath) ? JSON.parse(rfs(reviewPath, 'utf-8')) : [];
+              existing.push({ number: pr.number, sha: pr.headRefOid, reviewedAt: new Date().toISOString(), verdict, cost: agent.cost.totalUsd });
+              wfs(reviewPath, JSON.stringify(existing.slice(-200), null, 2), 'utf-8');
+
+              console.log(`[ws] PR #${pr.number}: ${verdict} ($${agent.cost.totalUsd.toFixed(2)})`);
+            }
+
+            // Broadcast updated reviews
+            const updatedReviews = getReviewHistory(swarmDir);
+            this.broadcast({ type: 'pr-reviews', payload: { reviews: updatedReviews } });
+          } catch (err) {
+            console.error(`[ws] PR review failed: ${err instanceof Error ? err.message : err}`);
+          }
+        })();
+        break;
+      }
+
+      case 'run-learn': {
+        console.log(`[ws] Running learn (convention scan)`);
+        (async () => {
+          try {
+            const { extractConventions } = await import('./convention-extractor.js');
+            const cwd = this.getEffectiveCwd();
+            const swarmDir = join(this.state.getFilePath(), '..');
+            const conventionsPath = join(swarmDir, 'conventions.md');
+
+            // Broadcast loading state
+            this.broadcast({ type: 'conventions', payload: { content: null, loading: true } });
+
+            const conventions = extractConventions(cwd);
+
+            if (!conventions.trim()) {
+              this.broadcast({ type: 'conventions', payload: { content: null, loading: false } });
+              console.log(`[ws] No conventions detected`);
+              return;
+            }
+
+            const header = [
+              '# Project Conventions',
+              '',
+              `<!-- Generated by swarm learn on ${new Date().toISOString().split('T')[0]} -->`,
+              '<!-- Edit freely — manual changes are preserved with --merge -->',
+              '',
+            ].join('\n');
+            const content = header + conventions + '\n';
+            writeFileSync(conventionsPath, content, 'utf-8');
+
+            this.broadcast({ type: 'conventions', payload: { content, loading: false } });
+            console.log(`[ws] Conventions saved`);
+          } catch (err) {
+            console.error(`[ws] Learn failed: ${err instanceof Error ? err.message : err}`);
+            this.broadcast({ type: 'conventions', payload: { content: null, loading: false } });
+          }
+        })();
+        break;
+      }
+
+      case 'get-conventions': {
+        const swarmDir = join(this.state.getFilePath(), '..');
+        const conventionsPath = join(swarmDir, 'conventions.md');
+        let content: string | null = null;
+        if (existsSync(conventionsPath)) {
+          try {
+            content = readFileSync(conventionsPath, 'utf-8');
+          } catch { /* ignore */ }
+        }
+        _ws.send(JSON.stringify({
+          type: 'conventions' as const,
+          payload: { content, loading: false },
+        }));
+        break;
+      }
+
+      case 'save-conventions': {
+        const swarmDir = join(this.state.getFilePath(), '..');
+        const conventionsPath = join(swarmDir, 'conventions.md');
+        writeFileSync(conventionsPath, cmd.content, 'utf-8');
+        this.broadcast({ type: 'conventions', payload: { content: cmd.content, loading: false } });
+        console.log(`[ws] Conventions saved (manual edit)`);
         break;
       }
 

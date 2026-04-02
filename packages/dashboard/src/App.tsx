@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Wifi, WifiOff, Rocket, BarChart3, Clock, Home, UserPlus, Sun, Moon, Monitor, GitCompareArrows } from 'lucide-react';
+import { Wifi, WifiOff, Rocket, BarChart3, Clock, Home, UserPlus, Sun, Moon, Monitor, GitCompareArrows, BookOpen, Brain, GitPullRequest, Eye, HelpCircle, TrendingUp, ChevronDown, Wrench, Upload, Database } from 'lucide-react';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useOnboarding } from './hooks/useOnboarding';
 import { usePersistedState } from './hooks/usePersistedState';
@@ -11,12 +11,20 @@ import { SpawnDialog } from './components/SpawnDialog';
 import { PipelineSelector } from './components/PipelineSelector';
 import { PipelineCompare } from './components/PipelineCompare';
 import { WelcomeScreen } from './components/WelcomeScreen';
+import { ConventionsView } from './views/ConventionsView';
+import { MemoryView } from './views/MemoryView';
+import { PRReviewsView } from './views/PRReviewsView';
+import { WatchView } from './views/WatchView';
+import { ExplainView } from './views/ExplainView';
+import { StatsView } from './views/StatsView';
+import { DeployView } from './views/DeployView';
+import { MigrateView } from './views/MigrateView';
 import { useTheme } from './hooks/useTheme';
-type View = 'launch' | 'pipeline' | 'results' | 'history';
+type View = 'launch' | 'pipeline' | 'results' | 'history' | 'conventions' | 'memory' | 'reviews' | 'watch' | 'explain' | 'stats' | 'deploy' | 'migrate';
 
 function getInitialView(): View {
   const hash = window.location.hash.replace('#', '');
-  if (['launch', 'pipeline', 'results', 'history'].includes(hash)) return hash as View;
+  if (['launch', 'pipeline', 'results', 'history', 'conventions', 'memory', 'reviews', 'watch', 'explain', 'stats', 'deploy', 'migrate'].includes(hash)) return hash as View;
   return 'launch';
 }
 
@@ -31,11 +39,12 @@ interface Toast {
 let toastId = 0;
 
 export default function App() {
-  const { state, connected, agentOutputs, agentActivities, violations, historyEntries, artifactContent, pipelines, activePipeline, sendCommand, switchPipeline } = useWebSocket();
+  const { state, connected, agentOutputs, agentActivities, violations, historyEntries, artifactContent, pipelines, activePipeline, conventions, conventionsLoading, memories, prReviews, watchResults, deployResult, stats, sendCommand, switchPipeline } = useWebSocket();
   const { theme, cycleTheme } = useTheme();
   const [view, setView] = usePersistedState<View>('swarm_view', getInitialView());
   const [showSpawn, setShowSpawn] = useState(false);
   const [showCompare, setShowCompare] = useState(false);
+  const [showToolsMenu, setShowToolsMenu] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const prevMaydayStageRef = useRef<string | undefined>(undefined);
   const prevConnectedRef = useRef(connected);
@@ -47,6 +56,9 @@ export default function App() {
     window.location.hash = v;
   }, []);
 
+  // Track whether we've already auto-navigated for the current pipeline run
+  const autoNavRef = useRef<string | null>(null);
+
   // Auto-navigate based on pipeline state
   useEffect(() => {
     if (!state) return;
@@ -54,15 +66,22 @@ export default function App() {
     const hasRunning = Object.values(state.stages).some((s) => s.status === 'running');
     const maydayActive = state.mayday?.active;
     const maydayComplete = state.mayday?.currentStage === 'complete';
+    const runKey = state.mayday?.startedAt ? String(state.mayday.startedAt) : null;
 
-    // If pipeline just started running, navigate to pipeline view
-    if ((hasRunning || maydayActive) && view === 'launch') {
+    // If pipeline just started running, navigate to pipeline view (once per run)
+    if ((hasRunning || maydayActive) && view === 'launch' && autoNavRef.current !== runKey) {
+      autoNavRef.current = runKey;
       navigate('pipeline');
     }
 
     // If pipeline just completed, navigate to results
     if (maydayComplete && view === 'pipeline') {
       navigate('results');
+    }
+
+    // Reset auto-nav tracker when no pipeline is active
+    if (!maydayActive && !hasRunning) {
+      autoNavRef.current = null;
     }
 
     // Auto-advance onboarding steps based on pipeline state
@@ -141,12 +160,25 @@ export default function App() {
     document.title = state?.projectName ? `Swarm — ${state.projectName}` : 'Swarm';
   }, [state?.projectName]);
 
-  const NAV_ITEMS: { key: View; label: string; icon: typeof Home }[] = [
+  const PRIMARY_NAV: { key: View; label: string; icon: typeof Home }[] = [
     { key: 'launch', label: 'Launch', icon: Home },
     { key: 'pipeline', label: 'Pipeline', icon: Rocket },
     { key: 'results', label: 'Results', icon: BarChart3 },
     { key: 'history', label: 'History', icon: Clock },
   ];
+
+  const TOOLS_NAV: { key: View; label: string; icon: typeof Home; hint: string }[] = [
+    { key: 'conventions', label: 'Conventions', icon: BookOpen, hint: 'Project patterns & style' },
+    { key: 'memory', label: 'Memory', icon: Brain, hint: 'Cross-run learning' },
+    { key: 'reviews', label: 'PR Reviews', icon: GitPullRequest, hint: 'Automated PR review' },
+    { key: 'watch', label: 'Watch', icon: Eye, hint: 'File watcher & auto-test' },
+    { key: 'explain', label: 'Explain', icon: HelpCircle, hint: 'Codebase Q&A' },
+    { key: 'stats', label: 'Cost Intelligence', icon: TrendingUp, hint: 'Spend analytics & ROI' },
+    { key: 'deploy', label: 'Deploy', icon: Upload, hint: 'Deploy to staging/production' },
+    { key: 'migrate', label: 'Migrate', icon: Database, hint: 'Database migrations' },
+  ];
+
+  const isToolView = TOOLS_NAV.some(t => t.key === view);
 
   return (
     <div className="h-screen flex flex-col bg-[#0c0a09] text-stone-300">
@@ -171,15 +203,15 @@ export default function App() {
             />
           )}
 
-          <nav className="flex items-center gap-0.5 sm:gap-1 ml-1 sm:ml-2 overflow-x-auto" role="tablist" aria-label="Main navigation">
-            {NAV_ITEMS.map(({ key, label, icon: Icon }) => (
+          <nav className="flex items-center gap-0.5 sm:gap-1 ml-1 sm:ml-2" role="tablist" aria-label="Main navigation">
+            {PRIMARY_NAV.map(({ key, label, icon: Icon }) => (
               <button
                 key={key}
-                onClick={() => navigate(key)}
+                onClick={() => { navigate(key); setShowToolsMenu(false); }}
                 role="tab"
                 aria-selected={view === key}
                 aria-controls={`panel-${key}`}
-                className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-md text-xs font-medium transition-colors shrink-0 min-h-[36px] ${
+                className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-md text-xs font-medium transition-colors shrink-0 min-h-9 ${
                   view === key
                     ? 'bg-stone-800/60 text-stone-200'
                     : 'text-stone-500 hover:text-stone-300 hover:bg-stone-800/30'
@@ -189,6 +221,46 @@ export default function App() {
                 <span className="hidden sm:inline">{label}</span>
               </button>
             ))}
+
+            {/* Tools dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setShowToolsMenu(!showToolsMenu)}
+                className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-md text-xs font-medium transition-colors shrink-0 min-h-9 ${
+                  isToolView
+                    ? 'bg-stone-800/60 text-stone-200'
+                    : 'text-stone-500 hover:text-stone-300 hover:bg-stone-800/30'
+                }`}
+              >
+                <Wrench size={13} />
+                <span className="hidden sm:inline">{isToolView ? TOOLS_NAV.find(t => t.key === view)?.label || 'Tools' : 'Tools'}</span>
+                <ChevronDown size={10} className={`transition-transform ${showToolsMenu ? 'rotate-180' : ''}`} />
+              </button>
+              {showToolsMenu && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowToolsMenu(false)} />
+                  <div className="absolute top-full left-0 mt-1 z-50 w-56 py-1 rounded-lg bg-stone-900 border border-stone-700/50 shadow-xl">
+                    {TOOLS_NAV.map(({ key, label, icon: Icon, hint }) => (
+                      <button
+                        key={key}
+                        onClick={() => { navigate(key); setShowToolsMenu(false); }}
+                        className={`flex items-center gap-2.5 w-full px-3 py-2 text-left transition-colors ${
+                          view === key
+                            ? 'bg-stone-800/60 text-stone-200'
+                            : 'text-stone-400 hover:text-stone-200 hover:bg-stone-800/40'
+                        }`}
+                      >
+                        <Icon size={14} className="shrink-0" />
+                        <div>
+                          <div className="text-xs font-medium">{label}</div>
+                          <div className="text-[10px] text-stone-500">{hint}</div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
           </nav>
         </div>
 
@@ -304,6 +376,54 @@ export default function App() {
             <HistoryView
               entries={historyEntries}
               sendCommand={sendCommand}
+            />
+          )}
+          {view === 'conventions' && (
+            <ConventionsView
+              sendCommand={sendCommand}
+              conventions={conventions}
+              conventionsLoading={conventionsLoading}
+            />
+          )}
+          {view === 'memory' && (
+            <MemoryView
+              sendCommand={sendCommand}
+              memories={memories}
+            />
+          )}
+          {view === 'reviews' && (
+            <PRReviewsView
+              sendCommand={sendCommand}
+              reviews={prReviews}
+            />
+          )}
+          {view === 'watch' && (
+            <WatchView
+              sendCommand={sendCommand}
+              watchResults={watchResults}
+            />
+          )}
+          {view === 'explain' && (
+            <ExplainView
+              sendCommand={sendCommand}
+              agents={state.agents}
+              agentOutputs={agentOutputs}
+            />
+          )}
+          {view === 'stats' && (
+            <StatsView
+              sendCommand={sendCommand}
+              stats={stats}
+            />
+          )}
+          {view === 'deploy' && (
+            <DeployView sendCommand={sendCommand} deployResult={deployResult} />
+          )}
+          {view === 'migrate' && (
+            <MigrateView
+              sendCommand={sendCommand}
+              agents={state.agents}
+              agentOutputs={agentOutputs}
             />
           )}
         </>

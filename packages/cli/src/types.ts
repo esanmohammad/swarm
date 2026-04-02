@@ -139,6 +139,14 @@ export interface PipelineState {
   worktreePath?: string;
 }
 
+export interface StageBreakdown {
+  name: string;
+  cost: number;
+  durationMs: number;
+  model?: string;
+  status: 'done' | 'error' | 'skipped' | 'pending';
+}
+
 export interface HistoryEntry {
   runId: string;
   timestamp: number;
@@ -148,6 +156,12 @@ export interface HistoryEntry {
   stagesSummary: Record<StageName, 'done' | 'error' | 'skipped' | 'pending'>;
   featureRequest?: string;
   durationMs: number;
+  /** Per-stage cost and timing breakdowns (added in v2) */
+  stageBreakdowns?: StageBreakdown[];
+  /** Number of fix iterations in this run */
+  fixIterations?: number;
+  /** Default model used for this run */
+  model?: string;
 }
 
 export function createEmptyPipeline(projectName: string, stack: TechStack): PipelineState {
@@ -199,6 +213,13 @@ export type WsMessage =
   | { type: 'approval-request'; payload: { stage: StageName; summary: string } }
   | { type: 'artifact-content'; payload: { stage: StageName; artifact: string; content: string | null } }
   | { type: 'pipeline-list'; payload: { pipelines: PipelineInfo[]; active: string } }
+  | { type: 'conventions'; payload: { content: string | null; loading: boolean } }
+  | { type: 'memories'; payload: { entries: Array<{ id: string; kind: string; content: string; createdAt: string; expiresAt: string; confidence: number; source: string; tags: string[] }> } }
+  | { type: 'pr-reviews'; payload: { reviews: Array<{ number: number; sha: string; reviewedAt: string; verdict: string; cost: number }> } }
+  | { type: 'watch-result'; payload: { passed: boolean; output: string; testCmd: string; timestamp: number } }
+  | { type: 'bus-messages'; payload: { messages: Array<{ id: string; fromAgentId: string; fromPersona: string; toAgentId: string; toPersona: string; kind: string; content: string; timestamp: number; delivered: boolean }> } }
+  | { type: 'deploy-result'; payload: { environment: string; steps: Array<{ name: string; cmd: string; status: 'pass' | 'fail' | 'skip' | 'pending'; output?: string; durationMs: number }>; success: boolean; rolledBack: boolean; timestamp: number } }
+  | { type: 'stats'; payload: { totalRuns: number; passed: number; failed: number; successRate: number; totalCost: number; avgCostPerRun: number; avgDurationMs: number; avgFixIterations: number; stageCosts: Array<{ stage: string; totalCost: number; avgCost: number; avgDurationMs: number; count: number }>; weeklySpend: Array<{ week: string; cost: number; runs: number }>; recommendations: string[] } }
   | { type: 'error'; payload: { message: string } };
 
 export interface PipelineInfo {
@@ -232,7 +253,24 @@ export type WsCommand =
   | { action: 'run-spike'; prompt: string; model?: string }
   | { action: 'run-review'; target?: string; model?: string }
   | { action: 'run-refactor'; prompt: string; scope?: string; model?: string }
-  | { action: 'run-simplify'; scope?: string; dryRun?: boolean; model?: string };
+  | { action: 'run-simplify'; scope?: string; dryRun?: boolean; model?: string }
+  | { action: 'run-learn'; refresh?: boolean }
+  | { action: 'get-conventions' }
+  | { action: 'save-conventions'; content: string }
+  | { action: 'get-memories' }
+  | { action: 'add-memory'; content: string; kind?: string; tags?: string[] }
+  | { action: 'remove-memory'; id: string }
+  | { action: 'clear-memories' }
+  | { action: 'run-babysit-prs'; label?: string; autoApprove?: boolean; model?: string }
+  | { action: 'get-pr-reviews' }
+  | { action: 'run-watch-test'; scope?: string }
+  | { action: 'run-watch-fix'; testOutput: string; changedFiles: string[]; model?: string }
+  | { action: 'run-explain'; target?: string; depth?: string; diagram?: boolean; model?: string }
+  | { action: 'agent-message'; fromAgentId: string; toAgentId: string; kind: string; content: string }
+  | { action: 'get-bus-messages' }
+  | { action: 'get-stats'; period?: number }
+  | { action: 'run-deploy'; environment: string; dryRun?: boolean }
+  | { action: 'run-migrate'; description: string; dryRun?: boolean; model?: string };
 
 // Guardrail types
 export interface GuardrailRule {

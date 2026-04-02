@@ -23,6 +23,14 @@ interface UseWebSocketReturn {
   artifactContent: Map<StageName, string>;
   pipelines: PipelineInfo[];
   activePipeline: string;
+  conventions: string | null;
+  conventionsLoading: boolean;
+  memories: Array<{ id: string; kind: string; content: string; createdAt: string; expiresAt: string; confidence: number; source: string; tags: string[] }>;
+  prReviews: Array<{ number: number; sha: string; reviewedAt: string; verdict: string; cost: number }>;
+  watchResults: Array<{ passed: boolean; output: string; testCmd: string; timestamp: number }>;
+  busMessages: Array<{ id: string; fromAgentId: string; fromPersona: string; toAgentId: string; toPersona: string; kind: string; content: string; timestamp: number; delivered: boolean }>;
+  deployResult: { environment: string; steps: Array<{ name: string; cmd: string; status: 'pass' | 'fail' | 'skip' | 'pending'; output?: string; durationMs: number }>; success: boolean; rolledBack: boolean; timestamp: number } | null;
+  stats: { totalRuns: number; passed: number; failed: number; successRate: number; totalCost: number; avgCostPerRun: number; avgDurationMs: number; avgFixIterations: number; stageCosts: Array<{ stage: string; totalCost: number; avgCost: number; avgDurationMs: number; count: number }>; weeklySpend: Array<{ week: string; cost: number; runs: number }>; recommendations: string[] } | null;
   sendCommand: (cmd: WsCommand) => void;
   switchPipeline: (namespace: string) => void;
   listPipelines: () => void;
@@ -35,6 +43,14 @@ export function useWebSocket(): UseWebSocketReturn {
   const [historyEntries, setHistoryEntries] = useState<HistoryEntry[]>([]);
   const [pipelines, setPipelines] = useState<PipelineInfo[]>([]);
   const [activePipeline, setActivePipeline] = useState('default');
+  const [conventions, setConventions] = useState<string | null>(null);
+  const [conventionsLoading, setConventionsLoading] = useState(false);
+  const [memories, setMemories] = useState<Array<{ id: string; kind: string; content: string; createdAt: string; expiresAt: string; confidence: number; source: string; tags: string[] }>>([]);
+  const [prReviews, setPrReviews] = useState<Array<{ number: number; sha: string; reviewedAt: string; verdict: string; cost: number }>>([]);
+  const [watchResults, setWatchResults] = useState<Array<{ passed: boolean; output: string; testCmd: string; timestamp: number }>>([]);
+  const [deployResult, setDeployResult] = useState<UseWebSocketReturn['deployResult']>(null);
+  const [busMessages, setBusMessages] = useState<Array<{ id: string; fromAgentId: string; fromPersona: string; toAgentId: string; toPersona: string; kind: string; content: string; timestamp: number; delivered: boolean }>>([]);
+  const [stats, setStats] = useState<UseWebSocketReturn['stats']>(null);
   const agentOutputsRef = useRef(new Map<string, string>());
   const agentActivitiesRef = useRef(new Map<string, AgentActivity[]>());
   const artifactContentRef = useRef(new Map<StageName, string>());
@@ -154,6 +170,35 @@ export function useWebSocket(): UseWebSocketReturn {
             setPipelines(msg.payload.pipelines);
             setActivePipeline(msg.payload.active);
             break;
+
+          case 'conventions':
+            setConventions(msg.payload.content);
+            setConventionsLoading(msg.payload.loading);
+            break;
+
+          case 'memories':
+            setMemories(msg.payload.entries);
+            break;
+
+          case 'pr-reviews':
+            setPrReviews(msg.payload.reviews);
+            break;
+
+          case 'watch-result':
+            setWatchResults(prev => [...prev, msg.payload]);
+            break;
+
+          case 'deploy-result':
+            setDeployResult(msg.payload);
+            break;
+
+          case 'bus-messages':
+            setBusMessages(msg.payload.messages);
+            break;
+
+          case 'stats':
+            setStats(msg.payload);
+            break;
         }
       } catch {
         // ignore malformed messages
@@ -192,6 +237,14 @@ export function useWebSocket(): UseWebSocketReturn {
     artifactContent: artifactContentRef.current,
     pipelines,
     activePipeline,
+    conventions,
+    conventionsLoading,
+    memories,
+    prReviews,
+    watchResults,
+    deployResult,
+    busMessages,
+    stats,
     sendCommand,
     switchPipeline,
     listPipelines,
