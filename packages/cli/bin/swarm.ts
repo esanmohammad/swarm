@@ -54,6 +54,16 @@ import { registerSandbox } from '../src/commands/sandbox.js';
 import { registerPromptGuard } from '../src/commands/prompt-guard.js';
 import { registerFingerprint } from '../src/commands/fingerprint.js';
 import { registerRuntimeMonitor } from '../src/commands/runtime-monitor.js';
+import { registerInbox } from '../src/commands/inbox.js';
+import { registerStandup } from '../src/commands/standup.js';
+import { registerJournal } from '../src/commands/journal.js';
+import { registerScope } from '../src/commands/scope.js';
+import { registerContext } from '../src/commands/context.js';
+import { registerPair } from '../src/commands/pair.js';
+import { registerDelegate } from '../src/commands/delegate.js';
+import { registerReport } from '../src/commands/report.js';
+import { registerTeam } from '../src/commands/team.js';
+import { registerRetro } from '../src/commands/retro.js';
 import { autoDetectStack, autoInit, loadConfig } from '../src/core/config.js';
 import { createContext } from '../src/commands/shared.js';
 
@@ -199,6 +209,18 @@ registerFingerprint(program);
 
 // --- Runtime security monitoring ---
 registerRuntimeMonitor(program);
+
+// --- Wave 3: Autonomous Employee ---
+registerInbox(program);
+registerStandup(program);
+registerJournal(program);
+registerScope(program);
+registerContext(program);
+registerPair(program);
+registerDelegate(program);
+registerReport(program);
+registerTeam(program);
+registerRetro(program);
 
 // --- Pipeline management ---
 registerPipeline(program);

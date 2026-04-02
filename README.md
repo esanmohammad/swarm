@@ -63,6 +63,13 @@ Not everything needs the full 5-stage pipeline. These commands skip straight to 
 | `swarm deploy staging` | Deploy using .swarm/deploy.yaml | — | $0 |
 | `swarm migrate "description"` | AI-assisted database migration | sonnet | $0.50–2 |
 | `swarm stats` | Cost intelligence and analytics | — | $0 |
+| `swarm inbox start` | Self-directed work queue daemon | config default | $3-15/item |
+| `swarm standup` | Daily/weekly status reports | — | $0 |
+| `swarm scope "request"` | Negotiate requirements before pipeline | sonnet | $0.20-0.50 |
+| `swarm pair` | Real-time pairing with live suggestions | haiku | $0.50-2/session |
+| `swarm delegate "feature"` | Multi-agent parallel workstreams | config default | $15-40 |
+| `swarm report` | ROI & impact reporting | — | $0 |
+| `swarm retro` | Self-improvement retrospective | — | $0 |
 
 All quick workflows are also available from the **dashboard** Launch view as one-click buttons.
 
@@ -235,6 +242,134 @@ swarm monitor events                         # Show runtime events
 swarm monitor anomalies                      # Events deviating from baseline
 swarm monitor baseline                       # Save current state as baseline
 ```
+
+## Wave 3 Features — Autonomous Employee
+
+Wave 3 transforms Swarm from a reactive tool into a proactive autonomous employee that finds work, prioritizes, learns from outcomes, and reports back.
+
+### Self-Directed Work Queue (`swarm inbox`)
+A persistent daemon that aggregates work from GitHub issues, PRs needing review, failing CI, stale PRs, and manual tasks. Triages by priority, estimates cost, and works through them autonomously based on confidence thresholds.
+
+```bash
+swarm inbox                              # Show current queue with priorities
+swarm inbox start --label swarm          # Start the daemon
+swarm inbox start --budget 25            # Set daily budget
+swarm inbox pause                        # Pause processing (keep aggregating)
+swarm inbox add "refactor auth module"   # Add manual work item
+swarm inbox skip <id>                    # Skip a work item
+swarm inbox prioritize <id>              # Bump item to top
+swarm inbox config                       # Show triage rules
+```
+
+Confidence gating: high (>85%) = auto-merge, medium (60-85%) = create PR for review, low (<60%) = research only and notify human.
+
+### Async Status Reporting (`swarm standup`)
+Automated daily/weekly reports summarizing work completed, PRs created, issues resolved, cost spent, blockers hit, and velocity trends.
+
+```bash
+swarm standup                            # Today's standup report
+swarm standup --weekly                   # Weekly summary
+swarm standup --post                     # Save report for posting
+swarm standup --since 2026-03-25         # Custom date range
+swarm standup --format slack             # Slack-formatted output
+```
+
+### Decision Journal & Outcome Learning (`swarm journal`)
+Logs every significant decision (auto-merge, confidence gate, review verdict, fix approach), tracks outcomes over time, and generates rules to calibrate future decisions.
+
+```bash
+swarm journal                            # Last 20 decisions with outcomes
+swarm journal analyze                    # Run learning engine, show findings
+swarm journal rules                      # Show auto-generated rules
+swarm journal calibrate                  # Calibration report (over/under-confidence)
+```
+
+The learning engine identifies patterns like "auto-merged PRs touching auth module reverted 40% of the time" and generates rules like "require human review for auth module changes."
+
+### Requirement Negotiation (`swarm scope`)
+Pre-pipeline negotiation that analyzes requests for ambiguity, asks clarifying questions, proposes implementation options with cost/risk tradeoffs, and gets alignment before spending budget.
+
+```bash
+swarm scope "add authentication"         # Analyze and negotiate requirements
+```
+
+Produces a SCOPE.md with: what will be built, what won't, assumptions, estimated cost, and the chosen approach. Saves $5-20 per feature by avoiding wrong implementations.
+
+### Codebase Intelligence (`swarm context`)
+A continuously-updated codebase knowledge graph — dependency graphs, symbol index, complexity scores, churn rates, fragile files, co-change patterns. Every agent reads relevant context instead of re-discovering the codebase from scratch.
+
+```bash
+swarm context build                      # Full index rebuild
+swarm context query "how does auth?"     # Ask questions about the codebase
+swarm context graph src/auth/            # Show dependency graph
+swarm context fragile                    # Show fragile files ranked by risk
+swarm context stale                      # Show stale index entries
+```
+
+### Real-Time Collaboration (`swarm pair`)
+A long-running pairing session that watches file changes, understands what you're building, and proactively offers suggestions — bug catches, pattern enforcement, test gaps, security flags, co-change reminders.
+
+```bash
+swarm pair                               # Start pairing (suggest mode)
+swarm pair --focus src/auth/ --mode assist  # Focus + auto-write tests
+swarm pair test                          # Generate tests for current changes
+swarm pair commit                        # Generate commit message from changes
+```
+
+Three modes: `suggest` (terminal suggestions), `assist` (suggestions + auto-writes tests), `silent` (only critical issues).
+
+### Multi-Agent Task Decomposition (`swarm delegate`)
+For large features: decomposes into independent workstreams, runs them in parallel git worktrees, and coordinates the merge with test verification after each merge.
+
+```bash
+swarm delegate "build user management"   # Decompose and run parallel workstreams
+swarm delegate --max-parallel 3 --budget 50
+swarm delegate status                    # Show workstream progress
+swarm delegate merge                     # Trigger sequential merge
+```
+
+### ROI & Impact Reporting (`swarm report`)
+Comprehensive impact tracking with financial ROI calculations. Maps directly to engineering metrics: issues resolved, PRs merged, tests generated, cost per issue, estimated hours saved.
+
+```bash
+swarm report                             # Monthly impact report
+swarm report --period weekly             # Weekly report
+swarm report --compare                   # Compare with previous period
+swarm report --format html               # Export as HTML
+```
+
+ROI estimation: configurable hourly rate (default $75), per-task-type hour savings (pipeline=4h, fix=1h, test-gen=2h, review=0.5h).
+
+### Team Awareness (`swarm team`)
+Multi-user coordination — tracks which developers are working on which files/branches, detects overlap with Swarm's work, and prevents conflicts.
+
+```bash
+swarm team                               # Show team activity status
+swarm team activity                      # Who's working on what
+swarm team notify "starting auth work"   # Notify team channel
+swarm team config                        # Show team configuration
+```
+
+Configure team members in `.swarm/config.yaml`:
+```yaml
+team:
+  members:
+    - github: "alice"
+      areas: ["frontend", "auth"]
+    - github: "bob"
+      areas: ["backend", "infra"]
+```
+
+### Self-Improvement Retrospectives (`swarm retro`)
+Evaluates its own performance: what went well, what went poorly, and proposes concrete config changes to improve. Optionally auto-applies recommendations.
+
+```bash
+swarm retro                              # Last 2 weeks retrospective
+swarm retro --period monthly             # Monthly retro
+swarm retro --auto-apply                 # Apply recommended config changes
+```
+
+Analyzes: success rates, revert rates, fix iteration counts, cost efficiency — then recommends threshold adjustments, model changes, and budget tuning.
 
 ## Smart Features
 
@@ -444,6 +579,31 @@ swarm provenance trail               # Code provenance
 swarm prompt-guard scan "text"       # Injection defense
 swarm fingerprint                    # AI code tracking
 swarm monitor events                 # Runtime monitoring
+
+# Wave 3 — Autonomous Employee
+swarm inbox                          # Show work queue
+swarm inbox start --label swarm      # Start inbox daemon
+swarm inbox add "task description"   # Add manual task
+swarm standup                        # Daily status report
+swarm standup --weekly               # Weekly summary
+swarm journal                        # View decision journal
+swarm journal analyze                # Run learning engine
+swarm journal calibrate              # Calibration report
+swarm scope "add authentication"     # Negotiate requirements
+swarm context build                  # Build codebase index
+swarm context query "how does X?"    # Query the codebase
+swarm context fragile                # Show risky files
+swarm pair                           # Start pairing session
+swarm pair test                      # Generate tests for changes
+swarm pair commit                    # Generate commit message
+swarm delegate "large feature"       # Decompose into workstreams
+swarm delegate status                # Workstream progress
+swarm report                         # Monthly impact report
+swarm report --period weekly         # Weekly report
+swarm team                           # Team activity status
+swarm team activity                  # Who's working on what
+swarm retro                          # Self-improvement retro
+swarm retro --auto-apply             # Apply recommendations
 
 # Utilities
 swarm status                       # Show pipeline state and costs

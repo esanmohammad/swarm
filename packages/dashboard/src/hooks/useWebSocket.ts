@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import type { PipelineState, PipelineInfo, WsMessage, WsCommand, GuardrailViolation, AgentActivity, HistoryEntry, StageName, AutopilotState } from '../types';
+import type { PipelineState, PipelineInfo, WsMessage, WsCommand, GuardrailViolation, AgentActivity, HistoryEntry, StageName, AutopilotState, InboxState, StandupReport, JournalData, ScopeAnalysis, ContextIndex, PairSessionState, DelegateState, ReportData, TeamActivity, RetroReport } from '../types';
 
 // WS port is injected by the dashboard HTTP server into window.__SWARM_WS_PORT__
 // Falls back to deriving from dashboard port (wsPort = dashboardPort - 1) or default 3847
@@ -33,6 +33,16 @@ interface UseWebSocketReturn {
   stats: { totalRuns: number; passed: number; failed: number; successRate: number; totalCost: number; avgCostPerRun: number; avgDurationMs: number; avgFixIterations: number; stageCosts: Array<{ stage: string; totalCost: number; avgCost: number; avgDurationMs: number; count: number }>; weeklySpend: Array<{ week: string; cost: number; runs: number }>; recommendations: string[] } | null;
   autopilotState: AutopilotState | null;
   healthReport: { overall: number; metrics: Array<{ name: string; score: number; status: string; detail: string; suggestion?: string }>; timestamp: number } | null;
+  inboxState: InboxState | null;
+  standupReport: StandupReport | null;
+  journalData: JournalData | null;
+  scopeAnalysis: ScopeAnalysis | null;
+  contextIndex: ContextIndex | null;
+  pairSession: PairSessionState | null;
+  delegateState: DelegateState | null;
+  reportData: ReportData | null;
+  teamActivity: TeamActivity | null;
+  retroReport: RetroReport | null;
   sendCommand: (cmd: WsCommand) => void;
   switchPipeline: (namespace: string) => void;
   listPipelines: () => void;
@@ -55,6 +65,16 @@ export function useWebSocket(): UseWebSocketReturn {
   const [stats, setStats] = useState<UseWebSocketReturn['stats']>(null);
   const [autopilotState, setAutopilotState] = useState<AutopilotState | null>(null);
   const [healthReport, setHealthReport] = useState<UseWebSocketReturn['healthReport']>(null);
+  const [inboxState, setInboxState] = useState<InboxState | null>(null);
+  const [standupReport, setStandupReport] = useState<StandupReport | null>(null);
+  const [journalData, setJournalData] = useState<JournalData | null>(null);
+  const [scopeAnalysis, setScopeAnalysis] = useState<ScopeAnalysis | null>(null);
+  const [contextIndex, setContextIndex] = useState<ContextIndex | null>(null);
+  const [pairSession, setPairSession] = useState<PairSessionState | null>(null);
+  const [delegateState, setDelegateState] = useState<DelegateState | null>(null);
+  const [reportData, setReportData] = useState<ReportData | null>(null);
+  const [teamActivity, setTeamActivity] = useState<TeamActivity | null>(null);
+  const [retroReport, setRetroReport] = useState<RetroReport | null>(null);
   const agentOutputsRef = useRef(new Map<string, string>());
   const agentActivitiesRef = useRef(new Map<string, AgentActivity[]>());
   const artifactContentRef = useRef(new Map<StageName, string>());
@@ -211,6 +231,46 @@ export function useWebSocket(): UseWebSocketReturn {
           case 'health-report':
             setHealthReport(msg.payload);
             break;
+
+          case 'inbox-state':
+            setInboxState(msg.payload);
+            break;
+
+          case 'standup-report':
+            setStandupReport(msg.payload);
+            break;
+
+          case 'journal-data':
+            setJournalData(msg.payload);
+            break;
+
+          case 'scope-analysis':
+            setScopeAnalysis(msg.payload);
+            break;
+
+          case 'context-index':
+            setContextIndex(msg.payload);
+            break;
+
+          case 'pair-session':
+            setPairSession(msg.payload);
+            break;
+
+          case 'delegate-state':
+            setDelegateState(msg.payload);
+            break;
+
+          case 'report-data':
+            setReportData(msg.payload);
+            break;
+
+          case 'team-activity':
+            setTeamActivity(msg.payload);
+            break;
+
+          case 'retro-report':
+            setRetroReport(msg.payload);
+            break;
         }
       } catch {
         // ignore malformed messages
@@ -259,6 +319,16 @@ export function useWebSocket(): UseWebSocketReturn {
     stats,
     autopilotState,
     healthReport,
+    inboxState,
+    standupReport,
+    journalData,
+    scopeAnalysis,
+    contextIndex,
+    pairSession,
+    delegateState,
+    reportData,
+    teamActivity,
+    retroReport,
     sendCommand,
     switchPipeline,
     listPipelines,

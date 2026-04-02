@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Wifi, WifiOff, Rocket, BarChart3, Clock, Home, UserPlus, Sun, Moon, Monitor, GitCompareArrows, BookOpen, Brain, GitPullRequest, Eye, HelpCircle, TrendingUp, ChevronDown, Wrench, Upload, Database, Bot, Shield, Package, AlertTriangle, Activity, Gauge } from 'lucide-react';
+import { Wifi, WifiOff, Rocket, BarChart3, Clock, Home, UserPlus, Sun, Moon, Monitor, GitCompareArrows, BookOpen, Brain, GitPullRequest, Eye, HelpCircle, TrendingUp, ChevronDown, Wrench, Upload, Database, Bot, Shield, Package, AlertTriangle, Activity, Gauge, Inbox, FileText, Search, Layers, Users, GitBranch, RefreshCw } from 'lucide-react';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useOnboarding } from './hooks/useOnboarding';
 import { usePersistedState } from './hooks/usePersistedState';
@@ -25,12 +25,22 @@ import { DepsView } from './views/DepsView';
 import { IncidentView } from './views/IncidentView';
 import { HealthView } from './views/HealthView';
 import { BenchmarkView } from './views/BenchmarkView';
+import { InboxView } from './views/InboxView';
+import { StandupView } from './views/StandupView';
+import { JournalView } from './views/JournalView';
+import { ScopeView } from './views/ScopeView';
+import { ContextView } from './views/ContextView';
+import { PairView } from './views/PairView';
+import { DelegateView } from './views/DelegateView';
+import { ReportView } from './views/ReportView';
+import { TeamView } from './views/TeamView';
+import { RetroView } from './views/RetroView';
 import { useTheme } from './hooks/useTheme';
-type View = 'launch' | 'pipeline' | 'results' | 'history' | 'conventions' | 'memory' | 'reviews' | 'watch' | 'explain' | 'stats' | 'deploy' | 'migrate' | 'autopilot' | 'security' | 'deps' | 'incident' | 'health-check' | 'benchmark';
+type View = 'launch' | 'pipeline' | 'results' | 'history' | 'conventions' | 'memory' | 'reviews' | 'watch' | 'explain' | 'stats' | 'deploy' | 'migrate' | 'autopilot' | 'security' | 'deps' | 'incident' | 'health-check' | 'benchmark' | 'inbox' | 'standup' | 'journal' | 'scope' | 'context' | 'pair' | 'delegate' | 'report' | 'team' | 'retro';
 
 function getInitialView(): View {
   const hash = window.location.hash.replace('#', '');
-  if (['launch', 'pipeline', 'results', 'history', 'conventions', 'memory', 'reviews', 'watch', 'explain', 'stats', 'deploy', 'migrate', 'autopilot', 'security', 'deps', 'incident', 'health-check', 'benchmark'].includes(hash)) return hash as View;
+  if (['launch', 'pipeline', 'results', 'history', 'conventions', 'memory', 'reviews', 'watch', 'explain', 'stats', 'deploy', 'migrate', 'autopilot', 'security', 'deps', 'incident', 'health-check', 'benchmark', 'inbox', 'standup', 'journal', 'scope', 'context', 'pair', 'delegate', 'report', 'team', 'retro'].includes(hash)) return hash as View;
   return 'launch';
 }
 
@@ -45,7 +55,7 @@ interface Toast {
 let toastId = 0;
 
 export default function App() {
-  const { state, connected, agentOutputs, agentActivities, violations, historyEntries, artifactContent, pipelines, activePipeline, conventions, conventionsLoading, memories, prReviews, watchResults, deployResult, stats, autopilotState, healthReport, sendCommand, switchPipeline } = useWebSocket();
+  const { state, connected, agentOutputs, agentActivities, violations, historyEntries, artifactContent, pipelines, activePipeline, conventions, conventionsLoading, memories, prReviews, watchResults, deployResult, stats, autopilotState, healthReport, inboxState, standupReport, journalData, scopeAnalysis, contextIndex, pairSession, delegateState, reportData, teamActivity, retroReport, sendCommand, switchPipeline } = useWebSocket();
   const { theme, cycleTheme } = useTheme();
   const [view, setView] = usePersistedState<View>('swarm_view', getInitialView());
   const [showSpawn, setShowSpawn] = useState(false);
@@ -188,6 +198,16 @@ export default function App() {
     { key: 'incident', label: 'Incident', icon: AlertTriangle, hint: 'Incident response' },
     { key: 'health-check', label: 'Health', icon: Activity, hint: 'Codebase health check' },
     { key: 'benchmark', label: 'Benchmark', icon: Gauge, hint: 'Performance benchmarks' },
+    { key: 'inbox', label: 'Inbox', icon: Inbox, hint: 'Self-directed work queue' },
+    { key: 'standup', label: 'Standup', icon: FileText, hint: 'Async status reports' },
+    { key: 'journal', label: 'Journal', icon: BookOpen, hint: 'Decision tracking & learning' },
+    { key: 'scope', label: 'Scope', icon: Search, hint: 'Requirement negotiation' },
+    { key: 'context', label: 'Context', icon: Layers, hint: 'Codebase intelligence' },
+    { key: 'pair', label: 'Pair', icon: Users, hint: 'Real-time collaboration' },
+    { key: 'delegate', label: 'Delegate', icon: GitBranch, hint: 'Multi-agent decomposition' },
+    { key: 'report', label: 'Report', icon: BarChart3, hint: 'ROI & impact reports' },
+    { key: 'team', label: 'Team', icon: Users, hint: 'Multi-user coordination' },
+    { key: 'retro', label: 'Retro', icon: RefreshCw, hint: 'Self-improvement retrospectives' },
   ];
 
   const isToolView = TOOLS_NAV.some(t => t.key === view);
@@ -458,6 +478,36 @@ export default function App() {
           )}
           {view === 'benchmark' && (
             <BenchmarkView sendCommand={sendCommand} />
+          )}
+          {view === 'inbox' && (
+            <InboxView sendCommand={sendCommand} inboxState={inboxState} />
+          )}
+          {view === 'standup' && (
+            <StandupView sendCommand={sendCommand} standupReport={standupReport} />
+          )}
+          {view === 'journal' && (
+            <JournalView sendCommand={sendCommand} journalData={journalData} />
+          )}
+          {view === 'scope' && (
+            <ScopeView sendCommand={sendCommand} scopeAnalysis={scopeAnalysis} />
+          )}
+          {view === 'context' && (
+            <ContextView sendCommand={sendCommand} contextIndex={contextIndex} />
+          )}
+          {view === 'pair' && (
+            <PairView sendCommand={sendCommand} pairSession={pairSession} />
+          )}
+          {view === 'delegate' && (
+            <DelegateView sendCommand={sendCommand} delegateState={delegateState} />
+          )}
+          {view === 'report' && (
+            <ReportView sendCommand={sendCommand} reportData={reportData} />
+          )}
+          {view === 'team' && (
+            <TeamView sendCommand={sendCommand} teamActivity={teamActivity} />
+          )}
+          {view === 'retro' && (
+            <RetroView sendCommand={sendCommand} retroReport={retroReport} />
           )}
         </>
       )}

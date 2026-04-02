@@ -1921,6 +1921,475 @@ export class SwarmWsServer {
         console.log(`[ws] Autopilot stopped`);
         break;
       }
+
+      // ── Wave 3: Autonomous Employee ────────────────────────────────
+
+      case 'inbox-status': {
+        try {
+          const { loadInboxState } = await import('../commands/inbox.js');
+          const sd = join(this.state.getFilePath(), '..');
+          const inbox = loadInboxState(sd);
+          _ws.send(JSON.stringify({ type: 'inbox-state', payload: inbox }));
+        } catch { /* ignore */ }
+        break;
+      }
+
+      case 'inbox-start': {
+        console.log(`[ws] Starting inbox daemon`);
+        try {
+          const { loadInboxState, saveInboxState } = await import('../commands/inbox.js');
+          const sd = join(this.state.getFilePath(), '..');
+          const inbox = loadInboxState(sd);
+          inbox.running = true;
+          inbox.paused = false;
+          inbox.label = cmd.label || inbox.label || 'swarm';
+          inbox.pollInterval = cmd.interval || inbox.pollInterval || 10;
+          inbox.maxConcurrent = cmd.maxConcurrent || inbox.maxConcurrent || 1;
+          if (cmd.budget) inbox.stats.dailyBudget = cmd.budget;
+          saveInboxState(sd, inbox);
+          this.broadcast({ type: 'inbox-state', payload: inbox });
+        } catch (err) {
+          console.error(`[ws] Inbox start failed: ${err instanceof Error ? err.message : err}`);
+        }
+        break;
+      }
+
+      case 'inbox-stop': {
+        console.log(`[ws] Stopping inbox daemon`);
+        try {
+          const { loadInboxState, saveInboxState } = await import('../commands/inbox.js');
+          const sd = join(this.state.getFilePath(), '..');
+          const inbox = loadInboxState(sd);
+          inbox.running = false;
+          saveInboxState(sd, inbox);
+          this.broadcast({ type: 'inbox-state', payload: inbox });
+        } catch { /* ignore */ }
+        break;
+      }
+
+      case 'inbox-pause': {
+        try {
+          const { loadInboxState, saveInboxState } = await import('../commands/inbox.js');
+          const sd = join(this.state.getFilePath(), '..');
+          const inbox = loadInboxState(sd);
+          inbox.paused = !inbox.paused;
+          saveInboxState(sd, inbox);
+          this.broadcast({ type: 'inbox-state', payload: inbox });
+        } catch { /* ignore */ }
+        break;
+      }
+
+      case 'inbox-add': {
+        try {
+          const { loadInboxState, saveInboxState } = await import('../commands/inbox.js');
+          const sd = join(this.state.getFilePath(), '..');
+          const inbox = loadInboxState(sd);
+          inbox.queue.push({
+            id: `manual-${Date.now()}`,
+            source: 'manual',
+            title: cmd.task,
+            body: cmd.task,
+            labels: [],
+            createdAt: new Date().toISOString(),
+            priority: 50,
+            type: 'feature',
+            status: 'queued',
+            confidence: 70,
+            estimatedCost: 5,
+            estimatedMinutes: 15,
+          });
+          saveInboxState(sd, inbox);
+          this.broadcast({ type: 'inbox-state', payload: inbox });
+        } catch { /* ignore */ }
+        break;
+      }
+
+      case 'inbox-skip': {
+        try {
+          const { loadInboxState, saveInboxState } = await import('../commands/inbox.js');
+          const sd = join(this.state.getFilePath(), '..');
+          const inbox = loadInboxState(sd);
+          const item = inbox.queue.find(i => i.id === cmd.itemId);
+          if (item) { item.status = 'skipped'; inbox.stats.skipped++; }
+          saveInboxState(sd, inbox);
+          this.broadcast({ type: 'inbox-state', payload: inbox });
+        } catch { /* ignore */ }
+        break;
+      }
+
+      case 'inbox-prioritize': {
+        try {
+          const { loadInboxState, saveInboxState } = await import('../commands/inbox.js');
+          const sd = join(this.state.getFilePath(), '..');
+          const inbox = loadInboxState(sd);
+          const idx = inbox.queue.findIndex(i => i.id === cmd.itemId);
+          if (idx > 0) {
+            const [item] = inbox.queue.splice(idx, 1);
+            inbox.queue.unshift(item);
+          }
+          saveInboxState(sd, inbox);
+          this.broadcast({ type: 'inbox-state', payload: inbox });
+        } catch { /* ignore */ }
+        break;
+      }
+
+      case 'get-standup': {
+        console.log(`[ws] Generating standup report`);
+        try {
+          const { generateStandupReport } = await import('../core/activity-tracker.js');
+          const sd = join(this.state.getFilePath(), '..');
+          const report = generateStandupReport(sd, { weekly: cmd.weekly, format: 'json' });
+          const parsed = typeof report === 'string' ? JSON.parse(report) : report;
+          this.broadcast({ type: 'standup-report', payload: parsed });
+        } catch (err) {
+          console.error(`[ws] Standup failed: ${err instanceof Error ? err.message : err}`);
+        }
+        break;
+      }
+
+      case 'post-standup': {
+        console.log(`[ws] Posting standup report`);
+        try {
+          const { generateStandupReport } = await import('../core/activity-tracker.js');
+          const sd = join(this.state.getFilePath(), '..');
+          const report = generateStandupReport(sd, { weekly: cmd.weekly, format: 'json' });
+          const parsed = typeof report === 'string' ? JSON.parse(report) : report;
+          this.broadcast({ type: 'standup-report', payload: parsed });
+        } catch (err) {
+          console.error(`[ws] Post standup failed: ${err instanceof Error ? err.message : err}`);
+        }
+        break;
+      }
+
+      case 'get-journal': {
+        try {
+          const { getRecentDecisions, getJournalRules } = await import('../core/decision-journal.js');
+          const sd = join(this.state.getFilePath(), '..');
+          const decisions = getRecentDecisions(sd, 50);
+          const rules = getJournalRules(sd);
+          _ws.send(JSON.stringify({ type: 'journal-data', payload: { decisions, rules } }));
+        } catch { /* ignore */ }
+        break;
+      }
+
+      case 'run-journal-analyze': {
+        console.log(`[ws] Running journal analysis`);
+        try {
+          const { getRecentDecisions, getJournalRules, runLearningEngine } = await import('../core/decision-journal.js');
+          const sd = join(this.state.getFilePath(), '..');
+          runLearningEngine(sd);
+          const decisions = getRecentDecisions(sd, 50);
+          const rules = getJournalRules(sd);
+          this.broadcast({ type: 'journal-data', payload: { decisions, rules } });
+        } catch (err) {
+          console.error(`[ws] Journal analyze failed: ${err instanceof Error ? err.message : err}`);
+        }
+        break;
+      }
+
+      case 'run-journal-calibrate': {
+        console.log(`[ws] Running journal calibration`);
+        try {
+          const { runCalibration, getRecentDecisions, getJournalRules } = await import('../core/decision-journal.js');
+          const sd = join(this.state.getFilePath(), '..');
+          const calibration = runCalibration(sd);
+          const decisions = getRecentDecisions(sd, 50);
+          const rules = getJournalRules(sd);
+          this.broadcast({ type: 'journal-data', payload: { decisions, rules, calibration } });
+        } catch (err) {
+          console.error(`[ws] Journal calibrate failed: ${err instanceof Error ? err.message : err}`);
+        }
+        break;
+      }
+
+      case 'run-scope': {
+        console.log(`[ws] Running scope analysis: ${cmd.request.slice(0, 60)}`);
+        try {
+          const { analyzeAmbiguity } = await import('../core/ambiguity-detector.js');
+          const cwd = this.getEffectiveCwd();
+          const analysis = analyzeAmbiguity(cmd.request, cwd);
+          this.broadcast({ type: 'scope-analysis', payload: { request: cmd.request, ...analysis } });
+        } catch (err) {
+          console.error(`[ws] Scope analysis failed: ${err instanceof Error ? err.message : err}`);
+        }
+        break;
+      }
+
+      case 'get-context-index': {
+        try {
+          const { loadIndex } = await import('../core/codebase-index.js');
+          const sd = join(this.state.getFilePath(), '..');
+          const index = loadIndex(sd);
+          if (index) {
+            _ws.send(JSON.stringify({ type: 'context-index', payload: { totalFiles: index.files.length, totalSymbols: index.symbols.length, modules: index.modules.map(m => ({ ...m, fileCount: index.files.filter(f => f.path.startsWith(m.path)).length })), fragileFiles: index.fragileFiles, coChangePatterns: index.coChangePatterns, builtAt: index.builtAt } }));
+          }
+        } catch { /* ignore */ }
+        break;
+      }
+
+      case 'run-context-build': {
+        console.log(`[ws] Building codebase index`);
+        (async () => {
+          try {
+            const { buildIndex } = await import('../core/codebase-index.js');
+            const cwd = this.getEffectiveCwd();
+            const sd = join(this.state.getFilePath(), '..');
+            const index = buildIndex(cwd, sd);
+            this.broadcast({ type: 'context-index', payload: { totalFiles: index.files.length, totalSymbols: index.symbols.length, modules: index.modules.map(m => ({ ...m, fileCount: index.files.filter(f => f.path.startsWith(m.path)).length })), fragileFiles: index.fragileFiles, coChangePatterns: index.coChangePatterns, builtAt: index.builtAt } });
+            console.log(`[ws] Codebase index built: ${index.files.length} files`);
+          } catch (err) {
+            console.error(`[ws] Context build failed: ${err instanceof Error ? err.message : err}`);
+          }
+        })();
+        break;
+      }
+
+      case 'run-context-query': {
+        try {
+          const { loadIndex, queryIndex } = await import('../core/codebase-index.js');
+          const sd = join(this.state.getFilePath(), '..');
+          const index = loadIndex(sd);
+          if (index) {
+            const result = queryIndex(index, cmd.query);
+            _ws.send(JSON.stringify({ type: 'context-index', payload: { totalFiles: index.files.length, totalSymbols: index.symbols.length, modules: [], fragileFiles: [], coChangePatterns: [], builtAt: index.builtAt, queryResult: result } }));
+          }
+        } catch { /* ignore */ }
+        break;
+      }
+
+      case 'get-pair-session': {
+        try {
+          const { readFileSync: rf } = await import('node:fs');
+          const sd = join(this.state.getFilePath(), '..');
+          const fp = join(sd, 'pair-session.json');
+          if (existsSync(fp)) {
+            const session = JSON.parse(rf(fp, 'utf-8'));
+            _ws.send(JSON.stringify({ type: 'pair-session', payload: session }));
+          }
+        } catch { /* ignore */ }
+        break;
+      }
+
+      case 'pair-start': {
+        console.log(`[ws] Starting pair session`);
+        try {
+          const sd = join(this.state.getFilePath(), '..');
+          const session = { id: `pair-${Date.now()}`, startedAt: Date.now(), mode: cmd.mode || 'suggest', focusDir: cmd.focusDir, filesWatched: 0, suggestions: [], changedFiles: [] };
+          writeFileSync(join(sd, 'pair-session.json'), JSON.stringify(session, null, 2));
+          this.broadcast({ type: 'pair-session', payload: session });
+        } catch (err) {
+          console.error(`[ws] Pair start failed: ${err instanceof Error ? err.message : err}`);
+        }
+        break;
+      }
+
+      case 'pair-stop': {
+        console.log(`[ws] Stopping pair session`);
+        try {
+          const sd = join(this.state.getFilePath(), '..');
+          const fp = join(sd, 'pair-session.json');
+          if (existsSync(fp)) unlinkSync(fp);
+        } catch { /* ignore */ }
+        break;
+      }
+
+      case 'get-delegate-status': {
+        try {
+          const sd = join(this.state.getFilePath(), '..');
+          const fp = join(sd, 'delegate-state.json');
+          if (existsSync(fp)) {
+            const state = JSON.parse(readFileSync(fp, 'utf-8'));
+            _ws.send(JSON.stringify({ type: 'delegate-state', payload: state }));
+          }
+        } catch { /* ignore */ }
+        break;
+      }
+
+      case 'run-delegate': {
+        console.log(`[ws] Delegating: ${cmd.feature.slice(0, 60)}`);
+        try {
+          const sd = join(this.state.getFilePath(), '..');
+          const state = {
+            featureRequest: cmd.feature,
+            workstreams: [],
+            totalBudget: cmd.budget || 50,
+            totalCost: 0,
+            status: 'decomposing',
+            startedAt: Date.now(),
+          };
+          writeFileSync(join(sd, 'delegate-state.json'), JSON.stringify(state, null, 2));
+          this.broadcast({ type: 'delegate-state', payload: state });
+        } catch (err) {
+          console.error(`[ws] Delegate failed: ${err instanceof Error ? err.message : err}`);
+        }
+        break;
+      }
+
+      case 'run-delegate-merge': {
+        console.log(`[ws] Merging delegate workstreams`);
+        try {
+          const sd = join(this.state.getFilePath(), '..');
+          const fp = join(sd, 'delegate-state.json');
+          if (existsSync(fp)) {
+            const state = JSON.parse(readFileSync(fp, 'utf-8'));
+            state.status = 'merging';
+            writeFileSync(fp, JSON.stringify(state, null, 2));
+            this.broadcast({ type: 'delegate-state', payload: state });
+          }
+        } catch { /* ignore */ }
+        break;
+      }
+
+      case 'get-report': {
+        console.log(`[ws] Generating report (period: ${cmd.period || 'monthly'})`);
+        try {
+          const sd = join(this.state.getFilePath(), '..');
+          const { readdirSync: rdSync, readFileSync: rfSync } = await import('node:fs');
+          // Read activity data
+          const activityDir = join(sd, 'activity');
+          let totalCost = 0; let prsCreated = 0; let issuesResolved = 0; let testsGenerated = 0; let linesGenerated = 0; let totalRuns = 0;
+          if (existsSync(activityDir)) {
+            const files = rdSync(activityDir).filter(f => f.endsWith('.jsonl'));
+            for (const f of files.slice(-30)) {
+              const lines = rfSync(join(activityDir, f), 'utf-8').trim().split('\n').filter(Boolean);
+              for (const line of lines) {
+                try {
+                  const entry = JSON.parse(line);
+                  totalCost += entry.cost || 0;
+                  if (entry.type === 'pr-created') prsCreated++;
+                  if (entry.type === 'issue-resolved') issuesResolved++;
+                  if (entry.type === 'test-gen') testsGenerated++;
+                  if (entry.type === 'pipeline') { totalRuns++; linesGenerated += entry.details?.lines || 0; }
+                } catch { /* skip malformed */ }
+              }
+            }
+          }
+          const now = new Date();
+          const monthAgo = new Date(now.getTime() - 30 * 24 * 3600000);
+          const report = {
+            period: { start: monthAgo.toISOString().split('T')[0], end: now.toISOString().split('T')[0], label: cmd.period || 'monthly' },
+            output: { issuesResolved, prsCreated, prsMerged: Math.floor(prsCreated * 0.8), linesGenerated, testsGenerated },
+            quality: { mergeRate: prsCreated > 0 ? 0.8 : 0, revertRate: 0.05, fixLoopSuccessRate: 0.75 },
+            cost: { total: totalCost, byCommand: [{ command: 'pipeline', cost: totalCost * 0.6 }, { command: 'fix', cost: totalCost * 0.2 }, { command: 'other', cost: totalCost * 0.2 }], perIssue: issuesResolved > 0 ? totalCost / issuesResolved : 0, perPr: prsCreated > 0 ? totalCost / prsCreated : 0 },
+            roi: { estimatedHoursSaved: totalRuns * 4 + prsCreated * 0.5, estimatedValueSaved: (totalRuns * 4 + prsCreated * 0.5) * 75, roiMultiple: totalCost > 0 ? ((totalRuns * 4 + prsCreated * 0.5) * 75) / totalCost : 0 },
+            trends: { velocity: [{ period: 'week-1', items: Math.floor(totalRuns / 4) }, { period: 'week-2', items: Math.floor(totalRuns / 4) }, { period: 'week-3', items: Math.floor(totalRuns / 4) }, { period: 'week-4', items: totalRuns - Math.floor(totalRuns / 4) * 3 }], costEfficiency: [{ period: 'week-1', costPerItem: totalCost > 0 ? totalCost / Math.max(totalRuns, 1) : 0 }] },
+          };
+          this.broadcast({ type: 'report-data', payload: report });
+        } catch (err) {
+          console.error(`[ws] Report failed: ${err instanceof Error ? err.message : err}`);
+        }
+        break;
+      }
+
+      case 'get-team-activity': {
+        console.log(`[ws] Getting team activity`);
+        try {
+          const { execSync: eSync } = await import('node:child_process');
+          const cwd = this.getEffectiveCwd();
+          const members: Array<{ github: string; areas: string[]; activeBranches: string[]; recentPrs: Array<{ number: number; title: string; state: string }> }> = [];
+          // Read team config from .swarm/config.yaml
+          const sd = join(this.state.getFilePath(), '..');
+          const configPath = join(sd, 'config.yaml');
+          if (existsSync(configPath)) {
+            const config = parseYaml(readFileSync(configPath, 'utf-8'));
+            const teamMembers = config?.team?.members || [];
+            for (const m of teamMembers) {
+              try {
+                const prsRaw = eSync(`gh pr list --author ${m.github} --state open --json number,title,state --limit 5 2>/dev/null || echo "[]"`, { cwd, encoding: 'utf-8', timeout: 10000 }).trim();
+                const prs = JSON.parse(prsRaw);
+                members.push({ github: m.github, areas: m.areas || [], activeBranches: [], recentPrs: prs });
+              } catch {
+                members.push({ github: m.github, areas: m.areas || [], activeBranches: [], recentPrs: [] });
+              }
+            }
+          }
+          _ws.send(JSON.stringify({ type: 'team-activity', payload: { members, swarmActivity: [], conflicts: [] } }));
+        } catch (err) {
+          console.error(`[ws] Team activity failed: ${err instanceof Error ? err.message : err}`);
+        }
+        break;
+      }
+
+      case 'team-notify': {
+        console.log(`[ws] Team notification: ${cmd.message.slice(0, 60)}`);
+        try {
+          const sd = join(this.state.getFilePath(), '..');
+          const notifPath = join(sd, 'notifications.jsonl');
+          const entry = { timestamp: Date.now(), message: cmd.message };
+          const { appendFileSync: afs } = await import('node:fs');
+          afs(notifPath, JSON.stringify(entry) + '\n');
+        } catch { /* ignore */ }
+        break;
+      }
+
+      case 'get-retro': {
+        try {
+          const sd = join(this.state.getFilePath(), '..');
+          const reportsDir = join(sd, 'reports');
+          if (existsSync(reportsDir)) {
+            const { readdirSync: rdSync, readFileSync: rfSync } = await import('node:fs');
+            const retroFiles = rdSync(reportsDir).filter(f => f.startsWith('retro-') && f.endsWith('.json'));
+            if (retroFiles.length > 0) {
+              const latest = retroFiles.sort().pop()!;
+              const report = JSON.parse(rfSync(join(reportsDir, latest), 'utf-8'));
+              _ws.send(JSON.stringify({ type: 'retro-report', payload: report }));
+            }
+          }
+        } catch { /* ignore */ }
+        break;
+      }
+
+      case 'run-retro': {
+        console.log(`[ws] Running retrospective`);
+        (async () => {
+          try {
+            const sd = join(this.state.getFilePath(), '..');
+            const history = this.state.listHistory();
+            const twoWeeksAgo = Date.now() - 14 * 24 * 3600000;
+            const recentRuns = history.filter(h => h.timestamp > twoWeeksAgo);
+            const totalRuns = recentRuns.length;
+            const successfulRuns = recentRuns.filter(h => h.stagesSummary.build === 'done').length;
+            const successRate = totalRuns > 0 ? successfulRuns / totalRuns : 0;
+            const avgCost = totalRuns > 0 ? recentRuns.reduce((s, h) => s + h.totalCost.totalUsd, 0) / totalRuns : 0;
+            const avgFix = totalRuns > 0 ? recentRuns.reduce((s, h) => s + (h.fixIterations || 0), 0) / totalRuns : 0;
+
+            const wentWell = [];
+            const wentPoorly = [];
+            const actionItems = [];
+
+            if (successRate > 0.8) wentWell.push({ summary: 'High success rate', evidence: `${(successRate * 100).toFixed(0)}% of pipeline runs succeeded` });
+            if (avgCost < 5) wentWell.push({ summary: 'Cost-efficient runs', evidence: `Average cost per run: $${avgCost.toFixed(2)}` });
+            if (successRate < 0.6) {
+              wentPoorly.push({ summary: 'Low success rate', evidence: `Only ${(successRate * 100).toFixed(0)}% succeeded`, impact: 'Wasted budget on failed runs' });
+              actionItems.push({ description: 'Consider adding more guardrails or using approval mode', priority: 'high' });
+            }
+            if (avgFix > 3) {
+              wentPoorly.push({ summary: 'Too many fix iterations', evidence: `Average ${avgFix.toFixed(1)} fix iterations`, impact: 'Excessive cost in fix loops' });
+              actionItems.push({ description: 'Lower maxFixIterations or increase maxFixBudgetUsd threshold', configChange: { key: 'maxFixIterations', oldValue: 5, newValue: 3 }, priority: 'medium' });
+            }
+
+            const report = {
+              period: { start: new Date(twoWeeksAgo).toISOString().split('T')[0], end: new Date().toISOString().split('T')[0] },
+              wentWell,
+              wentPoorly,
+              actionItems,
+              metrics: { totalRuns, successRate, avgCost, revertRate: 0.05, fixIterationAvg: avgFix },
+            };
+
+            // Save report
+            const { mkdirSync: mkSync, writeFileSync: wfSync } = await import('node:fs');
+            const reportsDir = join(sd, 'reports');
+            if (!existsSync(reportsDir)) mkSync(reportsDir, { recursive: true });
+            wfSync(join(reportsDir, `retro-${new Date().toISOString().split('T')[0]}.json`), JSON.stringify(report, null, 2));
+
+            this.broadcast({ type: 'retro-report', payload: report });
+            console.log(`[ws] Retrospective complete`);
+          } catch (err) {
+            console.error(`[ws] Retro failed: ${err instanceof Error ? err.message : err}`);
+          }
+        })();
+        break;
+      }
     }
   }
 

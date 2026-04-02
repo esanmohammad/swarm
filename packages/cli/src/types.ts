@@ -230,6 +230,16 @@ export type WsMessage =
   | { type: 'runtime-events'; payload: { events: Array<{ type: string; detail: string; timestamp: number; severity: string; source: string }>; anomalyCount: number } }
   | { type: 'secrets-report'; payload: { findings: Array<{ type: string; file: string; line: number; severity: string; message: string }>; gitignoreIssues: string[] } }
   | { type: 'fingerprint-report'; payload: { files: Array<{ file: string; origin: string; confidence: number; aiPercentage: number; model?: string }>; summary: { totalFiles: number; aiFiles: number; humanFiles: number; mixedFiles: number; aiLinesEstimate: number; totalLines: number } } }
+  | { type: 'inbox-state'; payload: InboxState }
+  | { type: 'standup-report'; payload: StandupReport }
+  | { type: 'journal-data'; payload: JournalData }
+  | { type: 'scope-analysis'; payload: ScopeAnalysis }
+  | { type: 'context-index'; payload: ContextIndex }
+  | { type: 'pair-session'; payload: PairSessionState }
+  | { type: 'delegate-state'; payload: DelegateState }
+  | { type: 'report-data'; payload: ReportData }
+  | { type: 'team-activity'; payload: TeamActivity }
+  | { type: 'retro-report'; payload: RetroReport }
   | { type: 'error'; payload: { message: string } };
 
 export interface PipelineInfo {
@@ -306,7 +316,34 @@ export type WsCommand =
   | { action: 'get-runtime-events'; since?: number; severity?: string }
   | { action: 'save-runtime-baseline' }
   | { action: 'run-fingerprint'; scope?: string }
-  | { action: 'run-secrets-scan'; scope?: string; includeTests?: boolean };
+  | { action: 'run-secrets-scan'; scope?: string; includeTests?: boolean }
+  | { action: 'inbox-start'; label?: string; interval?: number; maxConcurrent?: number; budget?: number }
+  | { action: 'inbox-stop' }
+  | { action: 'inbox-pause' }
+  | { action: 'inbox-status' }
+  | { action: 'inbox-add'; task: string }
+  | { action: 'inbox-skip'; itemId: string }
+  | { action: 'inbox-prioritize'; itemId: string }
+  | { action: 'get-standup'; weekly?: boolean }
+  | { action: 'post-standup'; weekly?: boolean }
+  | { action: 'get-journal' }
+  | { action: 'run-journal-analyze' }
+  | { action: 'run-journal-calibrate' }
+  | { action: 'run-scope'; request: string }
+  | { action: 'get-context-index' }
+  | { action: 'run-context-build' }
+  | { action: 'run-context-query'; query: string }
+  | { action: 'pair-start'; mode?: string; focusDir?: string }
+  | { action: 'pair-stop' }
+  | { action: 'get-pair-session' }
+  | { action: 'run-delegate'; feature: string; maxParallel?: number; budget?: number; dryRun?: boolean }
+  | { action: 'get-delegate-status' }
+  | { action: 'run-delegate-merge' }
+  | { action: 'get-report'; period?: string }
+  | { action: 'get-team-activity' }
+  | { action: 'team-notify'; message: string }
+  | { action: 'get-retro'; period?: string }
+  | { action: 'run-retro'; period?: string; autoApply?: boolean };
 
 // Guardrail types
 export interface GuardrailRule {
@@ -497,6 +534,134 @@ export interface AutopilotState {
     failed: number;
     totalCost: number;
   };
+}
+
+// Wave 3 — Inbox types
+export interface WorkItem {
+  id: string;
+  source: 'github-issue' | 'github-pr' | 'ci-failure' | 'stale-pr' | 'slack' | 'scheduled' | 'manual';
+  title: string;
+  body: string;
+  url?: string;
+  labels: string[];
+  author?: string;
+  createdAt: string;
+  priority: number;
+  type: 'bug-fix' | 'feature' | 'maintenance' | 'incident' | 'review';
+  status: 'queued' | 'triaging' | 'running' | 'done' | 'failed' | 'skipped' | 'needs-human';
+  confidence: number;
+  estimatedCost: number;
+  estimatedMinutes: number;
+  result?: { prUrl?: string; cost?: number; duration?: number; error?: string };
+  startedAt?: number;
+  completedAt?: number;
+}
+
+export interface InboxState {
+  running: boolean;
+  paused: boolean;
+  label: string;
+  pollInterval: number;
+  maxConcurrent: number;
+  queue: WorkItem[];
+  processed: WorkItem[];
+  stats: {
+    totalProcessed: number;
+    successful: number;
+    failed: number;
+    skipped: number;
+    totalCost: number;
+    dailyBudget: number;
+    dailySpent: number;
+  };
+  workHours?: { start: string; end: string; timezone: string };
+}
+
+// Wave 3 — Standup types
+export interface StandupReport {
+  date: string;
+  completed: Array<{ summary: string; type: string; cost: number; prUrl?: string }>;
+  impact: { prsCreated: number; prsMerged: number; issuesClosed: number; testsGenerated: number; linesGenerated: number };
+  cost: { total: number; byType: Array<{ type: string; cost: number }> };
+  blockers: Array<{ summary: string; reason: string }>;
+  upcoming: Array<{ title: string; estimatedCost: number }>;
+  velocity: { thisWeek: number; lastWeek: number; trend: 'up' | 'down' | 'stable' };
+}
+
+// Wave 3 — Decision Journal types
+export interface JournalData {
+  decisions: Array<{ id: string; timestamp: number; type: string; context: string; decision: string; reasoning: string; confidence: number; outcome?: string; outcomeDetail?: string }>;
+  rules: Array<{ id: string; rule: string; enabled: boolean; appliesTo: string[] }>;
+  calibration?: { totalDecisions: number; accuracyByType: Array<{ type: string; accuracy: number; total: number }>; recommendations: string[] };
+}
+
+// Wave 3 — Scope types
+export interface ScopeAnalysis {
+  request: string;
+  vaguenessScore: number;
+  classification: string;
+  riskFactors: string[];
+  missingContext: string[];
+  questions: string[];
+  options: Array<{ name: string; description: string; estimatedCost: number; estimatedTime: string; risk: string; tradeoffs: string[]; recommended: boolean }>;
+}
+
+// Wave 3 — Context Index types
+export interface ContextIndex {
+  totalFiles: number;
+  totalSymbols: number;
+  modules: Array<{ path: string; purpose: string; fileCount: number }>;
+  fragileFiles: Array<{ path: string; failureRate: number; reason: string }>;
+  coChangePatterns: Array<{ fileA: string; fileB: string; frequency: number }>;
+  builtAt: number;
+  queryResult?: string;
+}
+
+// Wave 3 — Pair Session types
+export interface PairSessionState {
+  id: string;
+  startedAt: number;
+  mode: string;
+  focusDir?: string;
+  filesWatched: number;
+  suggestions: Array<{ id: string; type: string; file: string; line?: number; message: string; severity: string; timestamp: number; accepted?: boolean }>;
+  changedFiles: string[];
+}
+
+// Wave 3 — Delegate types
+export interface DelegateState {
+  featureRequest: string;
+  workstreams: Array<{ id: string; name: string; tasks: string[]; branch: string; status: string; cost: number; startedAt?: number; completedAt?: number; error?: string; prUrl?: string; dependsOn: string[] }>;
+  totalBudget: number;
+  totalCost: number;
+  status: string;
+  startedAt: number;
+}
+
+// Wave 3 — Report types
+export interface ReportData {
+  period: { start: string; end: string; label: string };
+  output: { issuesResolved: number; prsCreated: number; prsMerged: number; linesGenerated: number; testsGenerated: number };
+  quality: { mergeRate: number; revertRate: number; fixLoopSuccessRate: number };
+  cost: { total: number; byCommand: Array<{ command: string; cost: number }>; perIssue: number; perPr: number };
+  roi: { estimatedHoursSaved: number; estimatedValueSaved: number; roiMultiple: number };
+  trends: { velocity: Array<{ period: string; items: number }>; costEfficiency: Array<{ period: string; costPerItem: number }> };
+}
+
+// Wave 3 — Team types
+export interface TeamActivity {
+  members: Array<{ github: string; areas: string[]; activeBranches: string[]; recentPrs: Array<{ number: number; title: string; state: string }> }>;
+  swarmActivity: Array<{ task: string; status: string; startedAt: number; cost: number }>;
+  conflicts: Array<{ file: string; humanDeveloper: string; swarmTask: string }>;
+}
+
+// Wave 3 — Retro types
+export interface RetroReport {
+  period: { start: string; end: string };
+  wentWell: Array<{ summary: string; evidence: string }>;
+  wentPoorly: Array<{ summary: string; evidence: string; impact: string }>;
+  actionItems: Array<{ description: string; configChange?: { key: string; oldValue: unknown; newValue: unknown }; priority: string }>;
+  metrics: { totalRuns: number; successRate: number; avgCost: number; revertRate: number; fixIterationAvg: number };
 }
 
 // Persona → stage mapping
