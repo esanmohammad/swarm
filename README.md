@@ -426,4 +426,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for details. Architecture docs are in [do
 
 ## License
 
-MIT
+BSL 1.1 — free to use, source available. Converts to Apache 2.0 on April 2, 2030. See [LICENSE](LICENSE).

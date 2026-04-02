@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "AI builds your feature while you watch — orchestrate Claude Code agents through a structured 5-stage pipeline",
   "type": "module",
-  "license": "MIT",
+  "license": "BUSL-1.1",
   "author": "Esan Mohammad",
   "repository": {
     "type": "git",
