@@ -45,7 +45,7 @@ interface Toast {
 let toastId = 0;
 
 export default function App() {
-  const { state, connected, agentOutputs, agentActivities, violations, historyEntries, artifactContent, pipelines, activePipeline, conventions, conventionsLoading, memories, prReviews, watchResults, deployResult, stats, autopilotState, sendCommand, switchPipeline } = useWebSocket();
+  const { state, connected, agentOutputs, agentActivities, violations, historyEntries, artifactContent, pipelines, activePipeline, conventions, conventionsLoading, memories, prReviews, watchResults, deployResult, stats, autopilotState, healthReport, sendCommand, switchPipeline } = useWebSocket();
   const { theme, cycleTheme } = useTheme();
   const [view, setView] = usePersistedState<View>('swarm_view', getInitialView());
   const [showSpawn, setShowSpawn] = useState(false);
@@ -454,7 +454,7 @@ export default function App() {
             <IncidentView sendCommand={sendCommand} />
           )}
           {view === 'health-check' && (
-            <HealthView sendCommand={sendCommand} />
+            <HealthView sendCommand={sendCommand} healthReport={healthReport} />
           )}
           {view === 'benchmark' && (
             <BenchmarkView sendCommand={sendCommand} />

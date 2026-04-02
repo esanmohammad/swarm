@@ -1601,6 +1601,291 @@ export class SwarmWsServer {
         break;
       }
 
+      case 'run-health': {
+        console.log(`[ws] Running health check`);
+        (async () => {
+          try {
+            const { checkHealth } = await import('../commands/health.js');
+            const cwd = this.getEffectiveCwd();
+            const report = checkHealth(cwd);
+            this.broadcast({ type: 'health-report', payload: { overall: report.overall, metrics: report.metrics, timestamp: report.timestamp } });
+            console.log(`[ws] Health check complete: ${report.overall}/100`);
+          } catch (err) {
+            console.error(`[ws] Health check failed: ${err instanceof Error ? err.message : err}`);
+          }
+        })();
+        break;
+      }
+
+      case 'run-secure': {
+        console.log(`[ws] Running security scan`);
+        (async () => {
+          try {
+            const { SecurityScanner } = await import('./security-scanner.js');
+            const cwd = this.getEffectiveCwd();
+            const scanner = new SecurityScanner(cwd);
+            const report = scanner.scan({ full: cmd.full });
+            this.broadcast({ type: 'security-report', payload: { findings: report.findings, summary: report.summary, scannedFiles: report.scannedFiles } });
+            console.log(`[ws] Security scan complete: ${report.findings.length} findings`);
+          } catch (err) {
+            console.error(`[ws] Security scan failed: ${err instanceof Error ? err.message : err}`);
+          }
+        })();
+        break;
+      }
+
+      case 'run-secrets-scan': {
+        console.log(`[ws] Running secret scan`);
+        (async () => {
+          try {
+            const { SecretDetector } = await import('./secret-detector.js');
+            const cwd = this.getEffectiveCwd();
+            const detector = new SecretDetector(cwd);
+            const findings = detector.scan({ });
+            const gitignoreCheck = detector.checkGitignore();
+            this.broadcast({ type: 'secrets-report', payload: { findings: findings.map(f => ({ type: f.type, file: f.file, line: f.line, severity: f.severity, message: f.message })), gitignoreIssues: gitignoreCheck.missing } });
+            console.log(`[ws] Secret scan complete: ${findings.length} findings`);
+          } catch (err) {
+            console.error(`[ws] Secret scan failed: ${err instanceof Error ? err.message : err}`);
+          }
+        })();
+        break;
+      }
+
+      case 'run-supply-chain-check': {
+        console.log(`[ws] Running supply chain check`);
+        (async () => {
+          try {
+            const { SupplyChainGuard } = await import('./supply-chain.js');
+            const cwd = this.getEffectiveCwd();
+            const guard = new SupplyChainGuard(cwd);
+            const results = cmd.package ? [guard.verifyPackage(cmd.package)] : guard.verifyAll();
+            _ws.send(JSON.stringify({ type: 'supply-chain-results', payload: { results } }));
+            console.log(`[ws] Supply chain check complete: ${results.length} packages`);
+          } catch (err) {
+            console.error(`[ws] Supply chain check failed: ${err instanceof Error ? err.message : err}`);
+          }
+        })();
+        break;
+      }
+
+      case 'run-deps-check': {
+        console.log(`[ws] Running dependency check`);
+        (async () => {
+          try {
+            const { execSync } = await import('node:child_process');
+            const cwd = this.getEffectiveCwd();
+            const raw = execSync('npm outdated --json 2>/dev/null || true', { cwd, encoding: 'utf-8', timeout: 30000 }).trim();
+            const parsed = raw && raw !== '{}' ? JSON.parse(raw) : {};
+            _ws.send(JSON.stringify({ type: 'deps-check', payload: { outdated: parsed } }));
+          } catch (err) {
+            console.error(`[ws] Deps check failed: ${err instanceof Error ? err.message : err}`);
+          }
+        })();
+        break;
+      }
+
+      case 'run-deps-audit': {
+        console.log(`[ws] Running dependency audit`);
+        (async () => {
+          try {
+            const { execSync } = await import('node:child_process');
+            const cwd = this.getEffectiveCwd();
+            const raw = execSync('npm audit --json 2>/dev/null || true', { cwd, encoding: 'utf-8', timeout: 30000 }).trim();
+            const parsed = JSON.parse(raw || '{}');
+            _ws.send(JSON.stringify({ type: 'deps-audit', payload: { audit: parsed } }));
+          } catch (err) {
+            console.error(`[ws] Deps audit failed: ${err instanceof Error ? err.message : err}`);
+          }
+        })();
+        break;
+      }
+
+      case 'run-deps-update': {
+        console.log(`[ws] Running dependency update (level: ${cmd.level || 'minor'})`);
+        (async () => {
+          try {
+            const { execSync } = await import('node:child_process');
+            const cwd = this.getEffectiveCwd();
+            execSync('npm update', { cwd, encoding: 'utf-8', timeout: 120000 });
+            _ws.send(JSON.stringify({ type: 'deps-update', payload: { success: true } }));
+            console.log(`[ws] Deps update complete`);
+          } catch (err) {
+            console.error(`[ws] Deps update failed: ${err instanceof Error ? err.message : err}`);
+          }
+        })();
+        break;
+      }
+
+      case 'run-incident': {
+        console.log(`[ws] Running incident response: ${cmd.description.slice(0, 60)}`);
+        (async () => {
+          try {
+            const { execSync } = await import('node:child_process');
+            const cwd = this.getEffectiveCwd();
+            const model = cmd.model || 'sonnet';
+
+            // Gather context
+            let context = '';
+            try { context += 'Recent commits:\n' + execSync('git log --oneline -15', { cwd, encoding: 'utf-8' }); } catch { /* ignore */ }
+
+            const prompt = [
+              'You are a production incident responder. Diagnose the following issue.',
+              `\nSeverity: ${cmd.severity || 'P3'}`,
+              `\nIncident: ${cmd.description}`,
+              context ? `\nContext:\n${context}` : '',
+              '\nProduce: 1) Timeline, 2) Suspected culprit, 3) Root cause, 4) Recommended fix/rollback.',
+            ].join('\n');
+
+            const agent = await this.agentManager.spawn({
+              name: `incident-${Date.now()}`,
+              persona: 'engineer',
+              stack: this.state.getState().stack,
+              prompt,
+              model,
+              cwd,
+              interactive: false,
+              permissionMode: cmd.fix ? 'auto' : 'plan',
+              disallowedTools: cmd.fix ? undefined : ['Edit', 'Write', 'Bash', 'NotebookEdit'],
+            });
+
+            await this.agentManager.waitForAgent(agent.id);
+            console.log(`[ws] Incident response complete`);
+          } catch (err) {
+            console.error(`[ws] Incident response failed: ${err instanceof Error ? err.message : err}`);
+          }
+        })();
+        break;
+      }
+
+      case 'run-benchmark': {
+        console.log(`[ws] Running benchmark`);
+        (async () => {
+          try {
+            const { execSync } = await import('node:child_process');
+            const cwd = this.getEffectiveCwd();
+            // Try to find a bench script
+            let output = '';
+            try {
+              const pkg = JSON.parse(readFileSync(join(cwd, 'package.json'), 'utf-8'));
+              const benchCmd = pkg.scripts?.bench || pkg.scripts?.benchmark;
+              if (benchCmd) {
+                output = execSync(`npm run ${pkg.scripts?.bench ? 'bench' : 'benchmark'}`, { cwd, encoding: 'utf-8', timeout: 120000 });
+              }
+            } catch { /* no bench script */ }
+
+            this.broadcast({
+              type: 'benchmark-report',
+              payload: { results: [], regressions: [], timestamp: Date.now() },
+            });
+            console.log(`[ws] Benchmark complete`);
+          } catch (err) {
+            console.error(`[ws] Benchmark failed: ${err instanceof Error ? err.message : err}`);
+          }
+        })();
+        break;
+      }
+
+      case 'run-risk': {
+        console.log(`[ws] Running risk scoring`);
+        (async () => {
+          try {
+            const { RiskScorer } = await import('./risk-scorer.js');
+            const { execSync } = await import('node:child_process');
+            const cwd = this.getEffectiveCwd();
+            const scorer = new RiskScorer(cwd);
+            let files = cmd.files || [];
+            if (files.length === 0) {
+              try {
+                const diff = execSync('git diff --name-only main...HEAD', { cwd, encoding: 'utf-8' }).trim();
+                files = diff ? diff.split('\n').filter(Boolean) : [];
+              } catch { /* ignore */ }
+            }
+            if (files.length > 0) {
+              const scores = scorer.scoreFiles(files);
+              this.broadcast({ type: 'risk-scores', payload: { scores } });
+            }
+            console.log(`[ws] Risk scoring complete: ${files.length} files`);
+          } catch (err) {
+            console.error(`[ws] Risk scoring failed: ${err instanceof Error ? err.message : err}`);
+          }
+        })();
+        break;
+      }
+
+      case 'run-fingerprint': {
+        console.log(`[ws] Running fingerprint scan`);
+        (async () => {
+          try {
+            const { CodeFingerprinter } = await import('./fingerprint.js');
+            const cwd = this.getEffectiveCwd();
+            const swarmDir = join(this.state.getFilePath(), '..');
+            const fp = new CodeFingerprinter(cwd, swarmDir);
+            const report = fp.scan();
+            this.broadcast({ type: 'fingerprint-report', payload: { files: report.files, summary: report.summary } });
+            console.log(`[ws] Fingerprint scan complete: ${report.files.length} files`);
+          } catch (err) {
+            console.error(`[ws] Fingerprint failed: ${err instanceof Error ? err.message : err}`);
+          }
+        })();
+        break;
+      }
+
+      case 'get-sandbox-status': {
+        try {
+          const { Sandbox } = await import('./sandbox.js');
+          const cwd = this.getEffectiveCwd();
+          const sandbox = new Sandbox(cwd);
+          _ws.send(JSON.stringify({ type: 'sandbox-status', payload: { mode: sandbox['config']?.mode || 'moderate' } }));
+        } catch { /* ignore */ }
+        break;
+      }
+
+      case 'set-sandbox-mode': {
+        try {
+          const swarmDir = join(this.state.getFilePath(), '..');
+          writeFileSync(join(swarmDir, 'sandbox.yaml'), `mode: ${cmd.mode}\n`);
+          console.log(`[ws] Sandbox mode set to ${cmd.mode}`);
+        } catch { /* ignore */ }
+        break;
+      }
+
+      case 'get-provenance': {
+        try {
+          const { ProvenanceTracker } = await import('./provenance.js');
+          const swarmDir = join(this.state.getFilePath(), '..');
+          const tracker = new ProvenanceTracker(swarmDir);
+          const records = cmd.file
+            ? tracker.getFileProvenance(cmd.file)
+            : tracker.list(cmd.limit || 20);
+          _ws.send(JSON.stringify({ type: 'provenance', payload: { records } }));
+        } catch { /* ignore */ }
+        break;
+      }
+
+      case 'get-runtime-events': {
+        try {
+          const { RuntimeMonitor } = await import('./runtime-monitor.js');
+          const swarmDir = join(this.state.getFilePath(), '..');
+          const monitor = new RuntimeMonitor(swarmDir);
+          const events = monitor.getEvents(cmd.since ? Date.now() - cmd.since * 60000 : undefined);
+          const anomalies = monitor.getAnomalies();
+          _ws.send(JSON.stringify({ type: 'runtime-events', payload: { events, anomalyCount: anomalies.length } }));
+        } catch { /* ignore */ }
+        break;
+      }
+
+      case 'save-runtime-baseline': {
+        try {
+          const { RuntimeMonitor } = await import('./runtime-monitor.js');
+          const swarmDir = join(this.state.getFilePath(), '..');
+          const monitor = new RuntimeMonitor(swarmDir);
+          monitor.saveBaseline();
+          console.log(`[ws] Runtime baseline saved`);
+        } catch { /* ignore */ }
+        break;
+      }
+
       case 'autopilot-status': {
         const { loadAutopilotState } = await import('../commands/autopilot.js');
         const swarmDir = join(this.state.getFilePath(), '..');

@@ -32,6 +32,7 @@ interface UseWebSocketReturn {
   deployResult: { environment: string; steps: Array<{ name: string; cmd: string; status: 'pass' | 'fail' | 'skip' | 'pending'; output?: string; durationMs: number }>; success: boolean; rolledBack: boolean; timestamp: number } | null;
   stats: { totalRuns: number; passed: number; failed: number; successRate: number; totalCost: number; avgCostPerRun: number; avgDurationMs: number; avgFixIterations: number; stageCosts: Array<{ stage: string; totalCost: number; avgCost: number; avgDurationMs: number; count: number }>; weeklySpend: Array<{ week: string; cost: number; runs: number }>; recommendations: string[] } | null;
   autopilotState: AutopilotState | null;
+  healthReport: { overall: number; metrics: Array<{ name: string; score: number; status: string; detail: string; suggestion?: string }>; timestamp: number } | null;
   sendCommand: (cmd: WsCommand) => void;
   switchPipeline: (namespace: string) => void;
   listPipelines: () => void;
@@ -53,6 +54,7 @@ export function useWebSocket(): UseWebSocketReturn {
   const [busMessages, setBusMessages] = useState<Array<{ id: string; fromAgentId: string; fromPersona: string; toAgentId: string; toPersona: string; kind: string; content: string; timestamp: number; delivered: boolean }>>([]);
   const [stats, setStats] = useState<UseWebSocketReturn['stats']>(null);
   const [autopilotState, setAutopilotState] = useState<AutopilotState | null>(null);
+  const [healthReport, setHealthReport] = useState<UseWebSocketReturn['healthReport']>(null);
   const agentOutputsRef = useRef(new Map<string, string>());
   const agentActivitiesRef = useRef(new Map<string, AgentActivity[]>());
   const artifactContentRef = useRef(new Map<StageName, string>());
@@ -205,6 +207,10 @@ export function useWebSocket(): UseWebSocketReturn {
           case 'autopilot-state':
             setAutopilotState(msg.payload);
             break;
+
+          case 'health-report':
+            setHealthReport(msg.payload);
+            break;
         }
       } catch {
         // ignore malformed messages
@@ -252,6 +258,7 @@ export function useWebSocket(): UseWebSocketReturn {
     busMessages,
     stats,
     autopilotState,
+    healthReport,
     sendCommand,
     switchPipeline,
     listPipelines,

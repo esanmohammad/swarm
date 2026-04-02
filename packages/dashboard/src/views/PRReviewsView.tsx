@@ -23,8 +23,10 @@ const VERDICT_STYLES: Record<string, { icon: typeof CheckCircle; color: string; 
 
 export function PRReviewsView({ sendCommand, reviews }: PRReviewsViewProps) {
   const [label, setLabel] = useState('');
+  const [prTarget, setPrTarget] = useState('');
   const [autoApprove, setAutoApprove] = useState(false);
   const [running, setRunning] = useState(false);
+  const [reviewingPr, setReviewingPr] = useState(false);
 
   useEffect(() => {
     sendCommand({ action: 'get-pr-reviews' } as WsCommand);
@@ -37,8 +39,19 @@ export function PRReviewsView({ sendCommand, reviews }: PRReviewsViewProps) {
       label: label.trim() || undefined,
       autoApprove,
     } as WsCommand);
-    // Reset running after a timeout (no reliable completion signal from daemon)
     setTimeout(() => setRunning(false), 30000);
+  };
+
+  const handleReviewPr = () => {
+    const target = prTarget.trim();
+    if (!target) return;
+    // Extract PR number from URL or use as-is
+    const match = target.match(/\/pull\/(\d+)/);
+    const prNum = match ? match[1] : target.replace(/\D/g, '');
+    if (!prNum) return;
+    setReviewingPr(true);
+    sendCommand({ action: 'run-review', target: prNum } as WsCommand);
+    setTimeout(() => setReviewingPr(false), 60000);
   };
 
   const totalCost = reviews.reduce((sum, r) => sum + r.cost, 0);
@@ -55,7 +68,27 @@ export function PRReviewsView({ sendCommand, reviews }: PRReviewsViewProps) {
           </div>
         </div>
 
-        {/* Controls */}
+        {/* Review specific PR */}
+        <div className="flex items-center gap-3 mb-3 p-3 rounded-lg bg-stone-900/40 border border-stone-800/40">
+          <input
+            type="text"
+            value={prTarget}
+            onChange={(e) => setPrTarget(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleReviewPr()}
+            placeholder="PR number or URL (e.g. 123 or https://github.com/.../pull/123)"
+            className="px-3 py-1.5 bg-transparent border border-stone-700/40 rounded text-xs text-stone-300 placeholder-stone-500 focus:border-blue-600 focus:outline-none flex-1"
+          />
+          <button
+            onClick={handleReviewPr}
+            disabled={reviewingPr || !prTarget.trim()}
+            className="flex items-center gap-1.5 px-4 py-1.5 rounded-md text-xs font-medium text-white bg-violet-600 hover:bg-violet-500 disabled:bg-stone-700 disabled:text-stone-500 transition-colors shrink-0"
+          >
+            <Play size={12} />
+            {reviewingPr ? 'Reviewing...' : 'Review PR'}
+          </button>
+        </div>
+
+        {/* Batch review controls */}
         <div className="flex items-center gap-3 mb-4 p-3 rounded-lg bg-stone-900/40 border border-stone-800/40">
           <input
             type="text"
@@ -79,7 +112,7 @@ export function PRReviewsView({ sendCommand, reviews }: PRReviewsViewProps) {
             className="flex items-center gap-1.5 px-4 py-1.5 rounded-md text-xs font-medium text-white bg-blue-600 hover:bg-blue-500 disabled:bg-stone-700 disabled:text-stone-500 transition-colors shrink-0"
           >
             <Play size={12} />
-            {running ? 'Reviewing...' : 'Review PRs Now'}
+            {running ? 'Reviewing...' : 'Review All Open PRs'}
           </button>
         </div>
 
