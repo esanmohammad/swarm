@@ -250,6 +250,15 @@ export type WsMessage =
   | { type: 'forecast-data'; payload: ForecastData }
   | { type: 'compliance-data'; payload: ComplianceData }
   | { type: 'plugin-registry'; payload: PluginRegistryData }
+  | { type: 'observe-state'; payload: ObserveState }
+  | { type: 'experiment-state'; payload: ExperimentState }
+  | { type: 'self-improvement'; payload: SelfImprovementData }
+  | { type: 'optimize-report'; payload: OptimizeReport }
+  | { type: 'impact-report'; payload: ImpactReport }
+  | { type: 'fleet-state'; payload: FleetState }
+  | { type: 'contract-data'; payload: ContractData }
+  | { type: 'simulation-report'; payload: SimulationReport }
+  | { type: 'teach-state'; payload: TeachState }
   | { type: 'error'; payload: { message: string } };
 
 export interface PipelineInfo {
@@ -380,7 +389,55 @@ export type WsCommand =
   | { action: 'run-compliance-check'; framework?: string }
   | { action: 'get-plugins' }
   | { action: 'install-plugin'; name: string }
-  | { action: 'remove-plugin'; name: string };
+  | { action: 'remove-plugin'; name: string }
+  // Wave 5 — Observability
+  | { action: 'observe-status' }
+  | { action: 'observe-query'; query: string }
+  | { action: 'observe-correlate'; sha: string }
+  | { action: 'observe-anomalies' }
+  | { action: 'observe-predict' }
+  | { action: 'observe-watch-start' }
+  | { action: 'observe-watch-stop' }
+  // Wave 5 — Experiments
+  | { action: 'experiment-create'; name: string; hypothesis: string; flag: string; primaryMetric: string; duration?: number }
+  | { action: 'experiment-start'; name: string }
+  | { action: 'experiment-status' }
+  | { action: 'experiment-analyze'; name: string }
+  | { action: 'experiment-ship'; name: string }
+  | { action: 'experiment-kill'; name: string }
+  | { action: 'experiment-history' }
+  // Wave 5 — Self-Improvement
+  | { action: 'improve-analyze'; count?: number }
+  | { action: 'improve-report' }
+  | { action: 'improve-apply' }
+  | { action: 'improve-reset' }
+  // Wave 5 — Optimize
+  | { action: 'run-optimize'; goal?: string; type?: string }
+  | { action: 'get-optimize-report' }
+  // Wave 5 — Impact
+  | { action: 'run-impact'; period?: string }
+  | { action: 'run-impact-estimate'; feature: string }
+  | { action: 'run-impact-roi' }
+  // Wave 5 — Fleet
+  | { action: 'fleet-register'; team: string }
+  | { action: 'fleet-status' }
+  | { action: 'fleet-budget'; team?: string; amount?: number }
+  | { action: 'fleet-sync' }
+  // Wave 5 — Contract
+  | { action: 'contract-generate'; scope?: string }
+  | { action: 'contract-check' }
+  | { action: 'contract-publish'; version?: string }
+  | { action: 'contract-sdk'; language?: string }
+  | { action: 'get-contracts' }
+  // Wave 5 — Simulate
+  | { action: 'run-simulate'; scale?: string; chaos?: string }
+  | { action: 'get-simulation-report' }
+  // Wave 5 — Teach
+  | { action: 'teach-collect' }
+  | { action: 'teach-train'; model?: string }
+  | { action: 'teach-evaluate' }
+  | { action: 'teach-deploy' }
+  | { action: 'get-teach-state' };
 
 // Guardrail types
 export interface GuardrailRule {
@@ -859,6 +916,303 @@ export interface ComplianceData {
 export interface PluginRegistryData {
   installed: Array<{ name: string; type: string; version: string; enabled: boolean; description: string }>;
   available: Array<{ name: string; type: string; version: string; description: string; downloads: number }>;
+}
+
+// Wave 5 — Observability types
+export interface ObservabilitySource {
+  type: 'grafana' | 'datadog' | 'cloudwatch' | 'prometheus' | 'opentelemetry' | 'custom';
+  url: string;
+  apiKeyEnv?: string;
+  metrics: string[];
+  dashboards?: Array<{ uid: string; metrics: string[] }>;
+}
+
+export interface ObservabilityConfig {
+  sources: Record<string, ObservabilitySource>;
+  alerting: {
+    sigma: number;
+    cooldown: number;
+    channels: Array<{ type: string; url: string }>;
+  };
+}
+
+export interface MetricDataPoint {
+  name: string;
+  value: number;
+  timestamp: number;
+  source: string;
+  tags?: Record<string, string>;
+}
+
+export interface DeployMarker {
+  sha: string;
+  timestamp: number;
+  author: string;
+  message: string;
+  filesChanged: string[];
+}
+
+export interface AnomalyAlert {
+  id: string;
+  metric: string;
+  type: 'spike' | 'drop' | 'trend' | 'correlation';
+  severity: 'info' | 'warning' | 'critical';
+  value: number;
+  baseline: number;
+  deviation: number;
+  deployCorrelation?: { sha: string; confidence: number; filesChanged: string[] };
+  timestamp: number;
+  resolved: boolean;
+}
+
+export interface PredictiveAlert {
+  metric: string;
+  type: 'capacity' | 'trend' | 'pattern';
+  message: string;
+  predictedAt: number;
+  confidence: number;
+  timeToImpact: string;
+}
+
+export interface ObserveState {
+  sources: Array<{ name: string; type: string; status: 'connected' | 'error' | 'pending'; metricCount: number; lastSync: number }>;
+  anomalies: AnomalyAlert[];
+  predictions: PredictiveAlert[];
+  deployMarkers: DeployMarker[];
+  metricCount: number;
+  lastUpdated: number;
+}
+
+// Wave 5 — Experiment types
+export interface ExperimentDefinition {
+  name: string;
+  hypothesis: string;
+  flag: string;
+  metrics: {
+    primary: string;
+    secondary: string[];
+    guardrail: string[];
+  };
+  targeting: {
+    percentage: number;
+    rampSchedule: number[];
+  };
+  duration: number;
+  minSampleSize: number;
+  significanceLevel: number;
+}
+
+export interface ExperimentResult {
+  metric: string;
+  control: { mean: number; stddev: number; sampleSize: number };
+  treatment: { mean: number; stddev: number; sampleSize: number };
+  pValue: number;
+  significant: boolean;
+  liftPercent: number;
+}
+
+export interface ExperimentState {
+  experiments: Array<{
+    id: string;
+    name: string;
+    hypothesis: string;
+    flag: string;
+    status: 'draft' | 'running' | 'analyzing' | 'shipped' | 'killed';
+    currentPercentage: number;
+    rampSchedule: number[];
+    startedAt?: number;
+    endedAt?: number;
+    duration: number;
+    results: ExperimentResult[];
+    guardrailStatus: 'ok' | 'warning' | 'breached';
+    recommendation?: 'ship' | 'kill' | 'extend' | 'ramp';
+    sampleSize: number;
+  }>;
+  flagProvider: string;
+  totalExperiments: number;
+  activeCount: number;
+}
+
+// Wave 5 — Self-Improvement types
+export interface PerformanceRecord {
+  runId: string;
+  timestamp: number;
+  taskType: string;
+  predictedCost: number;
+  actualCost: number;
+  predictedDuration: number;
+  actualDuration: number;
+  testPassFirstAttempt: boolean;
+  fixIterations: number;
+  humanEditRate: number;
+  reverted: boolean;
+  postMergeIncident: boolean;
+  model: string;
+  strategy: string;
+}
+
+export interface StrategyAnalysis {
+  strategy: string;
+  taskType: string;
+  successRate: number;
+  avgCost: number;
+  avgDuration: number;
+  sampleSize: number;
+  recommendation: string;
+}
+
+export interface SelfImprovementData {
+  records: PerformanceRecord[];
+  strategies: StrategyAnalysis[];
+  tuning: {
+    modelOverrides: Record<string, string>;
+    strategyOverrides: Record<string, string>;
+    promptVariants: Array<{ persona: string; variant: string; effectivenessScore: number }>;
+  };
+  report?: {
+    period: string;
+    accuracyTrend: Array<{ metric: string; current: number; previous: number; change: number }>;
+    qualityTrend: Array<{ metric: string; current: number; previous: number; change: number }>;
+    efficiencyTrend: Array<{ metric: string; current: number; previous: number; change: number }>;
+    recommendations: string[];
+    generatedAt: number;
+  };
+}
+
+// Wave 5 — Optimize types
+export interface HotPath {
+  function: string;
+  file: string;
+  line: number;
+  cpuPercent: number;
+  memoryMb?: number;
+  callCount: number;
+}
+
+export interface QueryIssue {
+  query: string;
+  file: string;
+  line: number;
+  type: 'n-plus-one' | 'missing-index' | 'full-scan' | 'slow';
+  estimatedImpactMs: number;
+  suggestion: string;
+}
+
+export interface OptimizeReport {
+  type: 'profile' | 'bundle' | 'queries' | 'memory' | 'goal';
+  hotPaths: HotPath[];
+  queryIssues: QueryIssue[];
+  bundleSize?: { totalBytes: number; largestModules: Array<{ name: string; bytes: number }> };
+  memoryLeaks?: Array<{ location: string; growthRateMbPerHour: number; description: string }>;
+  improvements: Array<{ description: string; beforeMetric: string; afterMetric: string; improvementPercent: number }>;
+  recommendations: string[];
+  timestamp: number;
+}
+
+// Wave 5 — Business Impact types
+export interface ImpactMetric {
+  name: string;
+  source: string;
+  before: number;
+  after: number;
+  changePercent: number;
+  monetaryValue?: number;
+  confidence: number;
+}
+
+export interface ImpactReport {
+  period: string;
+  features: Array<{ name: string; prUrl?: string; metrics: ImpactMetric[]; totalValue: number; cost: number }>;
+  roi: { swarmCost: number; estimatedValue: number; multiple: number };
+  highlights: string[];
+  timestamp: number;
+}
+
+// Wave 5 — Fleet types
+export interface FleetInstance {
+  id: string;
+  team: string;
+  repo: string;
+  status: 'active' | 'idle' | 'offline';
+  version: string;
+  lastHeartbeat: number;
+  stats: { totalRuns: number; successRate: number; totalCost: number };
+}
+
+export interface FleetState {
+  instances: FleetInstance[];
+  budget: { total: number; allocated: Record<string, number>; spent: Record<string, number> };
+  knowledgeItems: number;
+  crossTeamAlerts: Array<{ from: string; to: string[]; type: string; message: string; timestamp: number }>;
+  lastSync: number;
+}
+
+// Wave 5 — API Contract types
+export interface ApiEndpoint {
+  path: string;
+  method: string;
+  version: string;
+  requestSchema?: string;
+  responseSchema?: string;
+  consumers: string[];
+}
+
+export interface BreakingChange {
+  endpoint: string;
+  type: 'removed' | 'type-change' | 'required-field' | 'response-change';
+  description: string;
+  affectedConsumers: string[];
+  severity: 'breaking' | 'deprecation' | 'compatible';
+}
+
+export interface ContractData {
+  endpoints: ApiEndpoint[];
+  breakingChanges: BreakingChange[];
+  versions: Array<{ version: string; endpoints: number; publishedAt: number }>;
+  consumers: Array<{ name: string; endpoints: string[]; sdkVersion?: string }>;
+  lastGenerated: number;
+}
+
+// Wave 5 — Simulation types
+export interface SimulationScenario {
+  name: string;
+  type: 'traffic-replay' | 'scale' | 'chaos';
+  config: Record<string, unknown>;
+}
+
+export interface SimulationResult {
+  scenario: string;
+  passed: boolean;
+  metrics: Array<{ name: string; value: number; threshold: number; status: 'pass' | 'fail' | 'warn' }>;
+  issues: Array<{ severity: string; description: string; location?: string }>;
+  duration: number;
+}
+
+export interface SimulationReport {
+  scenarios: SimulationResult[];
+  overallPass: boolean;
+  riskLevel: 'low' | 'medium' | 'high' | 'critical';
+  recommendations: string[];
+  timestamp: number;
+}
+
+// Wave 5 — Teach / Fine-Tuning types
+export interface TrainingExample {
+  id: string;
+  taskType: string;
+  input: string;
+  output: string;
+  quality: number;
+  source: 'approved-pr' | 'human-edited' | 'high-quality';
+  collectedAt: number;
+}
+
+export interface TeachState {
+  examples: number;
+  byTaskType: Record<string, number>;
+  trainingJobs: Array<{ id: string; model: string; status: 'pending' | 'training' | 'complete' | 'failed'; startedAt: number; completedAt?: number; metrics?: { loss: number; accuracy: number } }>;
+  deployedModels: Array<{ id: string; taskTypes: string[]; costReduction: number; qualityDelta: number; deployedAt: number }>;
+  lastCollected: number;
 }
 
 // Persona → stage mapping

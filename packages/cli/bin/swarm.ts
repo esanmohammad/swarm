@@ -74,6 +74,15 @@ import { registerSlo } from '../src/commands/slo.js';
 import { registerEvolve } from '../src/commands/evolve.js';
 import { registerForecast } from '../src/commands/forecast.js';
 import { registerCompliance } from '../src/commands/compliance.js';
+import { registerObserve } from '../src/commands/observe.js';
+import { registerExperiment } from '../src/commands/experiment.js';
+import { registerImprove } from '../src/commands/improve.js';
+import { registerOptimize } from '../src/commands/optimize.js';
+import { registerImpact } from '../src/commands/impact.js';
+import { registerFleet } from '../src/commands/fleet.js';
+import { registerContract } from '../src/commands/contract.js';
+import { registerSimulate } from '../src/commands/simulate.js';
+import { registerTeach } from '../src/commands/teach.js';
 import { autoDetectStack, autoInit, loadConfig } from '../src/core/config.js';
 import { createContext } from '../src/commands/shared.js';
 
@@ -243,6 +252,17 @@ registerSlo(program);
 registerEvolve(program);
 registerForecast(program);
 registerCompliance(program);
+
+// --- Wave 5: Product-Aware Engineering Intelligence ---
+registerObserve(program);
+registerExperiment(program);
+registerImprove(program);
+registerOptimize(program);
+registerImpact(program);
+registerFleet(program);
+registerContract(program);
+registerSimulate(program);
+registerTeach(program);
 
 // --- Pipeline management ---
 registerPipeline(program);

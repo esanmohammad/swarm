@@ -474,6 +474,98 @@ export interface PluginRegistryData {
   available: Array<{ name: string; type: string; version: string; description: string; downloads: number }>;
 }
 
+// Wave 5 — Observability types
+export interface ObserveState {
+  sources: Array<{ name: string; type: string; status: 'connected' | 'error' | 'pending'; metricCount: number; lastSync: number }>;
+  anomalies: Array<{ id: string; metric: string; type: string; severity: string; value: number; baseline: number; deviation: number; deployCorrelation?: { sha: string; confidence: number; filesChanged: string[] }; timestamp: number; resolved: boolean }>;
+  predictions: Array<{ metric: string; type: string; message: string; predictedAt: number; confidence: number; timeToImpact: string }>;
+  deployMarkers: Array<{ sha: string; timestamp: number; author: string; message: string; filesChanged: string[] }>;
+  metricCount: number;
+  lastUpdated: number;
+}
+
+// Wave 5 — Experiment types
+export interface ExperimentState {
+  experiments: Array<{
+    id: string; name: string; hypothesis: string; flag: string;
+    status: 'draft' | 'running' | 'analyzing' | 'shipped' | 'killed';
+    currentPercentage: number; rampSchedule: number[];
+    startedAt?: number; endedAt?: number; duration: number;
+    results: Array<{ metric: string; control: { mean: number; stddev: number; sampleSize: number }; treatment: { mean: number; stddev: number; sampleSize: number }; pValue: number; significant: boolean; liftPercent: number }>;
+    guardrailStatus: 'ok' | 'warning' | 'breached';
+    recommendation?: 'ship' | 'kill' | 'extend' | 'ramp';
+    sampleSize: number;
+  }>;
+  flagProvider: string;
+  totalExperiments: number;
+  activeCount: number;
+}
+
+// Wave 5 — Self-Improvement types
+export interface SelfImprovementData {
+  records: Array<{ runId: string; timestamp: number; taskType: string; predictedCost: number; actualCost: number; predictedDuration: number; actualDuration: number; testPassFirstAttempt: boolean; fixIterations: number; humanEditRate: number; reverted: boolean; postMergeIncident: boolean; model: string; strategy: string }>;
+  strategies: Array<{ strategy: string; taskType: string; successRate: number; avgCost: number; avgDuration: number; sampleSize: number; recommendation: string }>;
+  tuning: { modelOverrides: Record<string, string>; strategyOverrides: Record<string, string>; promptVariants: Array<{ persona: string; variant: string; effectivenessScore: number }> };
+  report?: { period: string; accuracyTrend: Array<{ metric: string; current: number; previous: number; change: number }>; qualityTrend: Array<{ metric: string; current: number; previous: number; change: number }>; efficiencyTrend: Array<{ metric: string; current: number; previous: number; change: number }>; recommendations: string[]; generatedAt: number };
+}
+
+// Wave 5 — Optimize types
+export interface OptimizeReport {
+  type: string;
+  hotPaths: Array<{ function: string; file: string; line: number; cpuPercent: number; memoryMb?: number; callCount: number }>;
+  queryIssues: Array<{ query: string; file: string; line: number; type: string; estimatedImpactMs: number; suggestion: string }>;
+  bundleSize?: { totalBytes: number; largestModules: Array<{ name: string; bytes: number }> };
+  memoryLeaks?: Array<{ location: string; growthRateMbPerHour: number; description: string }>;
+  improvements: Array<{ description: string; beforeMetric: string; afterMetric: string; improvementPercent: number }>;
+  recommendations: string[];
+  timestamp: number;
+}
+
+// Wave 5 — Business Impact types
+export interface ImpactReport {
+  period: string;
+  features: Array<{ name: string; prUrl?: string; metrics: Array<{ name: string; source: string; before: number; after: number; changePercent: number; monetaryValue?: number; confidence: number }>; totalValue: number; cost: number }>;
+  roi: { swarmCost: number; estimatedValue: number; multiple: number };
+  highlights: string[];
+  timestamp: number;
+}
+
+// Wave 5 — Fleet types
+export interface FleetState {
+  instances: Array<{ id: string; team: string; repo: string; status: 'active' | 'idle' | 'offline'; version: string; lastHeartbeat: number; stats: { totalRuns: number; successRate: number; totalCost: number } }>;
+  budget: { total: number; allocated: Record<string, number>; spent: Record<string, number> };
+  knowledgeItems: number;
+  crossTeamAlerts: Array<{ from: string; to: string[]; type: string; message: string; timestamp: number }>;
+  lastSync: number;
+}
+
+// Wave 5 — API Contract types
+export interface ContractData {
+  endpoints: Array<{ path: string; method: string; version: string; requestSchema?: string; responseSchema?: string; consumers: string[] }>;
+  breakingChanges: Array<{ endpoint: string; type: string; description: string; affectedConsumers: string[]; severity: string }>;
+  versions: Array<{ version: string; endpoints: number; publishedAt: number }>;
+  consumers: Array<{ name: string; endpoints: string[]; sdkVersion?: string }>;
+  lastGenerated: number;
+}
+
+// Wave 5 — Simulation types
+export interface SimulationReport {
+  scenarios: Array<{ scenario: string; passed: boolean; metrics: Array<{ name: string; value: number; threshold: number; status: string }>; issues: Array<{ severity: string; description: string; location?: string }>; duration: number }>;
+  overallPass: boolean;
+  riskLevel: string;
+  recommendations: string[];
+  timestamp: number;
+}
+
+// Wave 5 — Teach types
+export interface TeachState {
+  examples: number;
+  byTaskType: Record<string, number>;
+  trainingJobs: Array<{ id: string; model: string; status: string; startedAt: number; completedAt?: number; metrics?: { loss: number; accuracy: number } }>;
+  deployedModels: Array<{ id: string; taskTypes: string[]; costReduction: number; qualityDelta: number; deployedAt: number }>;
+  lastCollected: number;
+}
+
 export type WsMessage =
   | { type: 'state'; payload: PipelineState }
   | { type: 'agent-update'; payload: Agent }
@@ -523,6 +615,15 @@ export type WsMessage =
   | { type: 'forecast-data'; payload: ForecastData }
   | { type: 'compliance-data'; payload: ComplianceData }
   | { type: 'plugin-registry'; payload: PluginRegistryData }
+  | { type: 'observe-state'; payload: ObserveState }
+  | { type: 'experiment-state'; payload: ExperimentState }
+  | { type: 'self-improvement'; payload: SelfImprovementData }
+  | { type: 'optimize-report'; payload: OptimizeReport }
+  | { type: 'impact-report'; payload: ImpactReport }
+  | { type: 'fleet-state'; payload: FleetState }
+  | { type: 'contract-data'; payload: ContractData }
+  | { type: 'simulation-report'; payload: SimulationReport }
+  | { type: 'teach-state'; payload: TeachState }
   | { type: 'error'; payload: { message: string } };
 
 export type WsCommand =
@@ -643,4 +744,52 @@ export type WsCommand =
   | { action: 'run-compliance-check'; framework?: string }
   | { action: 'get-plugins' }
   | { action: 'install-plugin'; name: string }
-  | { action: 'remove-plugin'; name: string };
+  | { action: 'remove-plugin'; name: string }
+  // Wave 5 — Observability
+  | { action: 'observe-status' }
+  | { action: 'observe-query'; query: string }
+  | { action: 'observe-correlate'; sha: string }
+  | { action: 'observe-anomalies' }
+  | { action: 'observe-predict' }
+  | { action: 'observe-watch-start' }
+  | { action: 'observe-watch-stop' }
+  // Wave 5 — Experiments
+  | { action: 'experiment-create'; name: string; hypothesis: string; flag: string; primaryMetric: string; duration?: number }
+  | { action: 'experiment-start'; name: string }
+  | { action: 'experiment-status' }
+  | { action: 'experiment-analyze'; name: string }
+  | { action: 'experiment-ship'; name: string }
+  | { action: 'experiment-kill'; name: string }
+  | { action: 'experiment-history' }
+  // Wave 5 — Self-Improvement
+  | { action: 'improve-analyze'; count?: number }
+  | { action: 'improve-report' }
+  | { action: 'improve-apply' }
+  | { action: 'improve-reset' }
+  // Wave 5 — Optimize
+  | { action: 'run-optimize'; goal?: string; type?: string }
+  | { action: 'get-optimize-report' }
+  // Wave 5 — Impact
+  | { action: 'run-impact'; period?: string }
+  | { action: 'run-impact-estimate'; feature: string }
+  | { action: 'run-impact-roi' }
+  // Wave 5 — Fleet
+  | { action: 'fleet-register'; team: string }
+  | { action: 'fleet-status' }
+  | { action: 'fleet-budget'; team?: string; amount?: number }
+  | { action: 'fleet-sync' }
+  // Wave 5 — Contract
+  | { action: 'contract-generate'; scope?: string }
+  | { action: 'contract-check' }
+  | { action: 'contract-publish'; version?: string }
+  | { action: 'contract-sdk'; language?: string }
+  | { action: 'get-contracts' }
+  // Wave 5 — Simulate
+  | { action: 'run-simulate'; scale?: string; chaos?: string }
+  | { action: 'get-simulation-report' }
+  // Wave 5 — Teach
+  | { action: 'teach-collect' }
+  | { action: 'teach-train'; model?: string }
+  | { action: 'teach-evaluate' }
+  | { action: 'teach-deploy' }
+  | { action: 'get-teach-state' };
