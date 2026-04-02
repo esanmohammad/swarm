@@ -111,6 +111,11 @@ export function PipelineView({ pipeline, sendCommand, agentOutputs, agentActivit
                         )}
                       </span>
                     )}
+                    {isDone && (s as { stageCost?: number }).stageCost != null && (
+                      <span className="text-[10px] text-amber-400/60 font-mono hidden sm:inline">
+                        ${((s as { stageCost?: number }).stageCost!).toFixed(2)}
+                      </span>
+                    )}
                     {isActive && s.startedAt && (
                       <span className="text-[10px] text-blue-400/70 font-mono hidden sm:inline">
                         {formatElapsed(Date.now() - s.startedAt)}

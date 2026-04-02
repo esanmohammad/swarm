@@ -50,6 +50,8 @@ export interface StageState {
   contextSummary?: string;
   /** When stage completed */
   finishedAt?: number;
+  /** Cost of this stage */
+  stageCost?: number;
 }
 
 // Custom pipeline definition types
@@ -188,7 +190,7 @@ export type WsCommand =
   | { action: 'send-input'; agentId: string; text: string }
   | { action: 'get-state' }
   | { action: 'run-stage'; stage: 'analyze' | 'architect' | 'plan' | 'build' | 'test'; prompt?: string; parallel?: number; taskId?: string; figmaUrl?: string; baseUrl?: string; authStorageState?: string }
-  | { action: 'run-mayday'; prompt: string; maxIterations?: number; figmaUrl?: string; parallel?: number; resume?: boolean; model?: string; maxFixBudgetUsd?: number | null; fromStage?: StageName; approvalRequired?: boolean }
+  | { action: 'run-mayday'; prompt: string; maxIterations?: number; figmaUrl?: string; parallel?: number; resume?: boolean; model?: string; maxFixBudgetUsd?: number | null; fromStage?: StageName; approvalRequired?: boolean; lean?: boolean }
   | { action: 'mayday-input'; text: string }
   | { action: 'mayday-stop' }
   | { action: 'mayday-approve'; stage: StageName }
@@ -198,4 +200,9 @@ export type WsCommand =
   | { action: 'list-pipelines' }
   | { action: 'switch-pipeline'; namespace: string }
   | { action: 'delete-pipeline'; namespace: string }
-  | { action: 'create-pipeline'; namespace: string };
+  | { action: 'create-pipeline'; namespace: string }
+  | { action: 'run-fix'; prompt?: string; issue?: string; model?: string }
+  | { action: 'run-spike'; prompt: string; model?: string }
+  | { action: 'run-review'; target?: string; model?: string }
+  | { action: 'run-refactor'; prompt: string; scope?: string; model?: string }
+  | { action: 'run-simplify'; scope?: string; dryRun?: boolean; model?: string };

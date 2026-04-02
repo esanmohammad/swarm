@@ -33,10 +33,10 @@ export interface SpawnOptions {
   timeoutMs?: number;
 }
 
-/** Max in-memory output per agent (50KB). Full output is in JSONL logs. */
-const MAX_OUTPUT_BYTES = 50 * 1024;
-/** Max output stored in state.json per agent (2KB) to keep state file small. */
-const MAX_STATE_OUTPUT_BYTES = 2 * 1024;
+/** Max in-memory output per agent (500KB). Full output is in JSONL logs. */
+const MAX_OUTPUT_BYTES = 500 * 1024;
+/** Max output stored in state.json per agent (20KB) to keep state file small. */
+const MAX_STATE_OUTPUT_BYTES = 20 * 1024;
 
 export class AgentManager extends EventEmitter {
   private agents = new Map<string, { agent: Agent; process: AgentProcess }>();
@@ -68,6 +68,9 @@ export class AgentManager extends EventEmitter {
     }
   }
 
+  /** Expose cost tracker for budget degradation in pipeline */
+  getCostTracker: () => CostTracker;
+
   constructor(
     private state: StateManager,
     private costTracker: CostTracker,
@@ -75,6 +78,9 @@ export class AgentManager extends EventEmitter {
     private config: SwarmConfig,
   ) {
     super();
+
+    // Expose cost tracker for pipeline budget degradation
+    this.getCostTracker = () => this.costTracker;
 
     // Listen for aggregate budget exceeded — kill all agents immediately
     this.costTracker.on('budget-exceeded', (total: CostInfo) => {

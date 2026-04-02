@@ -42,6 +42,55 @@ Swarm auto-detects your tech stack, runs all 5 stages, fixes failing tests, and 
 
 Each stage uses a specialized AI persona with strict role boundaries — the analyst can't write code, the engineer can't redesign the architecture.
 
+## Quick Workflows
+
+Not everything needs the full 5-stage pipeline. These commands skip straight to what matters:
+
+| Command | What it does | Default model | Typical cost |
+|---------|-------------|---------------|-------------|
+| `swarm fix "bug"` | Engineer fixes the bug, runs tests | config default | $1–3 |
+| `swarm fix --issue 123` | Fetches GitHub issue, fixes it | config default | $1–3 |
+| `swarm review` | Reviews current git changes | sonnet | $0.50–1 |
+| `swarm review 456` | Reviews a GitHub PR | sonnet | $0.50–1 |
+| `swarm simplify` | Scans changes for dead code, duplication, over-engineering | haiku | $0.20–0.50 |
+| `swarm spike "question"` | Read-only codebase exploration | haiku | $0.10–0.30 |
+| `swarm refactor "goal"` | Analyze scope → apply changes → verify tests | config default | $2–5 |
+| `swarm ci "feature"` | Headless CI pipeline with JSON output + exit codes | config default | $3–10 |
+
+All quick workflows are also available from the **dashboard** Launch view as one-click buttons.
+
+## Smart Features
+
+### Codebase Awareness
+Swarm scans your project before each pipeline run — package.json, file tree, existing tests, git history — and injects this context into every stage. Stages know they're extending an existing codebase, not building from scratch.
+
+### Strategy Escalation
+When the fix loop gets stuck on the same failures, it automatically escalates through 4 strategies before giving up:
+1. **Standard** — fix the failing code
+2. **Broader context** — read more of the codebase, trace data flow
+3. **Rewrite** — delete and rewrite the affected components from scratch
+4. **Simplify** — reduce scope, stub features, get tests passing minimally
+
+### Budget Degradation
+Instead of killing all agents when budget runs low, Swarm automatically downgrades models:
+- At **80% budget**: opus → sonnet
+- At **90% budget**: all agents → haiku
+
+### Blocking Guardrails
+Artifact validation (REQUIREMENTS.md sections, SPEC.md structure, TASKS.md format) now **blocks** pipeline progression on errors. Bad artifacts trigger automatic retry instead of flowing downstream.
+
+### Failure Reports
+When a pipeline fails, Swarm saves `FAILURE-REPORT.md` with: stage-by-stage results, artifacts produced, fix loop history, last test output, and context-aware next steps.
+
+### Parallel Test Execution
+For stacks with multiple test frameworks (e.g., React: Vitest + Playwright), Swarm runs them in parallel with separate agents.
+
+### Monorepo Support
+Set `packages: ["packages/api", "packages/web"]` in config to scope all agent work to specific packages.
+
+### LLM Quality Gate
+Enable `llmQualityGate: true` in config to run haiku-based semantic quality evaluation after each stage (~$0.01/artifact). Blocks if blended score falls below threshold.
+
 ## What Does It Cost?
 
 Swarm uses Claude API credits through the Claude Code CLI. Here's what to expect:
@@ -54,8 +103,10 @@ Swarm uses Claude API credits through the Claude Code CLI. Here's what to expect
 
 **Cost controls:**
 - Default budget: **$5 per pipeline** (override with `--budget`)
-- Use cheaper models for early stages: `haiku` for analyst, `sonnet` for architect, `opus` for engineer
-- Run `swarm status` anytime to see current spend
+- **Lean mode** (`--lean`): haiku for docs stages, default model for engineer — saves ~70%
+- **Smart mode** (`--smart`): sonnet for docs, opus for engineer — best quality/cost balance
+- Per-stage cost tracking in dashboard and CLI output
+- Budget degradation: auto-downgrades models at 80%/90% instead of killing agents
 - If you hit the budget cap, the pipeline stops — no surprise charges
 
 ```yaml
@@ -74,10 +125,13 @@ swarm dashboard
 
 Opens a web UI where you can:
 - **Launch builds** from a simple "What do you want to build?" input
-- **Watch progress** through each pipeline stage in real-time
+- **Quick actions** — Fix, Spike, Review, Refactor, Simplify buttons for fast workflows
+- **Watch progress** through each pipeline stage in real-time with per-stage cost display
+- **Lean mode toggle** — save ~70% on pipeline costs with one click
 - **View results** — file diffs, test outcomes, cost breakdown
 - **Browse history** of past runs
 - **Spawn individual agents** with custom personas
+- **Fix GitHub issues** — type `#123` in the Fix action to auto-fetch issue context
 
 <!-- TODO: Add dashboard screenshot -->
 <!-- ![Dashboard](assets/dashboard.png) -->
@@ -88,12 +142,24 @@ Opens a web UI where you can:
 # The main command — runs the full pipeline
 swarm "your feature request"
 
-# Or run stages individually (interactive mode)
+# Quick workflows (no pipeline overhead)
+swarm fix "login button not working"    # Direct bug fix → engineer → tests
+swarm fix --issue 123                   # Fix a GitHub issue (fetches via gh CLI)
+swarm review                            # Code review current git changes
+swarm review 456                        # Review a GitHub PR
+swarm simplify                          # Clean up changed code (dead code, duplication)
+swarm spike "how does auth work here?"  # Quick read-only codebase exploration
+swarm refactor "extract auth service"   # Analyze scope → apply changes → run tests
+
+# Pipeline stages (interactive mode)
 swarm analyze "Add dark mode"     # → REQUIREMENTS.md
 swarm architect                    # → SPEC.md
 swarm plan                         # → TASKS.md
 swarm build --parallel 3           # → Code
 swarm test                         # → Tests
+
+# CI mode (headless, JSON output, exit codes)
+swarm ci "feature" --json --budget 10 --timeout 30
 
 # Utilities
 swarm status                       # Show pipeline state and costs
@@ -114,6 +180,8 @@ swarm pipeline delete <name>       # Delete pipeline and worktree
 swarm "feature" --model opus       # Use Opus (default: Sonnet)
 swarm "feature" --budget 15        # Set budget to $15 (default: $5)
 swarm "feature" --budget none      # No budget limit
+swarm mayday --lean                # Lean mode: haiku for docs, default for engineer (~70% cheaper)
+swarm mayday --smart               # Smart mode: sonnet for docs, opus for engineer
 swarm mayday --from build          # Resume from a specific stage
 swarm mayday --approve             # Require approval between stages
 swarm mayday --figma <url>         # Include Figma designs
@@ -214,6 +282,15 @@ webhooks:
     events: [stage-complete, pipeline-done]
     format: slack
 
+# Monorepo — scope agent work to specific packages
+packages:
+  - packages/api
+  - packages/web
+
+# LLM quality gate (optional, ~$0.01/artifact)
+llmQualityGate: false
+llmQualityThreshold: 60
+
 # Custom plugins
 plugins:
   - './plugins/custom.js'
@@ -253,7 +330,7 @@ claude --version
 | Pipeline stops mid-run | Check `swarm status` for cost/budget. Increase with `--budget` |
 | Dashboard won't open | Port may be in use. Check `swarm doctor` or change `dashboardPort` in `.swarm/config.yaml` |
 | `state.json` corrupted | Run `swarm recover` to restore from backup |
-| Agent seems stuck | Agents have a 30-minute inactivity timeout. Run `swarm agent kill <name>` to force stop |
+| Agent seems stuck | Agents have a 10-minute inactivity timeout (60 min during Bash commands). Run `swarm agent kill <name>` to force stop |
 
 Run `swarm doctor` for a full environment health check — it verifies Node.js, Claude CLI, disk space, and project setup.
 

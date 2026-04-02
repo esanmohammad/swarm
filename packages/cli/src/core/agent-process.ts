@@ -217,16 +217,27 @@ export class AgentProcess extends EventEmitter {
     }
   }
 
-  /** Start or reset the inactivity watchdog timer */
+  /** Start or reset the inactivity watchdog timer (adaptive: 10min default, extends on activity) */
   private resetWatchdog(): void {
-    const timeout = this.config.timeoutMs ?? 30 * 60 * 1000; // default 30 min
-    if (timeout <= 0) return; // disabled
+    const baseTimeout = this.config.timeoutMs ?? 10 * 60 * 1000; // default 10 min (reduced from 30)
+    if (baseTimeout <= 0) return; // disabled
     this.stopWatchdog();
     this.watchdogTimer = setTimeout(() => {
       this._timedOut = true;
-      this.emit('error-output', `Agent timed out after ${Math.round(timeout / 60000)}m of inactivity. Use 'swarm mayday --resume' to continue, or increase timeout in .swarm/config.yaml.`);
+      this.emit('error-output', `Agent timed out after ${Math.round(baseTimeout / 60000)}m of inactivity. Use 'swarm mayday --resume' to continue, or increase timeout in .swarm/config.yaml.`);
       this.kill();
-    }, timeout);
+    }, baseTimeout);
+  }
+
+  /** Reset watchdog with extended timeout (for long-running operations like tests) */
+  resetWatchdogExtended(durationMs: number): void {
+    if ((this.config.timeoutMs ?? 10 * 60 * 1000) <= 0) return;
+    this.stopWatchdog();
+    this.watchdogTimer = setTimeout(() => {
+      this._timedOut = true;
+      this.emit('error-output', `Agent timed out after ${Math.round(durationMs / 60000)}m. Use 'swarm mayday --resume' to continue.`);
+      this.kill();
+    }, durationMs);
   }
 
   private stopWatchdog(): void {
@@ -401,6 +412,11 @@ export class AgentProcess extends EventEmitter {
               content: JSON.stringify(input, null, 2),
               timestamp: Date.now(),
             });
+
+            // Extend watchdog for long-running tools (Bash commands like tests/builds)
+            if (block.name === 'Bash') {
+              this.resetWatchdogExtended(60 * 60 * 1000); // 60 min for bash commands
+            }
 
             // Track Agent tool_use for sub-agent visibility
             if (block.name === 'Agent' && block.id) {

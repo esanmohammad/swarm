@@ -39,6 +39,8 @@ export function registerMayday(program: Command): void {
     .option('--from <stage>', 'Skip stages before this one (analyze, architect, plan, build, test)')
     .option('--approve', 'Require approval between pipeline stages')
     .option('--no-git', 'Skip git branch creation and auto-commits')
+    .option('--lean', 'Lean mode: use haiku for docs stages (analyst/architect/lead/tester), keep engineer on default model')
+    .option('--smart', 'Smart model selection: sonnet for docs, opus for engineer')
     .option('--headless', 'Skip all interactive pauses (for CI/automation)')
     .action(async (featureRequest: string | undefined, opts) => {
       let swarmDir: string;
@@ -57,6 +59,33 @@ export function registerMayday(program: Command): void {
       if (opts.model) config.model = opts.model;
       if (opts.budget) {
         config.maxBudgetUsd = opts.budget === 'none' ? null : (parseFloat(opts.budget) || null);
+      }
+
+      // Lean mode: haiku for docs stages, keep engineer on default model
+      if (opts.lean) {
+        const engineerModel = config.models?.engineer ?? config.model;
+        config.models = {
+          ...config.models,
+          analyst: 'haiku',
+          architect: 'haiku',
+          lead: 'haiku',
+          tester: 'haiku',
+          engineer: engineerModel,
+        };
+        console.log(chalk.dim(`[lean] Using haiku for docs stages, ${engineerModel} for engineer`));
+      }
+
+      // Smart mode: sonnet for docs stages, opus for engineer (best quality/cost balance)
+      if (opts.smart && !opts.lean) {
+        config.models = {
+          ...config.models,
+          analyst: 'sonnet',
+          architect: 'sonnet',
+          lead: 'sonnet',
+          tester: 'sonnet',
+          engineer: 'opus',
+        };
+        console.log(chalk.dim(`[smart] Using sonnet for docs stages, opus for engineer`));
       }
 
       const stack = (opts.stack as TechStack) || config.stack;
@@ -94,8 +123,11 @@ export function registerMayday(program: Command): void {
         const fixBudget = opts.fixBudget === 'none' ? null : (parseFloat(opts.fixBudget) || 15);
 
         // Cost confirmation (MayDay = 5 stages + fix iterations, estimate 6x)
+        // Lean mode uses haiku for 4 stages + engineer model for 2 stages
         if (!opts.yes) {
-          const confirmed = await confirmCost(config.model, 6);
+          const confirmed = opts.lean
+            ? await confirmCost('haiku', 4).then(ok => ok ? confirmCost(config.model, 2) : false)
+            : await confirmCost(config.model, 6);
           if (!confirmed) {
             console.log(chalk.dim('Aborted.'));
             return;

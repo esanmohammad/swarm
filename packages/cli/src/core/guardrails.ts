@@ -134,6 +134,27 @@ export class GuardrailsEngine {
     return violations;
   }
 
+  /** Evaluate guardrails for a single artifact file. Returns only violations for that artifact. */
+  evaluateArtifact(cwd: string, artifact: string): GuardrailViolation[] {
+    const violations: GuardrailViolation[] = [];
+    const matchingRules = this.rules.filter(r => r.target === artifact);
+
+    for (const rule of matchingRules) {
+      const filePath = join(cwd, rule.target);
+      if (!existsSync(filePath)) continue; // Missing artifact is handled by finishStage
+
+      const content = readFileSync(filePath, 'utf-8');
+      for (const check of rule.checks) {
+        const violation = this.runCheck(check, content, filePath, rule.name);
+        if (violation) {
+          violations.push(violation);
+        }
+      }
+    }
+
+    return violations;
+  }
+
   private runCheck(
     check: GuardrailCheck,
     content: string,

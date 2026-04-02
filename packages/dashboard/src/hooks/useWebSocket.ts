@@ -105,8 +105,8 @@ export function useWebSocket(): UseWebSocketReturn {
           case 'agent-activity': {
             const aid = msg.payload.agentId;
             const existing = agentActivitiesRef.current.get(aid) || [];
-            // Keep last 200 activities per agent to avoid unbounded growth
-            const updated = [...existing, msg.payload].slice(-200);
+            // Keep last 1000 activities per agent to avoid unbounded growth
+            const updated = [...existing, msg.payload].slice(-1000);
             agentActivitiesRef.current.set(aid, updated);
             forceUpdate((n) => n + 1);
             break;
@@ -124,7 +124,7 @@ export function useWebSocket(): UseWebSocketReturn {
             if (logActivities && logActivities.length > 0) {
               const currentActs = agentActivitiesRef.current.get(logAgentId) || [];
               if (currentActs.length === 0) {
-                agentActivitiesRef.current.set(logAgentId, logActivities.slice(-200));
+                agentActivitiesRef.current.set(logAgentId, logActivities.slice(-1000));
               }
             }
             forceUpdate((n) => n + 1);

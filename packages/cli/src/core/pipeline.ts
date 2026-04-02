@@ -1,4 +1,4 @@
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { execSync } from 'node:child_process';
 import chalk from 'chalk';
@@ -12,6 +12,8 @@ import { stageTransitionPause, fixLoopPause, InputListener } from './input-liste
 import { WebhookManager } from './webhooks.js';
 import type { WebhookConfig } from './webhooks.js';
 import { QualityScorer } from './quality.js';
+import { GuardrailsEngine } from './guardrails.js';
+import { scanCodebase } from './codebase-scanner.js';
 import { loadPipelineDefinition, getDefaultPipelineDefinition, stageNameForDefinition } from './pipeline-loader.js';
 import type { PipelineDefinition, PipelineStageDefinition } from './pipeline-loader.js';
 
@@ -171,6 +173,8 @@ export class Pipeline {
   autoPR = true;
   private webhooks: WebhookManager;
   private quality: QualityScorer;
+  private guardrails: GuardrailsEngine;
+  private _codebaseContext: string | null = null;
 
   constructor(
     private agentManager: AgentManager,
@@ -179,10 +183,27 @@ export class Pipeline {
   ) {
     this.webhooks = new WebhookManager((config.webhooks ?? []) as WebhookConfig[]);
     this.quality = new QualityScorer();
+    this.guardrails = new GuardrailsEngine(join(this.state.getProjectCwd(), '.swarm'));
     // Track budget exceeded so we can surface a clear error from waitForAgent rejections
     this.agentManager.on('budget-exceeded', () => {
       this.budgetExceeded = true;
     });
+
+    // Graceful budget degradation: downgrade models when budget is running low
+    const costTracker = agentManager.getCostTracker?.();
+    if (costTracker) {
+      costTracker.on('budget-warning', (info: { level: number; remaining: number }) => {
+        if (info.level >= 90 && this.config.model !== 'haiku') {
+          console.log(chalk.yellow(`[budget] 90% budget used — switching all remaining agents to haiku`));
+          this.config.model = 'haiku';
+          this.config.models = { analyst: 'haiku', architect: 'haiku', lead: 'haiku', engineer: 'haiku', tester: 'haiku' };
+        } else if (info.level >= 80 && this.config.model === 'opus') {
+          console.log(chalk.yellow(`[budget] 80% budget used — downgrading from opus to sonnet`));
+          this.config.model = 'sonnet';
+          if (this.config.models?.engineer === 'opus') this.config.models.engineer = 'sonnet';
+        }
+      });
+    }
   }
 
   /**
@@ -191,6 +212,14 @@ export class Pipeline {
    */
   get projectCwd(): string {
     return this.state.getProjectCwd();
+  }
+
+  /** Scan and cache the codebase context for injecting into stage prompts. */
+  private getCodebaseContext(): string {
+    if (this._codebaseContext === null) {
+      this._codebaseContext = scanCodebase(this.projectCwd, this.config.packages);
+    }
+    return this._codebaseContext;
   }
 
   /**
@@ -332,7 +361,9 @@ export class Pipeline {
     const interactive = opts?.interactive ?? true;
 
     const figmaUrl = opts?.figmaUrl;
+    const codebaseCtx = this.getCodebaseContext();
     const promptParts = [
+      ...(codebaseCtx ? [codebaseCtx, ''] : []),
       `Feature request: ${featureRequest}`,
       '',
       '⚠️ CRITICAL CONSTRAINTS — VIOLATION WILL CAUSE PIPELINE FAILURE:',
@@ -389,7 +420,7 @@ export class Pipeline {
 
     this.state.updateStage('analyze', { status: 'running', startedAt: Date.now() });
     await this.waitForAgentWithBudgetCheck(agent.id);
-    this.finishStage('analyze', 'REQUIREMENTS.md');
+    await this.finishStage('analyze', 'REQUIREMENTS.md');
   }
 
   async runArchitect(opts?: StageOpts): Promise<void> {
@@ -406,7 +437,9 @@ export class Pipeline {
     }
 
     const requirements = readFileSync(reqPath, 'utf-8');
+    const codebaseCtx = this.getCodebaseContext();
     const prompt = [
+      ...(codebaseCtx ? [codebaseCtx, '', 'Do NOT redesign existing architecture. Extend it.', ''] : []),
       'Read the REQUIREMENTS.md below and produce SPEC.md.',
       '',
       '⚠️ CRITICAL CONSTRAINTS — VIOLATION WILL CAUSE PIPELINE FAILURE:',
@@ -448,7 +481,7 @@ export class Pipeline {
 
     this.state.updateStage('architect', { status: 'running', startedAt: Date.now() });
     await this.waitForAgentWithBudgetCheck(agent.id);
-    this.finishStage('architect', 'SPEC.md');
+    await this.finishStage('architect', 'SPEC.md');
   }
 
   async runPlan(opts?: StageOpts): Promise<void> {
@@ -466,7 +499,9 @@ export class Pipeline {
 
     const spec = readFileSync(specPath, 'utf-8');
     const userGuidance = opts?.prompt;
+    const codebaseCtx = this.getCodebaseContext();
     const prompt = [
+      ...(codebaseCtx ? [codebaseCtx, '', 'Reference existing files when assigning task file paths.', ''] : []),
       'Read the SPEC.md below and produce TASKS.md.',
       '',
       ...(userGuidance ? [`User guidance: ${userGuidance}`, ''] : []),
@@ -509,7 +544,7 @@ export class Pipeline {
 
     this.state.updateStage('plan', { status: 'running', startedAt: Date.now() });
     await this.waitForAgentWithBudgetCheck(agent.id);
-    this.finishStage('plan', 'TASKS.md');
+    await this.finishStage('plan', 'TASKS.md');
   }
 
   async runBuild(opts: { parallel?: number; taskId?: string; stack?: TechStack } = {}): Promise<void> {
@@ -804,32 +839,54 @@ export class Pipeline {
         console.log(chalk.green(`\n[test] Phase 1 complete. TESTPLAN.md created.`));
       } else {
         console.log(chalk.yellow(`\n[test] Phase 1 complete. TESTPLAN.md not found — skipping execution phase.`));
-        this.finishStage('test', 'TESTPLAN.md');
+        await this.finishStage('test', 'TESTPLAN.md');
         return;
       }
     }
 
     // ── Phase 2: Engineer → implement and run tests ──
-    console.log(chalk.cyan(`\n[test] Phase 2: Implementing and running ${primaryFramework.name} tests...\n`));
-
     const testplan = readFileSync(testplanPath, 'utf-8');
-    const runnerPromptParts = this.buildRunnerPrompt(s, frameworks, pwConfig, testplan);
 
-    const runnerAgent = await this.agentManager.spawn({
-      name: `test-runner-${s}`,
-      persona: 'engineer',
-      stack: s,
-      prompt: runnerPromptParts.join('\n'),
-      model: this.modelFor('engineer'),
-      cwd: this.projectCwd,
-      interactive: false,
-      permissionMode: 'auto',
-    });
-
-    await this.waitForAgentWithBudgetCheck(runnerAgent.id);
-
-    this.finishStage('test', 'TESTPLAN.md');
-    console.log(chalk.green(`\n[test] Tests complete. Cost: $${(testerCost + runnerAgent.cost.totalUsd).toFixed(4)}`));
+    if (frameworks.length > 1) {
+      // Parallel test execution: spawn one agent per framework
+      console.log(chalk.cyan(`\n[test] Phase 2: Running ${frameworks.length} test frameworks in parallel...\n`));
+      const runners = await Promise.all(
+        frameworks.map((fw, idx) => {
+          const fwPrompt = this.buildRunnerPrompt(s, [fw], pwConfig, testplan);
+          return this.agentManager.spawn({
+            name: `test-runner-${fw.kind}-${idx}`,
+            persona: 'engineer',
+            stack: s,
+            prompt: fwPrompt.join('\n'),
+            model: this.modelFor('engineer'),
+            cwd: this.projectCwd,
+            interactive: false,
+            permissionMode: 'auto',
+          });
+        }),
+      );
+      await Promise.allSettled(runners.map(a => this.waitForAgentWithBudgetCheck(a.id)));
+      const runnerCost = runners.reduce((sum, a) => sum + a.cost.totalUsd, 0);
+      await this.finishStage('test', 'TESTPLAN.md');
+      console.log(chalk.green(`\n[test] ${frameworks.length} test suites complete. Cost: $${(testerCost + runnerCost).toFixed(4)}`));
+    } else {
+      // Single framework: original behavior
+      console.log(chalk.cyan(`\n[test] Phase 2: Implementing and running ${primaryFramework.name} tests...\n`));
+      const runnerPromptParts = this.buildRunnerPrompt(s, frameworks, pwConfig, testplan);
+      const runnerAgent = await this.agentManager.spawn({
+        name: `test-runner-${s}`,
+        persona: 'engineer',
+        stack: s,
+        prompt: runnerPromptParts.join('\n'),
+        model: this.modelFor('engineer'),
+        cwd: this.projectCwd,
+        interactive: false,
+        permissionMode: 'auto',
+      });
+      await this.waitForAgentWithBudgetCheck(runnerAgent.id);
+      await this.finishStage('test', 'TESTPLAN.md');
+      console.log(chalk.green(`\n[test] Tests complete. Cost: $${(testerCost + runnerAgent.cost.totalUsd).toFixed(4)}`));
+    }
   }
 
   /** Build the Phase 1 tester prompt — framework-aware */
@@ -1135,6 +1192,14 @@ export class Pipeline {
    * Run a stage with retry. On first failure: log, wait 5s, retry.
    * On second failure: throw (caller decides whether to abort or skip).
    */
+  /** Tracks failure reasons per stage so downstream stages can reference them */
+  private stageFailureContext = new Map<string, string>();
+
+  /** Get failure context from a previous stage attempt (for backward context flow) */
+  getStageFailureContext(stage: StageName): string | undefined {
+    return this.stageFailureContext.get(stage);
+  }
+
   private async runStageWithRetry(
     stage: StageName,
     fn: () => Promise<void>,
@@ -1146,9 +1211,11 @@ export class Pipeline {
         return;
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
+        // Record failure context for backward flow
+        this.stageFailureContext.set(stage, `Stage "${stage}" failed (attempt ${attempt}): ${msg}`);
         if (attempt < maxAttempts) {
           console.log(chalk.yellow(`[mayday] Stage "${stage}" failed (attempt ${attempt}/${maxAttempts}): ${msg}`));
-          console.log(chalk.yellow(`[mayday] Retrying in 5s...`));
+          console.log(chalk.yellow(`[mayday] Retrying in 5s with failure context...`));
           // Reset stage status for retry
           this.state.updateStage(stage, { status: 'pending' });
           await sleep(5000);
@@ -1217,7 +1284,7 @@ export class Pipeline {
     }
   }
 
-  private finishStage(stage: StageName, expectedArtifact: string): void {
+  private async finishStage(stage: StageName, expectedArtifact: string): Promise<void> {
     const artifactFullPath = join(this.projectCwd, expectedArtifact);
     const artifact = existsSync(artifactFullPath) ? expectedArtifact : null;
 
@@ -1243,6 +1310,34 @@ export class Pipeline {
       console.log(chalk.green(`\n[${stage}] Session complete.`));
     }
 
+    // Run blocking guardrails on the artifact
+    if (artifact) {
+      const violations = this.guardrails.evaluateArtifact(this.projectCwd, expectedArtifact);
+      const errors = violations.filter(v => v.severity === 'error');
+      const warnings = violations.filter(v => v.severity === 'warning');
+
+      // Persist violations in state for dashboard
+      const pipelineState = this.state.getState();
+      pipelineState.violations = [...(pipelineState.violations || []), ...violations];
+      this.state.scheduleSavePublic();
+
+      if (warnings.length > 0) {
+        for (const w of warnings) {
+          console.log(chalk.yellow(`[guardrail] warning: ${w.message}`));
+        }
+      }
+
+      if (errors.length > 0) {
+        for (const e of errors) {
+          console.log(chalk.red(`[guardrail] error: ${e.message}`));
+        }
+        console.log(chalk.red(`[guardrail] ${errors.length} error(s) in ${expectedArtifact} — stage will be retried.`));
+        // Mark stage as error so runStageWithRetry can retry it
+        this.state.updateStage(stage, { status: 'error' });
+        throw new Error(`Guardrail errors in ${expectedArtifact}: ${errors.map(e => e.message).join('; ')}`);
+      }
+    }
+
     // Run quality scoring on the artifact
     const score = this.quality.scoreArtifact(this.projectCwd, stage);
     if (score) {
@@ -1259,9 +1354,117 @@ export class Pipeline {
       for (const d of score.dimensions) {
         console.log(chalk.dim(`  ${d.name}: ${d.score}/100 — ${d.detail}`));
       }
+
+      // LLM-powered quality gate (optional, runs haiku for semantic evaluation)
+      if (this.config.llmQualityGate && artifact) {
+        const threshold = this.config.llmQualityThreshold ?? 60;
+        try {
+          const llmDimension = await this.quality.scoreLLM(this.projectCwd, expectedArtifact, 'haiku');
+          if (llmDimension) {
+            // Blend heuristic + LLM: 40% heuristic, 60% LLM
+            const blendedScore = Math.round(score.overall * 0.4 + llmDimension.score * 0.6);
+            const llmColor = llmDimension.score >= 80 ? chalk.green : llmDimension.score >= 50 ? chalk.yellow : chalk.red;
+            console.log(llmColor(`[quality:llm] ${expectedArtifact}: ${llmDimension.score}/100 — ${llmDimension.detail}`));
+            console.log(chalk.dim(`[quality] Blended: ${blendedScore}/100 (heuristic: ${score.overall}, llm: ${llmDimension.score})`));
+
+            if (blendedScore < threshold) {
+              console.log(chalk.red(`[quality] Blended score ${blendedScore} below threshold ${threshold} — stage will be retried.`));
+              this.state.updateStage(stage, { status: 'error' });
+              throw new Error(`Quality gate failed for ${expectedArtifact}: blended score ${blendedScore}/${threshold}`);
+            }
+          }
+        } catch (err) {
+          // Only re-throw quality gate failures, not LLM errors
+          if (err instanceof Error && err.message.includes('Quality gate failed')) throw err;
+          // LLM eval failed — non-critical, continue with heuristic only
+        }
+      }
     }
 
     this.webhooks.stageComplete(this.config.projectName, stage, this.state.getState().totalCost).catch(() => {});
+  }
+
+  /**
+   * Generate FAILURE-REPORT.md when MayDay fails, preserving what was attempted and what succeeded.
+   */
+  private generateFailureReport(): void {
+    try {
+      const pipelineState = this.state.getState();
+      const mayday = pipelineState.mayday;
+      if (!mayday) return;
+
+      const stages: StageName[] = ['analyze', 'architect', 'plan', 'build', 'test'];
+      const stageLines: string[] = [];
+      for (const stage of stages) {
+        const s = pipelineState.stages[stage];
+        const status = s.status === 'done' ? 'done' : s.status === 'skipped' ? 'skipped' : s.status === 'error' ? 'FAILED' : s.status;
+        const artifact = s.artifact ? `(${s.artifact})` : '';
+        stageLines.push(`| ${stage} | ${status} | ${artifact} |`);
+      }
+
+      const fixHistoryLines: string[] = [];
+      if (mayday.fixHistory && mayday.fixHistory.length > 0) {
+        for (const entry of mayday.fixHistory) {
+          fixHistoryLines.push(`### Iteration ${entry.iteration}`);
+          fixHistoryLines.push(`- **Approach:** ${entry.approach}`);
+          fixHistoryLines.push(`- **Failed tests:** ${entry.failedTests.length} — ${entry.failedTests.slice(0, 5).join(', ')}${entry.failedTests.length > 5 ? '...' : ''}`);
+          fixHistoryLines.push(`- **Fixed:** ${entry.fixedTests.length > 0 ? entry.fixedTests.join(', ') : 'none'}`);
+          fixHistoryLines.push(`- **New regressions:** ${entry.newFailures.length > 0 ? entry.newFailures.join(', ') : 'none'}`);
+          fixHistoryLines.push(`- **Cost:** $${entry.cost.toFixed(2)}`);
+          fixHistoryLines.push('');
+        }
+      }
+
+      const artifactsProduced: string[] = [];
+      for (const stage of stages) {
+        const artifact = STAGE_ARTIFACT_MAP[stage];
+        if (artifact && existsSync(join(this.projectCwd, artifact))) {
+          artifactsProduced.push(`- ${artifact}`);
+        }
+      }
+
+      const report = [
+        '# Failure Report',
+        '',
+        `**Feature:** ${mayday.featureRequest}`,
+        `**Error:** ${mayday.error || 'Unknown error'}`,
+        `**Total cost:** $${pipelineState.totalCost.totalUsd.toFixed(2)}`,
+        `**Duration:** ${mayday.startedAt ? ((Date.now() - mayday.startedAt) / 60000).toFixed(1) + 'm' : 'unknown'}`,
+        '',
+        '## Stage Results',
+        '',
+        '| Stage | Status | Artifact |',
+        '|-------|--------|----------|',
+        ...stageLines,
+        '',
+        '## Artifacts Produced',
+        '',
+        artifactsProduced.length > 0 ? artifactsProduced.join('\n') : '_No artifacts produced._',
+        '',
+        ...(fixHistoryLines.length > 0
+          ? ['## Fix Loop History', '', ...fixHistoryLines]
+          : []),
+        ...(mayday.lastTestOutput
+          ? ['## Last Test Output', '', '```', mayday.lastTestOutput.slice(0, 5000), '```', '']
+          : []),
+        '## Suggested Next Steps',
+        '',
+        mayday.error?.includes('Stuck')
+          ? '1. Review the failing tests manually — the fix loop tried the same approach repeatedly.\n2. Consider a different implementation approach.\n3. Run `swarm mayday --resume --from build` after making manual fixes.'
+          : mayday.error?.includes('Budget')
+            ? '1. Increase budget: `swarm mayday --resume --budget 50`\n2. Or use lean mode: `swarm mayday --lean --resume`'
+            : mayday.error?.includes('Max fix iterations')
+              ? '1. Review test failures and fix manually.\n2. Resume with more iterations: `swarm mayday --resume --max-iterations 10`'
+              : '1. Check the error above and the stage that failed.\n2. Fix the issue manually, then `swarm mayday --resume`.',
+        '',
+      ].join('\n');
+
+      const reportPath = join(this.projectCwd, 'FAILURE-REPORT.md');
+      writeFileSync(reportPath, report);
+      console.log(chalk.yellow(`[mayday] Failure report saved to FAILURE-REPORT.md`));
+    } catch {
+      // Non-critical — don't crash on report generation failure
+    }
   }
 
   /**
@@ -1519,6 +1722,7 @@ export class Pipeline {
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
       this.state.updateMayday({ active: false, error: errMsg });
+      this.generateFailureReport();
       this.state.archiveRun();
       this.webhooks.maydayError(this.config.projectName, errMsg).catch(() => {});
       throw err;
@@ -1666,12 +1870,13 @@ export class Pipeline {
             // Resume succeeded — mark stage done
             const artifact = STAGE_ARTIFACT_MAP[stage];
             if (artifact && existsSync(join(this.projectCwd, artifact))) {
-              this.finishStage(stage, artifact);
+              await this.finishStage(stage, artifact);
             } else {
               this.state.updateStage(stage, { status: 'done', finishedAt: Date.now() });
             }
             const stageElapsed = Date.now() - stageStart;
             const stageCost = this.state.getState().totalCost.totalUsd - costBefore;
+            this.state.updateStage(stage, { stageCost });
             console.log(chalk.dim(` (${(stageElapsed / 1000).toFixed(0)}s, $${stageCost.toFixed(2)})`));
             continue;
           }
@@ -1684,18 +1889,24 @@ export class Pipeline {
         // Prepend context summaries from completed prior stages to fresh-start prompts
         const priorContext = this.state.getResumeContext(stage);
 
+        // Backward context flow: collect failure reasons from downstream stages
+        const failureCtx = Array.from(this.stageFailureContext.entries())
+          .map(([s, msg]) => `[${s}] ${msg}`)
+          .join('\n');
+        const backwardContext = failureCtx ? `\n\n## Prior Failure Context (avoid these issues):\n${failureCtx}` : '';
+
         await this.runStageWithRetry(stage, async () => {
           switch (stage) {
             case 'analyze':
               await this.runAnalyze(mayday.featureRequest, stageOpts);
               break;
             case 'architect':
-              await this.runArchitect(stageOpts);
+              await this.runArchitect({ ...stageOpts, prompt: backwardContext || undefined });
               break;
             case 'plan': {
               const guidance = userMsgs.length > 0 ? userMsgs.join('\n') : undefined;
-              const planPrompt = priorContext ? `${priorContext}\n${guidance || ''}` : guidance;
-              await this.runPlan({ ...stageOpts, prompt: planPrompt || undefined });
+              const combined = [priorContext, guidance, backwardContext].filter(Boolean).join('\n');
+              await this.runPlan({ ...stageOpts, prompt: combined || undefined });
               break;
             }
             case 'build':
@@ -1710,6 +1921,7 @@ export class Pipeline {
         // Log stage completion with elapsed time and cost
         const stageElapsed = Date.now() - stageStart;
         const stageCost = this.state.getState().totalCost.totalUsd - costBefore;
+        this.state.updateStage(stage, { stageCost });
         const elapsedStr = stageElapsed < 60000
           ? `${(stageElapsed / 1000).toFixed(0)}s`
           : `${(stageElapsed / 60000).toFixed(1)}m`;
@@ -1800,6 +2012,7 @@ export class Pipeline {
       if (maxFixBudget !== null && maxFixBudget !== undefined && totalCost >= maxFixBudget) {
         console.log(chalk.red.bold(`\n[mayday] Fix budget exhausted ($${totalCost.toFixed(2)} >= $${maxFixBudget}). Stopping.`));
         this.state.updateMayday({ active: false, error: `Fix budget limit reached: $${totalCost.toFixed(2)}` });
+        this.generateFailureReport();
         return;
       }
 
@@ -1825,9 +2038,15 @@ export class Pipeline {
       // Group failures by file for targeted fixing (I1)
       const failureGroups = this.groupFailuresByFile(testResults.failures);
 
-      // Determine approach based on history (I2 — stuck detection)
+      // Determine approach via strategy escalation (I2 — stuck detection)
       let approach = 'standard';
-      if (stuckCount >= 2) {
+      if (stuckCount >= 4) {
+        approach = 'simplify';
+        console.log(chalk.yellow(`[mayday] Stuck for ${stuckCount} iterations — escalating to SIMPLIFY (reduce scope to pass tests)`));
+      } else if (stuckCount >= 3) {
+        approach = 'rewrite';
+        console.log(chalk.yellow(`[mayday] Stuck for ${stuckCount} iterations — escalating to REWRITE affected components`));
+      } else if (stuckCount >= 2) {
         approach = 'broader-context';
         console.log(chalk.yellow(`[mayday] Stuck on same failures for ${stuckCount} iterations — trying broader context approach`));
       }
@@ -1937,14 +2156,15 @@ export class Pipeline {
         return;
       }
 
-      // If stuck for 3+ iterations, abort to avoid wasting budget
-      if (stuckCount >= 3) {
-        console.log(chalk.red.bold(`\n[mayday] Stuck on same failures for ${stuckCount} iterations. Aborting fix loop.`));
+      // If stuck for 5+ iterations (all strategies exhausted), abort
+      if (stuckCount >= 5) {
+        console.log(chalk.red.bold(`\n[mayday] Stuck on same failures for ${stuckCount} iterations (all strategies exhausted). Aborting fix loop.`));
         this.state.updateMayday({
           active: false,
           currentStage: 'complete',
-          error: `Stuck: same ${currentFailedTests.length} test(s) failing for ${stuckCount} iterations.`,
+          error: `Stuck: same ${currentFailedTests.length} test(s) failing for ${stuckCount} iterations despite strategy escalation (standard → broader-context → rewrite → simplify).`,
         });
+        this.generateFailureReport();
         return;
       }
     }
@@ -1956,6 +2176,7 @@ export class Pipeline {
       currentStage: 'complete',
       error: `Max fix iterations reached. ${testResults.failureCount} test(s) still failing.`,
     });
+    this.generateFailureReport();
   }
 
   /** Group test failures by source file for targeted fixing (I1) */
@@ -2025,9 +2246,30 @@ export class Pipeline {
     if (approach === 'broader-context') {
       parts.push(
         '',
-        '⚠️ Previous fix attempts with the same approach have not resolved these failures.',
-        'Try a DIFFERENT strategy: read more surrounding code, check imports/types carefully,',
-        'or consider that the test expectations may need updating.',
+        '⚠️ STRATEGY: BROADER CONTEXT — Previous standard fixes did not work.',
+        'Try a DIFFERENT approach: read more surrounding code, check imports/types carefully,',
+        'trace the full data flow, or consider that the test expectations may need updating.',
+      );
+    } else if (approach === 'rewrite') {
+      parts.push(
+        '',
+        '⚠️ STRATEGY: REWRITE — Standard and broader-context approaches have BOTH failed.',
+        'Consider a COMPREHENSIVE REWRITE of the failing components:',
+        '- Delete and rewrite the affected functions/modules from scratch',
+        '- Re-examine the approach — maybe a different algorithm or pattern is needed',
+        '- Check if test expectations match the requirements (tests may need updating too)',
+        '- Do NOT try incremental patches — those have already failed repeatedly.',
+      );
+    } else if (approach === 'simplify') {
+      parts.push(
+        '',
+        '⚠️ STRATEGY: SIMPLIFY — All previous approaches have failed. Last resort.',
+        'REDUCE SCOPE to get tests passing:',
+        '- Implement the minimum viable version that satisfies the test assertions',
+        '- Stub out complex features that are causing failures',
+        '- Remove edge-case handling that introduces bugs',
+        '- The goal is now: MAKE TESTS PASS, even with simplified functionality.',
+        '- If a test is testing unimplemented behavior, mark the test as skipped with a TODO comment.',
       );
     }
 

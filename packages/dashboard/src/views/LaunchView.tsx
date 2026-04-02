@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Play, ChevronDown, ChevronUp } from 'lucide-react';
+import { Play, ChevronDown, ChevronUp, Wrench, Search, FileSearch, Shuffle, Sparkles } from 'lucide-react';
 import type { WsCommand, HistoryEntry, StageName } from '../types';
 
 const COST_ESTIMATES: Record<string, { low: number; high: number }> = {
@@ -8,7 +8,15 @@ const COST_ESTIMATES: Record<string, { low: number; high: number }> = {
   haiku:  { low: 0.1, high: 0.3 },
 };
 
-function estimateCost(model: string): string {
+function estimateCost(model: string, isLean = false): string {
+  if (isLean) {
+    const haikuRates = COST_ESTIMATES['haiku'];
+    const engineerRates = COST_ESTIMATES[model] ?? { low: 1, high: 3 };
+    // 4 haiku stages + 2 engineer stages
+    const low = haikuRates.low * 4 + engineerRates.low * 2;
+    const high = haikuRates.high * 4 + engineerRates.high * 2;
+    return `$${low.toFixed(2)}–$${high.toFixed(2)}`;
+  }
   const rates = COST_ESTIMATES[model] ?? { low: 1, high: 3 };
   const stages = 6;
   return `$${(rates.low * stages).toFixed(2)}–$${(rates.high * stages).toFixed(2)}`;
@@ -35,6 +43,9 @@ export function LaunchView({ sendCommand, historyEntries, onNavigate }: LaunchVi
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [figmaUrl, setFigmaUrl] = useState('');
   const [budget, setBudget] = useState('5');
+  const [lean, setLean] = useState(false);
+
+  const [activePreset, setActivePreset] = useState<string | null>(null);
 
   const handleLaunch = () => {
     if (!prompt.trim()) return;
@@ -43,7 +54,38 @@ export function LaunchView({ sendCommand, historyEntries, onNavigate }: LaunchVi
       prompt: prompt.trim(),
       model,
       figmaUrl: figmaUrl.trim() || undefined,
+      lean: lean || undefined,
     });
+    setPrompt('');
+  };
+
+  const handlePreset = (preset: string) => {
+    if (!prompt.trim()) return;
+    setActivePreset(null);
+    switch (preset) {
+      case 'fix': {
+        // Detect "#123" pattern as GitHub issue reference
+        const issueMatch = prompt.trim().match(/^#?(\d+)$/);
+        if (issueMatch) {
+          sendCommand({ action: 'run-fix', issue: issueMatch[1], model });
+        } else {
+          sendCommand({ action: 'run-fix', prompt: prompt.trim(), model });
+        }
+        break;
+      }
+      case 'spike':
+        sendCommand({ action: 'run-spike', prompt: prompt.trim(), model: 'haiku' });
+        break;
+      case 'review':
+        sendCommand({ action: 'run-review', model });
+        break;
+      case 'refactor':
+        sendCommand({ action: 'run-refactor', prompt: prompt.trim(), model });
+        break;
+      case 'simplify':
+        sendCommand({ action: 'run-simplify', model: 'haiku' });
+        break;
+    }
     setPrompt('');
   };
 
@@ -98,8 +140,19 @@ export function LaunchView({ sendCommand, historyEntries, onNavigate }: LaunchVi
                   {model === m.id && <span className="text-[9px] text-blue-400/60 ml-1">{m.hint}</span>}
                 </button>
               ))}
+              <button
+                onClick={() => setLean(!lean)}
+                className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors border ${
+                  lean
+                    ? 'bg-green-600/15 text-green-300 border-green-500/40'
+                    : 'text-stone-400 border-stone-700/40 hover:text-stone-300 hover:border-stone-600/50'
+                }`}
+                title="Lean mode: haiku for docs stages, save ~70% cost"
+              >
+                lean
+              </button>
               <span className="text-xs text-stone-500 ml-2">
-                Est. ~{estimateCost(model)}
+                Est. ~{estimateCost(model, lean)}
               </span>
             </div>
 
@@ -154,6 +207,48 @@ export function LaunchView({ sendCommand, historyEntries, onNavigate }: LaunchVi
             <Play size={16} />
             Build it
           </button>
+
+          {/* Quick actions — preset workflows */}
+          <div className="flex items-center gap-2 pt-1">
+            <span className="text-[10px] text-stone-500 uppercase tracking-wider shrink-0">or</span>
+            <div className="flex flex-wrap gap-1.5">
+              {[
+                { id: 'fix', label: 'Fix bug', icon: Wrench, hint: 'Direct engineer fix', needsPrompt: true },
+                { id: 'spike', label: 'Spike', icon: Search, hint: 'Quick investigation', needsPrompt: true },
+                { id: 'review', label: 'Review', icon: FileSearch, hint: 'Review git changes', needsPrompt: false },
+                { id: 'refactor', label: 'Refactor', icon: Shuffle, hint: 'Analyze + restructure', needsPrompt: true },
+                { id: 'simplify', label: 'Simplify', icon: Sparkles, hint: 'Clean up changes', needsPrompt: false },
+              ].map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => {
+                    if (p.needsPrompt && !prompt.trim()) {
+                      setActivePreset(p.id);
+                      return;
+                    }
+                    handlePreset(p.id);
+                  }}
+                  disabled={p.needsPrompt && !prompt.trim() && activePreset !== p.id}
+                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[11px] font-medium transition-colors border ${
+                    activePreset === p.id
+                      ? 'bg-amber-600/15 text-amber-300 border-amber-500/40'
+                      : p.needsPrompt && !prompt.trim()
+                        ? 'text-stone-600 border-stone-800/40 cursor-not-allowed'
+                        : 'text-stone-400 border-stone-700/40 hover:text-stone-300 hover:border-stone-600/50'
+                  }`}
+                  title={p.hint + (p.needsPrompt ? ' (describe in box above)' : '')}
+                >
+                  <p.icon size={11} />
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          {activePreset && (
+            <p className="text-[10px] text-amber-400/70">
+              Describe what to {activePreset} in the text box above, then click the button again.
+            </p>
+          )}
         </div>
 
         {/* Recent runs */}

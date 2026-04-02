@@ -21,6 +21,12 @@ import { registerAudit } from '../src/commands/audit.js';
 import { registerPlugin } from '../src/commands/plugin.js';
 import { registerTelemetry } from '../src/commands/telemetry.js';
 import { registerPipeline } from '../src/commands/pipeline.js';
+import { registerFix } from '../src/commands/fix.js';
+import { registerSpike } from '../src/commands/spike.js';
+import { registerReview } from '../src/commands/review.js';
+import { registerRefactor } from '../src/commands/refactor.js';
+import { registerSimplify } from '../src/commands/simplify.js';
+import { registerCi } from '../src/commands/ci.js';
 import { autoDetectStack, autoInit, loadConfig } from '../src/core/config.js';
 import { createContext } from '../src/commands/shared.js';
 
@@ -82,6 +88,16 @@ registerPlan(program);
 registerBuild(program);
 registerTest(program);
 
+// --- Preset commands (quick workflows) ---
+registerFix(program);
+registerSpike(program);
+registerReview(program);
+registerRefactor(program);
+registerSimplify(program);
+
+// --- CI mode ---
+registerCi(program);
+
 // --- Pipeline management ---
 registerPipeline(program);
 
@@ -107,8 +123,11 @@ program.addHelpText('after', () => {
     '',
     chalk.bold('Quick start:'),
     `  ${chalk.cyan('swarm "add a login page with JWT auth"')}  Build a feature end-to-end`,
-    `  ${chalk.cyan('swarm init')}                               Set up a new project`,
-    `  ${chalk.cyan('swarm dashboard')}                          Open the web UI`,
+    `  ${chalk.cyan('swarm fix "login button not working"')}    Fix a bug directly`,
+    `  ${chalk.cyan('swarm review')}                            Review current code changes`,
+    `  ${chalk.cyan('swarm simplify')}                          Clean up changed code`,
+    `  ${chalk.cyan('swarm spike "how does auth work here?"')}  Quick codebase exploration`,
+    `  ${chalk.cyan('swarm dashboard')}                         Open the web UI`,
   ];
   if (!showAll) {
     lines.push('');

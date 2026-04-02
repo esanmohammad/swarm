@@ -76,6 +76,8 @@ export interface StageState {
   contextSummary?: string;
   /** When stage completed */
   finishedAt?: number;
+  /** Cost of this stage (tracked from pipeline totalCost delta) */
+  stageCost?: number;
 }
 
 // Fix history entry for intelligent fix loop
@@ -215,7 +217,7 @@ export type WsCommand =
   | { action: 'send-input'; agentId: string; text: string }
   | { action: 'get-state' }
   | { action: 'run-stage'; stage: 'analyze' | 'architect' | 'plan' | 'build' | 'test'; prompt?: string; parallel?: number; taskId?: string; figmaUrl?: string; baseUrl?: string; authStorageState?: string }
-  | { action: 'run-mayday'; prompt: string; maxIterations?: number; figmaUrl?: string; parallel?: number; resume?: boolean; model?: string; maxFixBudgetUsd?: number | null; fromStage?: StageName; approvalRequired?: boolean }
+  | { action: 'run-mayday'; prompt: string; maxIterations?: number; figmaUrl?: string; parallel?: number; resume?: boolean; model?: string; maxFixBudgetUsd?: number | null; fromStage?: StageName; approvalRequired?: boolean; lean?: boolean }
   | { action: 'mayday-input'; text: string }
   | { action: 'mayday-stop' }
   | { action: 'mayday-approve'; stage: StageName }
@@ -225,7 +227,12 @@ export type WsCommand =
   | { action: 'list-pipelines' }
   | { action: 'switch-pipeline'; namespace: string }
   | { action: 'delete-pipeline'; namespace: string }
-  | { action: 'create-pipeline'; namespace: string };
+  | { action: 'create-pipeline'; namespace: string }
+  | { action: 'run-fix'; prompt?: string; issue?: string; model?: string }
+  | { action: 'run-spike'; prompt: string; model?: string }
+  | { action: 'run-review'; target?: string; model?: string }
+  | { action: 'run-refactor'; prompt: string; scope?: string; model?: string }
+  | { action: 'run-simplify'; scope?: string; dryRun?: boolean; model?: string };
 
 // Guardrail types
 export interface GuardrailRule {
@@ -315,8 +322,14 @@ export interface SwarmConfig {
   activePipeline?: string;
   /** Additional repos for multi-repo mode. Each entry maps a label to an absolute path. */
   repos?: Record<string, string>;
+  /** Monorepo package paths to scope agent work (e.g., ["packages/api", "packages/web"]) */
+  packages?: string[];
   /** Plugin package names or local paths for custom stages/personas */
   plugins?: string[];
+  /** Enable LLM-powered quality gate (uses haiku to evaluate artifacts). Cost: ~$0.01/artifact */
+  llmQualityGate?: boolean;
+  /** Minimum quality score (0-100) to pass LLM quality gate. Default: 60 */
+  llmQualityThreshold?: number;
   /** Webhook configurations for event notifications */
   webhooks?: Array<{
     url: string;

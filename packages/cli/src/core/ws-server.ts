@@ -83,6 +83,7 @@ export class SwarmWsServer {
   private lastStateJson = '';
   private pipeline: Pipeline;
   private authToken: string | null = null;
+  private swarmConfig: SwarmConfig;
 
   constructor(
     private state: StateManager,
@@ -90,6 +91,7 @@ export class SwarmWsServer {
     config: SwarmConfig,
     _projectCwd?: string,
   ) {
+    this.swarmConfig = config;
     this.pipeline = new Pipeline(agentManager, state, config);
 
     // Subscribe to in-process state events (for agents spawned via dashboard)
@@ -489,6 +491,19 @@ export class SwarmWsServer {
             if (cmd.resume) {
               await this.pipeline.resumeMayday({ parallel: cmd.parallel, headless: true });
             } else {
+              // Apply lean mode: haiku for docs stages, keep engineer on default
+              if (cmd.lean) {
+                const engineerModel = this.swarmConfig.models?.engineer ?? this.swarmConfig.model;
+                this.swarmConfig.models = {
+                  ...this.swarmConfig.models,
+                  analyst: 'haiku',
+                  architect: 'haiku',
+                  lead: 'haiku',
+                  tester: 'haiku',
+                  engineer: engineerModel,
+                };
+              }
+
               await this.pipeline.runMayday(cmd.prompt, {
                 stack: stageStack,
                 maxIterations: cmd.maxIterations,
@@ -704,6 +719,335 @@ export class SwarmWsServer {
           type: 'pipeline-list',
           payload: { pipelines: deletedPipelines, active: this.state.getNamespace() },
         });
+        break;
+      }
+
+      // ── Preset commands ──────────────────────────────────────────────
+
+      case 'run-fix': {
+        if (!cmd.prompt?.trim() && !cmd.issue) {
+          throw new Error('Fix requires a bug description or --issue number.');
+        }
+        const fixStack = this.state.getState().stack;
+        const fixModel = cmd.model || this.swarmConfig.model;
+        (async () => {
+          try {
+            let bugDescription = cmd.prompt || '';
+            let issueContext = '';
+
+            // Fetch GitHub issue if provided
+            if (cmd.issue) {
+              const { execSync } = await import('node:child_process');
+              try {
+                const issueJson = execSync(
+                  `gh issue view ${cmd.issue} --json title,body,labels,comments`,
+                  { encoding: 'utf-8', cwd: this.getEffectiveCwd() },
+                ).trim();
+                const issue = JSON.parse(issueJson);
+                bugDescription = `[Issue #${cmd.issue}] ${issue.title}\n\n${issue.body || ''}`;
+                if (issue.comments?.length > 0) {
+                  issueContext = '\n\nIssue comments:\n' + issue.comments.slice(-5)
+                    .map((c: { author: { login: string }; body: string }) => `@${c.author.login}: ${c.body.slice(0, 500)}`)
+                    .join('\n---\n');
+                }
+                console.log(`[ws] Fixing issue #${cmd.issue}: ${issue.title}`);
+              } catch {
+                console.error(`[ws] Could not fetch issue #${cmd.issue}`);
+                return;
+              }
+            } else {
+              console.log(`[ws] Running fix: ${bugDescription.slice(0, 80)}`);
+            }
+
+            const prompt = [
+              'You are fixing a bug. Read the codebase, understand the issue, and fix it.',
+              '',
+              `Bug description: ${bugDescription}`,
+              issueContext,
+              '',
+              'Instructions:',
+              '1. First, understand the bug by reading relevant files and understanding the codebase structure.',
+              '2. Identify the root cause.',
+              '3. Implement the fix with minimal changes — do NOT refactor unrelated code.',
+              '4. Run existing tests to verify the fix does not break anything.',
+              '5. If no tests exist for this bug, write a focused test that reproduces the bug and verifies the fix.',
+            ].join('\n');
+
+            await this.agentManager.spawn({
+              name: `fix-engineer-${fixStack}`,
+              persona: 'engineer',
+              stack: fixStack,
+              prompt,
+              model: fixModel,
+              cwd: this.getEffectiveCwd(),
+              interactive: false,
+              permissionMode: 'auto',
+            });
+            console.log(`[ws] Fix complete`);
+          } catch (err) {
+            console.error(`[ws] Fix failed: ${err instanceof Error ? err.message : err}`);
+          }
+        })();
+        break;
+      }
+
+      case 'run-spike': {
+        if (!cmd.prompt?.trim()) {
+          throw new Error('Spike requires a question or exploration task.');
+        }
+        console.log(`[ws] Running spike: ${cmd.prompt.slice(0, 80)}`);
+        const spikeStack = this.state.getState().stack;
+        const spikeModel = cmd.model || 'haiku';
+        (async () => {
+          try {
+            const prompt = [
+              'You are doing a quick investigation spike. Your goal is to explore and report findings.',
+              '',
+              `Task: ${cmd.prompt}`,
+              '',
+              'Instructions:',
+              '1. Read and explore the codebase to answer the question.',
+              '2. Do NOT make any code changes unless explicitly asked.',
+              '3. Summarize your findings clearly at the end.',
+              '4. If you find relevant files, code patterns, or potential issues — list them.',
+              '5. Keep your investigation focused — this is a quick spike, not a deep audit.',
+            ].join('\n');
+
+            await this.agentManager.spawn({
+              name: `spike-${spikeStack}`,
+              persona: 'engineer',
+              stack: spikeStack,
+              prompt,
+              model: spikeModel,
+              cwd: this.getEffectiveCwd(),
+              interactive: false,
+              permissionMode: 'auto',
+              disallowedTools: ['Edit', 'Write', 'NotebookEdit'],
+            });
+            console.log(`[ws] Spike complete`);
+          } catch (err) {
+            console.error(`[ws] Spike failed: ${err instanceof Error ? err.message : err}`);
+          }
+        })();
+        break;
+      }
+
+      case 'run-review': {
+        console.log(`[ws] Running code review`);
+        const reviewStack = this.state.getState().stack;
+        const reviewModel = cmd.model || 'sonnet';
+        (async () => {
+          try {
+            const { execSync } = await import('node:child_process');
+            const cwd = this.getEffectiveCwd();
+            let diff = '';
+            let reviewContext = '';
+
+            if (cmd.target && /^\d+$/.test(cmd.target)) {
+              try {
+                const prInfo = execSync(`gh pr view ${cmd.target} --json title,body`, { encoding: 'utf-8', cwd }).trim();
+                const prDiff = execSync(`gh pr diff ${cmd.target}`, { encoding: 'utf-8', cwd }).trim();
+                reviewContext = `Pull Request #${cmd.target}:\n${prInfo}`;
+                diff = prDiff;
+              } catch {
+                console.error(`[ws] Could not fetch PR #${cmd.target}`);
+                return;
+              }
+            } else {
+              try {
+                diff = execSync('git diff main...HEAD', { encoding: 'utf-8', cwd }).trim();
+                reviewContext = 'Changes on current branch vs main';
+              } catch {
+                try {
+                  diff = execSync('git diff HEAD', { encoding: 'utf-8', cwd }).trim();
+                  reviewContext = 'Current uncommitted changes';
+                } catch {
+                  console.error(`[ws] No git changes to review`);
+                  return;
+                }
+              }
+            }
+
+            if (!diff) {
+              console.log(`[ws] No changes to review`);
+              return;
+            }
+
+            const maxLen = 50000;
+            const trimmed = diff.length > maxLen ? diff.slice(0, maxLen) : diff;
+
+            const prompt = [
+              'You are a senior code reviewer. Review the following code changes thoroughly.',
+              '',
+              reviewContext ? `Context: ${reviewContext}` : '',
+              '',
+              'Produce a structured code review:',
+              '## Summary - What the changes do.',
+              '## Issues - Bugs, security, performance problems. Severity + file + suggestion.',
+              '## Suggestions - Quality improvements.',
+              '## Verdict - APPROVE, REQUEST_CHANGES, or COMMENT.',
+              '',
+              '```diff',
+              trimmed,
+              '```',
+            ].join('\n');
+
+            await this.agentManager.spawn({
+              name: `reviewer-${reviewStack}`,
+              persona: 'engineer',
+              stack: reviewStack,
+              prompt,
+              model: reviewModel,
+              cwd,
+              interactive: false,
+              permissionMode: 'auto',
+              disallowedTools: ['Edit', 'Write', 'Bash', 'NotebookEdit'],
+            });
+            console.log(`[ws] Review complete`);
+          } catch (err) {
+            console.error(`[ws] Review failed: ${err instanceof Error ? err.message : err}`);
+          }
+        })();
+        break;
+      }
+
+      case 'run-refactor': {
+        if (!cmd.prompt?.trim()) {
+          throw new Error('Refactor requires a description of what to change.');
+        }
+        console.log(`[ws] Running refactor: ${cmd.prompt.slice(0, 80)}`);
+        const refactorStack = this.state.getState().stack;
+        const refactorModel = cmd.model || this.swarmConfig.model;
+        const scopeClause = cmd.scope ? `\nScope: Only modify files within "${cmd.scope}".` : '';
+        (async () => {
+          try {
+            // Step 1: Analyze
+            const analyst = await this.agentManager.spawn({
+              name: `refactor-analyst-${refactorStack}`,
+              persona: 'engineer',
+              stack: refactorStack,
+              prompt: [
+                'Analyze a codebase for refactoring. Do NOT make changes.',
+                `\nRefactoring goal: ${cmd.prompt}`,
+                scopeClause,
+                '\nList files to modify, risks, and complexity estimate.',
+              ].join('\n'),
+              model: refactorModel,
+              cwd: this.getEffectiveCwd(),
+              interactive: false,
+              permissionMode: 'auto',
+              disallowedTools: ['Edit', 'Write', 'Bash', 'NotebookEdit'],
+            });
+            await this.agentManager.waitForAgent(analyst.id);
+
+            // Step 2: Apply
+            const analysisOutput = analyst.output.slice(-10000);
+            await this.agentManager.spawn({
+              name: `refactor-engineer-${refactorStack}`,
+              persona: 'engineer',
+              stack: refactorStack,
+              prompt: [
+                'Apply the refactoring changes from the analysis below.',
+                `\nGoal: ${cmd.prompt}`,
+                scopeClause,
+                `\nAnalysis:\n${analysisOutput}`,
+                '\nMake minimal changes. Run tests to verify.',
+              ].join('\n'),
+              model: refactorModel,
+              cwd: this.getEffectiveCwd(),
+              interactive: false,
+              permissionMode: 'auto',
+            });
+            console.log(`[ws] Refactor complete`);
+          } catch (err) {
+            console.error(`[ws] Refactor failed: ${err instanceof Error ? err.message : err}`);
+          }
+        })();
+        break;
+      }
+
+      case 'run-simplify': {
+        console.log(`[ws] Running simplify`);
+        const simplifyStack = this.state.getState().stack;
+        const simplifyModel = cmd.model || 'haiku';
+        const simplifyDryRun = cmd.dryRun ?? false;
+        (async () => {
+          try {
+            const { execSync } = await import('node:child_process');
+            const cwd = this.getEffectiveCwd();
+
+            let diff = '';
+            try {
+              diff = execSync('git diff main...HEAD', { encoding: 'utf-8', cwd }).trim();
+              if (!diff) {
+                diff = execSync('git diff HEAD', { encoding: 'utf-8', cwd }).trim();
+              }
+            } catch {
+              try {
+                diff = execSync('git diff HEAD', { encoding: 'utf-8', cwd }).trim();
+              } catch { /* ignore */ }
+            }
+
+            if (!diff) {
+              console.log(`[ws] No changes to simplify`);
+              return;
+            }
+
+            const changedFiles = (() => {
+              try { return execSync('git diff --name-only main...HEAD', { encoding: 'utf-8', cwd }).trim(); }
+              catch { try { return execSync('git diff --name-only HEAD', { encoding: 'utf-8', cwd }).trim(); } catch { return ''; } }
+            })();
+
+            const maxLen = 40000;
+            const trimmed = diff.length > maxLen ? diff.slice(0, maxLen) : diff;
+
+            // Step 1: Analyze
+            const analyst = await this.agentManager.spawn({
+              name: `simplify-analyst-${simplifyStack}`,
+              persona: 'engineer',
+              stack: simplifyStack,
+              prompt: [
+                'Analyze code changes for simplification opportunities.',
+                `\nChanged files:\n${changedFiles}`,
+                '\nLook for: dead code, unnecessary abstractions, duplication, over-engineering, missed reuse.',
+                '\nFor each finding: severity (high/medium/low), file, lines, issue, fix.',
+                `\n\`\`\`diff\n${trimmed}\n\`\`\``,
+              ].join('\n'),
+              model: simplifyModel,
+              cwd,
+              interactive: false,
+              permissionMode: 'auto',
+              disallowedTools: ['Edit', 'Write', 'Bash', 'NotebookEdit'],
+            });
+
+            if (simplifyDryRun) {
+              console.log(`[ws] Simplify analysis complete (dry run)`);
+              return;
+            }
+
+            await this.agentManager.waitForAgent(analyst.id);
+
+            // Step 2: Apply
+            const analysisOutput = analyst.output.slice(-10000);
+            await this.agentManager.spawn({
+              name: `simplify-fixer-${simplifyStack}`,
+              persona: 'engineer',
+              stack: simplifyStack,
+              prompt: [
+                'Apply simplification fixes from the analysis.',
+                `\nAnalysis:\n${analysisOutput}`,
+                '\nOnly apply high-severity fixes. Run tests after. Revert if tests break.',
+              ].join('\n'),
+              model: simplifyModel,
+              cwd,
+              interactive: false,
+              permissionMode: 'auto',
+            });
+            console.log(`[ws] Simplify complete`);
+          } catch (err) {
+            console.error(`[ws] Simplify failed: ${err instanceof Error ? err.message : err}`);
+          }
+        })();
         break;
       }
     }
