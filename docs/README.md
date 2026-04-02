@@ -27,6 +27,7 @@
 | 17 | [Autonomous Employee](./17-autonomous-employee.md) | inbox, standup, journal, scope, context, pair, delegate, report, team, retro — Wave 3 AI teammate |
 | 18 | [Autonomous Engineering Organization](./18-autonomous-organization.md) | own, architect-review, onboard, mentor, roadmap, system, slo, evolve, forecast, compliance — Wave 4 org-level AI |
 | 19 | [Product-Aware Intelligence](./19-product-aware-intelligence.md) | observe, experiment, improve, optimize, impact, fleet, contract, simulate, teach — Wave 5 engineering leader |
+| 20 | [Autonomous Engineering Company](./20-autonomous-engineering-company.md) | negotiate, specialize, govern, empathize, allocate, compete, spawn-capability, federate — Wave 6 CTO-level AI |
 | -- | [Troubleshooting](./TROUBLESHOOTING.md) | Common problems and fixes, cost management, getting help |
 
 ---
@@ -59,6 +60,7 @@ swarm dashboard                 # Launch web UI
 - **Using Wave 3 employee features?** See [17 - Autonomous Employee](./17-autonomous-employee.md)
 - **Using Wave 4 organization features?** See [18 - Autonomous Engineering Organization](./18-autonomous-organization.md)
 - **Using Wave 5 product-aware features (observe, experiment, optimize…)?** See [19 - Product-Aware Intelligence](./19-product-aware-intelligence.md)
+- **Using Wave 6 CTO-level features (negotiate, govern, specialize…)?** See [20 - Autonomous Engineering Company](./20-autonomous-engineering-company.md)
 
 ## Architecture at a Glance
 

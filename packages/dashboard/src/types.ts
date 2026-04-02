@@ -566,6 +566,95 @@ export interface TeachState {
   lastCollected: number;
 }
 
+// Wave 6 — Negotiate types
+export interface NegotiateState {
+  negotiations: Array<{ id: string; request: string; feasible: boolean; options: Array<{ name: string; description: string; timeline: string; cost: number; coverage: number; deferred: string[]; risk: string; recommended: boolean }>; selectedOption?: string; audience: string; status: string; createdAt: number }>;
+  reports: Array<{ id: string; period: string; audience: string; content: string; generatedAt: number }>;
+  channels: Array<{ type: string; configured: boolean; lastUsed?: number }>;
+}
+
+// Wave 6 — Specialize types
+export interface SpecializeState {
+  specialists: Array<{ id: string; domain: string; name: string; expertiseScore: number; tasksCompleted: number; successRate: number; memoryItems: number; status: string; createdAt: number; lastUsed: number }>;
+  routingHistory: Array<{ taskDescription: string; routed: string; confidence: number; outcome?: string; timestamp: number }>;
+  collaborations: Array<{ from: string; to: string; type: string; timestamp: number }>;
+}
+
+// Wave 6 — Govern types
+export interface GovernState {
+  policies: Array<{ domain: string; level: number; trustScore: number; autoPromoteThreshold: number; autoDemoteOnRevert: boolean }>;
+  decisions: Array<{ id: string; action: string; domain: string; level: number; confidence: number; reasoning: string; alternatives: string[]; status: string; outcome?: string; timestamp: number; resolvedAt?: number; resolvedBy?: string }>;
+  trustScores: Record<string, number>;
+  overrides: number;
+  totalDecisions: number;
+  autonomousRate: number;
+  budgetAllocation: Record<string, { allocated: number; spent: number }>;
+}
+
+// Wave 6 — Empathize types
+export interface EmpathizeState {
+  journeys: Array<{
+    id: string;
+    name: string;
+    touchpoints: Array<{ stage: string; timestamp: number; status: 'completed' | 'failed' | 'in-progress'; durationMs: number; sentiment: 'positive' | 'negative' | 'neutral' }>;
+    satisfaction: number;
+    painPoints: string[];
+    dropOffPoints: string[];
+    analyzedAt: number;
+  }>;
+  themes: Array<{ id: string; theme: string; occurrences: number; sentiment: 'positive' | 'negative' | 'neutral'; sources: string[]; firstSeen: number; lastSeen: number; impact: 'high' | 'medium' | 'low' }>;
+  improvements: string[];
+  lastAnalyzed: number;
+}
+
+// Wave 6 — Allocate types
+export interface AllocateState {
+  currentPlan: {
+    id: string;
+    generatedAt: number;
+    compositeScore: number;
+    scores: { businessImpact: number; techRisk: number; userImpact: number };
+    allocations: Array<{ category: string; percentage: number; rationale: string }>;
+    insights: string[];
+    totalBudgetContext: { historicalCost: number; runsAnalyzed: number };
+  } | null;
+  scenarios: Array<{
+    id: string;
+    description: string;
+    type: 'increase-features' | 'increase-reliability' | 'reduce-budget' | 'scale-up' | 'custom';
+    adjustments: Array<{ category: string; currentPct: number; proposedPct: number }>;
+    predictedOutcome: { velocityChange: string; riskChange: string; costChange: string; recommendation: string };
+    runAt: number;
+    confidence: number;
+  }>;
+  okrs: Array<{ objective: string; keyResults: Array<{ metric: string; current: number; target: number; unit: string }>; category: string; confidence: number }>;
+  lastGenerated: number;
+}
+
+// Wave 6 — Compete types
+export interface CompeteState {
+  competitors: Array<{ name: string; repo?: string; stars?: number; lastRelease?: string; recentFeatures: string[]; trend: string }>;
+  featureGaps: Array<{ feature: string; competitor: string; priority: string; effort: string }>;
+  radar: Array<{ name: string; category: string; ring: string; relevance: string }>;
+  lastScanned: number;
+}
+
+// Wave 6 — Spawn types
+export interface SpawnState {
+  capabilities: Array<{ id: string; name: string; type: string; source: string; effectiveness: number; tasksUsed: number; status: string; acquiredAt: number }>;
+  gaps: Array<{ domain: string; failureCount: number; lastFailed: number; attemptedAcquisitions: number }>;
+  evaluations: Array<{ capabilityId: string; tasksRun: number; successRate: number; verdict: string }>;
+}
+
+// Wave 6 — Federate types
+export interface FederateState {
+  optedIn: boolean;
+  sharedPatterns: Array<{ id: string; type: string; description: string; stack: string; effectiveness: number; adoptions: number; sharedAt: number }>;
+  receivedPatterns: Array<{ id: string; type: string; description: string; stack: string; effectiveness: number; adoptions: number; sharedAt: number }>;
+  benchmarks: Array<{ metric: string; myValue: number; communityAvg: number; percentile: number }>;
+  lastSync: number;
+}
+
 export type WsMessage =
   | { type: 'state'; payload: PipelineState }
   | { type: 'agent-update'; payload: Agent }
@@ -624,6 +713,14 @@ export type WsMessage =
   | { type: 'contract-data'; payload: ContractData }
   | { type: 'simulation-report'; payload: SimulationReport }
   | { type: 'teach-state'; payload: TeachState }
+  | { type: 'negotiate-state'; payload: NegotiateState }
+  | { type: 'specialize-state'; payload: SpecializeState }
+  | { type: 'govern-state'; payload: GovernState }
+  | { type: 'empathize-state'; payload: EmpathizeState }
+  | { type: 'allocate-state'; payload: AllocateState }
+  | { type: 'compete-state'; payload: CompeteState }
+  | { type: 'spawn-state'; payload: SpawnState }
+  | { type: 'federate-state'; payload: FederateState }
   | { type: 'error'; payload: { message: string } };
 
 export type WsCommand =
@@ -792,4 +889,36 @@ export type WsCommand =
   | { action: 'teach-train'; model?: string }
   | { action: 'teach-evaluate' }
   | { action: 'teach-deploy' }
-  | { action: 'get-teach-state' };
+  | { action: 'get-teach-state' }
+  // Wave 6
+  | { action: 'negotiate-feasibility'; request: string; deadline?: string }
+  | { action: 'negotiate-status'; audience?: string }
+  | { action: 'negotiate-report'; period?: string; audience?: string }
+  | { action: 'get-negotiate-state' }
+  | { action: 'specialize-list' }
+  | { action: 'specialize-create'; domain: string; name?: string }
+  | { action: 'specialize-route'; task: string }
+  | { action: 'specialize-stats' }
+  | { action: 'govern-status' }
+  | { action: 'govern-policy'; domain?: string; level?: number }
+  | { action: 'govern-audit'; limit?: number }
+  | { action: 'govern-trust'; domain?: string }
+  | { action: 'govern-override'; decisionId: string; verdict: string }
+  | { action: 'empathize-journey'; name: string }
+  | { action: 'empathize-feedback' }
+  | { action: 'empathize-impact'; feature: string }
+  | { action: 'empathize-suggest' }
+  | { action: 'allocate-plan' }
+  | { action: 'allocate-scenario'; scenario: string }
+  | { action: 'allocate-okrs'; goals?: string }
+  | { action: 'compete-scan' }
+  | { action: 'compete-gaps' }
+  | { action: 'compete-radar' }
+  | { action: 'spawn-capability'; domain: string }
+  | { action: 'spawn-list' }
+  | { action: 'spawn-evaluate' }
+  | { action: 'federate-opt-in' }
+  | { action: 'federate-opt-out' }
+  | { action: 'federate-share' }
+  | { action: 'federate-benchmarks' }
+  | { action: 'get-federate-state' };

@@ -83,6 +83,14 @@ import { registerFleet } from '../src/commands/fleet.js';
 import { registerContract } from '../src/commands/contract.js';
 import { registerSimulate } from '../src/commands/simulate.js';
 import { registerTeach } from '../src/commands/teach.js';
+import { registerNegotiate } from '../src/commands/negotiate.js';
+import { registerSpecialize } from '../src/commands/specialize.js';
+import { registerGovern } from '../src/commands/govern.js';
+import { registerEmpathize } from '../src/commands/empathize.js';
+import { registerAllocate } from '../src/commands/allocate.js';
+import { registerCompete } from '../src/commands/compete.js';
+import { registerSpawnCapability } from '../src/commands/spawn-capability.js';
+import { registerFederate } from '../src/commands/federate.js';
 import { autoDetectStack, autoInit, loadConfig } from '../src/core/config.js';
 import { createContext } from '../src/commands/shared.js';
 
@@ -263,6 +271,16 @@ registerFleet(program);
 registerContract(program);
 registerSimulate(program);
 registerTeach(program);
+
+// --- Wave 6: Autonomous Engineering Company ---
+registerNegotiate(program);
+registerSpecialize(program);
+registerGovern(program);
+registerEmpathize(program);
+registerAllocate(program);
+registerCompete(program);
+registerSpawnCapability(program);
+registerFederate(program);
 
 // --- Pipeline management ---
 registerPipeline(program);
