@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Wifi, WifiOff, Rocket, BarChart3, Clock, Home, UserPlus, Sun, Moon, Monitor, GitCompareArrows, BookOpen, Brain, GitPullRequest, Eye, HelpCircle, TrendingUp, ChevronDown, Wrench, Upload, Database } from 'lucide-react';
+import { Wifi, WifiOff, Rocket, BarChart3, Clock, Home, UserPlus, Sun, Moon, Monitor, GitCompareArrows, BookOpen, Brain, GitPullRequest, Eye, HelpCircle, TrendingUp, ChevronDown, Wrench, Upload, Database, Bot, Shield, Package, AlertTriangle, Activity, Gauge } from 'lucide-react';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useOnboarding } from './hooks/useOnboarding';
 import { usePersistedState } from './hooks/usePersistedState';
@@ -19,12 +19,18 @@ import { ExplainView } from './views/ExplainView';
 import { StatsView } from './views/StatsView';
 import { DeployView } from './views/DeployView';
 import { MigrateView } from './views/MigrateView';
+import { AutopilotView } from './views/AutopilotView';
+import { SecurityView } from './views/SecurityView';
+import { DepsView } from './views/DepsView';
+import { IncidentView } from './views/IncidentView';
+import { HealthView } from './views/HealthView';
+import { BenchmarkView } from './views/BenchmarkView';
 import { useTheme } from './hooks/useTheme';
-type View = 'launch' | 'pipeline' | 'results' | 'history' | 'conventions' | 'memory' | 'reviews' | 'watch' | 'explain' | 'stats' | 'deploy' | 'migrate';
+type View = 'launch' | 'pipeline' | 'results' | 'history' | 'conventions' | 'memory' | 'reviews' | 'watch' | 'explain' | 'stats' | 'deploy' | 'migrate' | 'autopilot' | 'security' | 'deps' | 'incident' | 'health-check' | 'benchmark';
 
 function getInitialView(): View {
   const hash = window.location.hash.replace('#', '');
-  if (['launch', 'pipeline', 'results', 'history', 'conventions', 'memory', 'reviews', 'watch', 'explain', 'stats', 'deploy', 'migrate'].includes(hash)) return hash as View;
+  if (['launch', 'pipeline', 'results', 'history', 'conventions', 'memory', 'reviews', 'watch', 'explain', 'stats', 'deploy', 'migrate', 'autopilot', 'security', 'deps', 'incident', 'health-check', 'benchmark'].includes(hash)) return hash as View;
   return 'launch';
 }
 
@@ -39,7 +45,7 @@ interface Toast {
 let toastId = 0;
 
 export default function App() {
-  const { state, connected, agentOutputs, agentActivities, violations, historyEntries, artifactContent, pipelines, activePipeline, conventions, conventionsLoading, memories, prReviews, watchResults, deployResult, stats, sendCommand, switchPipeline } = useWebSocket();
+  const { state, connected, agentOutputs, agentActivities, violations, historyEntries, artifactContent, pipelines, activePipeline, conventions, conventionsLoading, memories, prReviews, watchResults, deployResult, stats, autopilotState, sendCommand, switchPipeline } = useWebSocket();
   const { theme, cycleTheme } = useTheme();
   const [view, setView] = usePersistedState<View>('swarm_view', getInitialView());
   const [showSpawn, setShowSpawn] = useState(false);
@@ -176,6 +182,12 @@ export default function App() {
     { key: 'stats', label: 'Cost Intelligence', icon: TrendingUp, hint: 'Spend analytics & ROI' },
     { key: 'deploy', label: 'Deploy', icon: Upload, hint: 'Deploy to staging/production' },
     { key: 'migrate', label: 'Migrate', icon: Database, hint: 'Database migrations' },
+    { key: 'autopilot', label: 'Autopilot', icon: Bot, hint: 'Issue-to-PR automation' },
+    { key: 'security', label: 'Security', icon: Shield, hint: 'Scans, secrets & sandbox' },
+    { key: 'deps', label: 'Dependencies', icon: Package, hint: 'Dependency management' },
+    { key: 'incident', label: 'Incident', icon: AlertTriangle, hint: 'Incident response' },
+    { key: 'health-check', label: 'Health', icon: Activity, hint: 'Codebase health check' },
+    { key: 'benchmark', label: 'Benchmark', icon: Gauge, hint: 'Performance benchmarks' },
   ];
 
   const isToolView = TOOLS_NAV.some(t => t.key === view);
@@ -425,6 +437,27 @@ export default function App() {
               agents={state.agents}
               agentOutputs={agentOutputs}
             />
+          )}
+          {view === 'autopilot' && (
+            <AutopilotView
+              sendCommand={sendCommand}
+              autopilotState={autopilotState}
+            />
+          )}
+          {view === 'security' && (
+            <SecurityView sendCommand={sendCommand} />
+          )}
+          {view === 'deps' && (
+            <DepsView sendCommand={sendCommand} />
+          )}
+          {view === 'incident' && (
+            <IncidentView sendCommand={sendCommand} />
+          )}
+          {view === 'health-check' && (
+            <HealthView sendCommand={sendCommand} />
+          )}
+          {view === 'benchmark' && (
+            <BenchmarkView sendCommand={sendCommand} />
           )}
         </>
       )}

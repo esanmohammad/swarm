@@ -1600,6 +1600,42 @@ export class SwarmWsServer {
         })();
         break;
       }
+
+      case 'autopilot-status': {
+        const { loadAutopilotState } = await import('../commands/autopilot.js');
+        const swarmDir = join(this.state.getFilePath(), '..');
+        const autopilotState = loadAutopilotState(swarmDir);
+        _ws.send(JSON.stringify({ type: 'autopilot-state', payload: autopilotState }));
+        break;
+      }
+
+      case 'autopilot-start': {
+        console.log(`[ws] Starting autopilot`);
+        const { loadAutopilotState: loadAP, saveAutopilotState: saveAP } = await import('../commands/autopilot.js');
+        const swarmDir = join(this.state.getFilePath(), '..');
+        const apState = loadAP(swarmDir);
+        apState.running = true;
+        apState.label = cmd.label || apState.label || 'swarm';
+        apState.pollInterval = cmd.interval || apState.pollInterval || 10;
+        apState.maxConcurrent = cmd.maxConcurrent || apState.maxConcurrent || 1;
+        apState.budgetPerIssue = cmd.budget || apState.budgetPerIssue || 10;
+        saveAP(swarmDir, apState);
+        this.broadcast({ type: 'autopilot-state', payload: apState });
+        console.log(`[ws] Autopilot started (label: ${apState.label})`);
+        break;
+      }
+
+      case 'autopilot-stop': {
+        console.log(`[ws] Stopping autopilot`);
+        const { loadAutopilotState: loadAP2, saveAutopilotState: saveAP2 } = await import('../commands/autopilot.js');
+        const swarmDir = join(this.state.getFilePath(), '..');
+        const apState = loadAP2(swarmDir);
+        apState.running = false;
+        saveAP2(swarmDir, apState);
+        this.broadcast({ type: 'autopilot-state', payload: apState });
+        console.log(`[ws] Autopilot stopped`);
+        break;
+      }
     }
   }
 

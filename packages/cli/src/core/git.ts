@@ -1,4 +1,6 @@
 import { execSync } from 'node:child_process';
+import { readFileSync, existsSync } from 'node:fs';
+import { join } from 'node:path';
 import type { PipelineState } from '../types.js';
 
 /**
@@ -106,4 +108,288 @@ export function createPR(opts: { title: string; body: string; baseBranch?: strin
     const message = err instanceof Error ? (err as any).stderr ?? err.message : String(err);
     throw new Error(`Failed to create PR: ${message}`);
   }
+}
+
+/**
+ * Parse CODEOWNERS file and return a map of glob patterns to owner lists.
+ * Searches .github/CODEOWNERS, CODEOWNERS, and docs/CODEOWNERS.
+ */
+export function parseCodeowners(cwd: string): Map<string, string[]> {
+  const candidates = [
+    join(cwd, '.github', 'CODEOWNERS'),
+    join(cwd, 'CODEOWNERS'),
+    join(cwd, 'docs', 'CODEOWNERS'),
+  ];
+
+  let content: string | null = null;
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) {
+      content = readFileSync(candidate, 'utf-8');
+      break;
+    }
+  }
+
+  const owners = new Map<string, string[]>();
+  if (!content) return owners;
+
+  for (const line of content.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+
+    const parts = trimmed.split(/\s+/);
+    if (parts.length < 2) continue;
+
+    const pattern = parts[0];
+    const ownerList = parts.slice(1).filter(p => p.startsWith('@') || p.includes('@'));
+    if (ownerList.length > 0) {
+      owners.set(pattern, ownerList);
+    }
+  }
+
+  return owners;
+}
+
+/**
+ * Match a file path against a CODEOWNERS glob pattern.
+ * Supports simple patterns: *.ext, dir/, dir/*, specific files.
+ */
+function matchCodeownersPattern(pattern: string, filePath: string): boolean {
+  // Exact match
+  if (pattern === filePath) return true;
+
+  // Directory match: pattern ends with /
+  if (pattern.endsWith('/')) {
+    return filePath.startsWith(pattern) || filePath.startsWith(pattern.slice(0, -1));
+  }
+
+  // Wildcard extension: *.ext
+  if (pattern.startsWith('*.')) {
+    const ext = pattern.slice(1); // .ext
+    return filePath.endsWith(ext);
+  }
+
+  // Directory wildcard: dir/*
+  if (pattern.endsWith('/*')) {
+    const dir = pattern.slice(0, -2);
+    return filePath.startsWith(dir + '/');
+  }
+
+  // Leading wildcard directory: **/pattern
+  if (pattern.startsWith('**/')) {
+    const suffix = pattern.slice(3);
+    return filePath.endsWith(suffix) || filePath.includes('/' + suffix);
+  }
+
+  // Simple contains check for patterns with directory separators
+  if (pattern.includes('/')) {
+    return filePath.startsWith(pattern) || filePath.endsWith(pattern);
+  }
+
+  // Bare filename match
+  return filePath.endsWith('/' + pattern) || filePath === pattern;
+}
+
+/**
+ * Find reviewers for changed files using CODEOWNERS + git blame fallback.
+ * Returns unique list of max 3 reviewers, excluding the current user.
+ */
+export function suggestReviewers(cwd: string, changedFiles: string[]): string[] {
+  // Get current user to exclude
+  let currentUser = '';
+  try {
+    currentUser = execSync('git config user.email', { stdio: 'pipe', encoding: 'utf-8', cwd }).trim();
+  } catch { /* ignore */ }
+
+  let currentGhUser = '';
+  try {
+    currentGhUser = execSync('gh api user --jq .login', { stdio: 'pipe', encoding: 'utf-8', cwd, timeout: 5000 }).trim();
+  } catch { /* ignore */ }
+
+  const reviewerSet = new Set<string>();
+
+  // Strategy 1: CODEOWNERS
+  const codeowners = parseCodeowners(cwd);
+  if (codeowners.size > 0) {
+    for (const file of changedFiles) {
+      // Iterate patterns in reverse order (last match wins in CODEOWNERS)
+      const patterns = Array.from(codeowners.entries());
+      for (let i = patterns.length - 1; i >= 0; i--) {
+        const [pattern, owners] = patterns[i];
+        if (matchCodeownersPattern(pattern, file)) {
+          for (const owner of owners) {
+            // Strip @ prefix and org/ prefix for team handles
+            const clean = owner.replace(/^@/, '');
+            if (clean !== currentUser && clean !== currentGhUser) {
+              reviewerSet.add(clean);
+            }
+          }
+          break; // Last matching pattern wins
+        }
+      }
+    }
+  }
+
+  // Strategy 2: git blame fallback — find most frequent recent authors
+  if (reviewerSet.size === 0) {
+    const authorCounts = new Map<string, number>();
+
+    for (const file of changedFiles.slice(0, 10)) { // Limit to 10 files for perf
+      try {
+        const blameOutput = execSync(
+          `git log --format="%ae" --since="6 months ago" -10 -- "${file}" 2>/dev/null`,
+          { cwd, encoding: 'utf-8', timeout: 10000 },
+        ).trim();
+
+        if (!blameOutput) continue;
+
+        for (const email of blameOutput.split('\n')) {
+          const trimmed = email.trim();
+          if (!trimmed || trimmed === currentUser) continue;
+          authorCounts.set(trimmed, (authorCounts.get(trimmed) || 0) + 1);
+        }
+      } catch { /* ignore per-file failures */ }
+    }
+
+    // Sort by frequency and take top authors
+    const sorted = Array.from(authorCounts.entries())
+      .sort((a, b) => b[1] - a[1]);
+
+    for (const [author] of sorted) {
+      reviewerSet.add(author);
+      if (reviewerSet.size >= 3) break;
+    }
+  }
+
+  return Array.from(reviewerSet).slice(0, 3);
+}
+
+/**
+ * Build an enhanced PR body with risk scores, code ownership, and artifact summaries.
+ */
+export function buildSmartPRBody(opts: {
+  state: PipelineState;
+  changedFiles: string[];
+  riskScores?: Array<{ file: string; overall: number; level: string }>;
+  reviewers?: string[];
+}): string {
+  const { state, changedFiles, riskScores, reviewers } = opts;
+  const mayday = state.mayday;
+  const featureRequest = mayday?.featureRequest ?? 'N/A';
+
+  const sections: string[] = [];
+
+  // Summary
+  sections.push('## Summary');
+  sections.push('');
+  sections.push(`> ${featureRequest}`);
+  sections.push('');
+
+  // Risk assessment
+  if (riskScores && riskScores.length > 0) {
+    sections.push('## Risk Assessment');
+    sections.push('');
+
+    const criticalCount = riskScores.filter(r => r.level === 'critical').length;
+    const highCount = riskScores.filter(r => r.level === 'high').length;
+    const mediumCount = riskScores.filter(r => r.level === 'medium').length;
+    const lowCount = riskScores.filter(r => r.level === 'low').length;
+
+    const overallRisk = Math.round(
+      riskScores.reduce((sum, r) => sum + r.overall, 0) / riskScores.length,
+    );
+
+    const riskEmoji = overallRisk > 75 ? '🔴' : overallRisk > 50 ? '🟠' : overallRisk > 25 ? '🟡' : '🟢';
+
+    sections.push(`**Overall Risk**: ${riskEmoji} ${overallRisk}/100`);
+    sections.push('');
+
+    if (criticalCount > 0) sections.push(`- 🔴 **Critical**: ${criticalCount} file(s)`);
+    if (highCount > 0) sections.push(`- 🟠 **High**: ${highCount} file(s)`);
+    if (mediumCount > 0) sections.push(`- 🟡 **Medium**: ${mediumCount} file(s)`);
+    if (lowCount > 0) sections.push(`- 🟢 **Low**: ${lowCount} file(s)`);
+    sections.push('');
+
+    // Changed files grouped by risk level
+    sections.push('<details>');
+    sections.push('<summary>Changed files by risk level</summary>');
+    sections.push('');
+    sections.push('| File | Risk | Score |');
+    sections.push('|------|------|-------|');
+
+    for (const rs of riskScores) {
+      const icon = rs.level === 'critical' ? '🔴' : rs.level === 'high' ? '🟠' : rs.level === 'medium' ? '🟡' : '🟢';
+      sections.push(`| \`${rs.file}\` | ${icon} ${rs.level} | ${rs.overall} |`);
+    }
+
+    sections.push('');
+    sections.push('</details>');
+    sections.push('');
+  }
+
+  // Pipeline stages table
+  sections.push('## Pipeline Stages');
+  sections.push('');
+  sections.push('| Stage | Status | Cost |');
+  sections.push('|-------|--------|------|');
+
+  for (const [name, stage] of Object.entries(state.stages)) {
+    const icon = stage.status === 'done' ? '✅' : stage.status === 'error' ? '❌' : stage.status === 'skipped' ? '⏭️' : '⏳';
+    const cost = stage.stageCost != null ? `$${stage.stageCost.toFixed(4)}` : '—';
+    sections.push(`| ${name} | ${icon} ${stage.status} | ${cost} |`);
+  }
+  sections.push('');
+
+  // Cost breakdown
+  const totalCost = state.totalCost.totalUsd.toFixed(4);
+  const inputTokens = state.totalCost.inputTokens.toLocaleString();
+  const outputTokens = state.totalCost.outputTokens.toLocaleString();
+  const agentCount = state.agents.length;
+
+  sections.push('## Cost Breakdown');
+  sections.push('');
+  sections.push(`- **Total cost**: $${totalCost} USD`);
+  sections.push(`- **Input tokens**: ${inputTokens}`);
+  sections.push(`- **Output tokens**: ${outputTokens}`);
+  sections.push(`- **Agents spawned**: ${agentCount}`);
+
+  if (mayday) {
+    const startedAt = mayday.startedAt ?? 0;
+    const durationMs = startedAt > 0 ? Date.now() - startedAt : 0;
+    const durationMin = (durationMs / 60_000).toFixed(1);
+    sections.push(`- **Duration**: ${durationMin} min`);
+    sections.push(`- **Fix iterations**: ${mayday.fixIteration}/${mayday.maxFixIterations}`);
+  }
+  sections.push('');
+
+  // Changed files summary
+  sections.push(`## Changed Files (${changedFiles.length})`);
+  sections.push('');
+
+  if (changedFiles.length <= 20) {
+    for (const f of changedFiles) {
+      sections.push(`- \`${f}\``);
+    }
+  } else {
+    // Show first 15 and summarize rest
+    for (const f of changedFiles.slice(0, 15)) {
+      sections.push(`- \`${f}\``);
+    }
+    sections.push(`- ... and ${changedFiles.length - 15} more files`);
+  }
+  sections.push('');
+
+  // Suggested reviewers
+  if (reviewers && reviewers.length > 0) {
+    sections.push('## Suggested Reviewers');
+    sections.push('');
+    for (const reviewer of reviewers) {
+      sections.push(`- @${reviewer}`);
+    }
+    sections.push('');
+  }
+
+  sections.push('---');
+  sections.push('_Auto-generated by Swarm Smart PR_');
+
+  return sections.join('\n');
 }

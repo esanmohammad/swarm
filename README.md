@@ -66,6 +66,176 @@ Not everything needs the full 5-stage pipeline. These commands skip straight to 
 
 All quick workflows are also available from the **dashboard** Launch view as one-click buttons.
 
+## Wave 2 Features
+
+### Autopilot — Issue-to-PR Automation (`swarm autopilot`)
+Background daemon that watches GitHub issues with a specific label, runs the full MayDay pipeline per issue, and creates a PR. Zero-touch from issue to reviewable PR.
+
+```bash
+swarm autopilot start --label swarm          # Watch issues labeled "swarm"
+swarm autopilot start --budget 10 --dry-run  # Test without creating PRs
+swarm autopilot status                       # Show queue, stats, processed issues
+swarm autopilot stop                         # Stop the daemon
+```
+
+Per issue: creates branch → runs full pipeline → creates PR → comments on issue → updates labels. Configurable poll interval, max concurrent, and per-issue budget.
+
+### Retroactive Test Generation (`swarm test-gen`)
+Batch test generation across untested files with coverage analysis, intelligent file ranking, and a verification loop.
+
+```bash
+swarm test-gen                               # Generate tests for untested files
+swarm test-gen src/core/                     # Scope to a directory
+swarm test-gen --coverage --verify           # Analyze coverage, verify generated tests
+swarm test-gen --framework vitest --budget 5 # Specify framework and budget
+```
+
+### Intelligent Dependency Updates (`swarm deps`)
+Scan, classify, and safely update dependencies with risk-aware automation.
+
+```bash
+swarm deps check                             # Scan and classify outdated deps
+swarm deps update --level minor --verify     # Apply minor updates, run tests after
+swarm deps update --level major --budget 5   # Use AI agent for major migrations
+swarm deps audit                             # Check for known vulnerabilities
+```
+
+### Regression Risk Scoring (`swarm risk`)
+Multi-dimensional risk analysis (0-100) for changed files: file criticality, test coverage, blast radius, change history, complexity, and novelty.
+
+```bash
+swarm risk                                   # Score files changed vs main
+swarm risk src/auth.ts src/db.ts             # Score specific files
+swarm risk --fail-above 75                   # CI gate: fail if any file is critical
+swarm risk --json                            # Machine-readable output
+```
+
+### Production Incident Response (`swarm incident`)
+AI-assisted incident diagnosis and remediation: correlates logs with recent deploys, generates root cause analysis, and optionally produces fixes.
+
+```bash
+swarm incident respond "500 errors on /api/users" --severity P2
+swarm incident respond "memory leak" --logs /tmp/app.log --fix
+swarm incident history                       # Past incident responses
+```
+
+### Smart PR Creation (`swarm pr`)
+Intelligent PR creation with CODEOWNERS parsing, git blame reviewer suggestions, risk score badges, and structured PR bodies.
+
+```bash
+swarm pr                                     # Create PR with smart defaults
+swarm pr --risk --reviewers                  # Include risk scores, auto-assign reviewers
+swarm pr --draft --label "needs-review"      # Draft PR with labels
+```
+
+### Codebase Health Monitor (`swarm health`)
+Track dependency freshness, vulnerabilities, dead code, complexity hotspots, type coverage, bundle size, and doc freshness. Scored 0-100.
+
+```bash
+swarm health                                 # Run health check
+swarm health --json                          # Machine-readable output
+swarm health --watch --interval 60           # Continuous monitoring
+```
+
+### Project Management Integration (`swarm pm`)
+Bidirectional sync with GitHub Issues, Linear, and Jira. Import tickets as feature requests, sync pipeline state to PM tool status.
+
+```bash
+swarm pm sync --provider github              # Sync pipeline state to GitHub
+swarm pm import ISSUE-123 --provider linear  # Import Linear ticket as feature request
+swarm pm status                              # Show sync status
+```
+
+### Performance Regression Detection (`swarm benchmark`)
+Run benchmarks, compare with baselines, and detect performance regressions with configurable thresholds.
+
+```bash
+swarm benchmark run                          # Run benchmarks and compare
+swarm benchmark baseline                     # Save current results as baseline
+swarm benchmark run --threshold 10 --fail-on-regression  # CI gate
+```
+
+### Multi-Repo Orchestration (`swarm multi-repo`)
+Cross-repo feature coordination with linked PR creation.
+
+```bash
+swarm multi-repo run "add auth" --repos api,web  # Feature across repos
+swarm multi-repo status                           # Status across repos
+swarm multi-repo sync                             # Check API contract alignment
+```
+
+### Security Scanner (`swarm secure`)
+OWASP-style security scanning: SQL injection, XSS, hardcoded secrets, path traversal, command injection, eval usage, insecure crypto, prototype pollution, SSRF, and insecure headers.
+
+```bash
+swarm secure                                 # Static pattern scan
+swarm secure --full                          # Include LLM semantic analysis
+swarm secure --fix                           # Auto-fix critical/high findings
+swarm secure --fail-on high --sarif          # CI gate with SARIF output
+```
+
+### Supply Chain Attack Prevention (`swarm supply-chain`)
+Pre-install verification: package existence, age, popularity, maintainer count, typosquatting detection, install script scanning, and lockfile integrity.
+
+```bash
+swarm supply-chain check                     # Verify all dependencies
+swarm supply-chain check lodash              # Verify a single package
+swarm supply-chain lockfile                  # Check lockfile integrity
+```
+
+### Secret Detection (`swarm secrets`)
+200+ regex patterns for AWS keys, GitHub tokens, Stripe keys, private keys, JWTs, database URLs, and more. Context-aware: skips test fixtures and placeholders.
+
+```bash
+swarm secrets scan                           # Scan for hardcoded secrets
+swarm secrets scan --include-tests           # Include test files
+swarm secrets gitignore                      # Check .gitignore coverage
+```
+
+### Sandboxed Code Execution (`swarm sandbox`)
+Filesystem, network, and command restrictions for AI agents. Three modes: strict, moderate, off.
+
+```bash
+swarm sandbox status                         # Show current mode and config
+swarm sandbox set strict                     # Maximum restrictions
+swarm sandbox violations                     # View violation log
+```
+
+### Code Provenance & Audit Trail (`swarm provenance`)
+Track AI-generated code: model, requestor, prompt hash, files changed, security checks, cost. Exportable compliance reports.
+
+```bash
+swarm provenance trail                       # Show provenance records
+swarm provenance trail --file src/auth.ts    # Filter by file
+swarm provenance export --format csv         # Compliance export
+```
+
+### Prompt Injection Defense (`swarm prompt-guard`)
+Input sanitization for external content (issues, PRs, files): detects instruction override, role escape, system prompt leak, jailbreak, and data exfiltration attempts.
+
+```bash
+swarm prompt-guard scan "text to check"      # Scan for injection
+swarm prompt-guard test                      # Run defense self-test
+```
+
+### AI Code Fingerprinting (`swarm fingerprint`)
+Tag and track AI-generated vs human-written code using git trailers, provenance records, and heuristic analysis.
+
+```bash
+swarm fingerprint                            # Scan all source files
+swarm fingerprint src/                       # Scope to directory
+swarm fingerprint --json                     # Machine-readable output
+```
+
+### Runtime Security Monitoring (`swarm monitor`)
+Track filesystem access, network connections, environment variable reads, and subprocess spawning during agent execution. Baseline comparison for anomaly detection.
+
+```bash
+swarm monitor events                         # Show runtime events
+swarm monitor anomalies                      # Events deviating from baseline
+swarm monitor baseline                       # Save current state as baseline
+```
+
 ## Smart Features
 
 ### Codebase Awareness
@@ -225,6 +395,55 @@ swarm deploy production --approve  # Deploy to production
 swarm server start                 # Run as shared HTTP server
 swarm server submit "feature"      # Submit job to server
 swarm server jobs                  # List queued/running jobs
+
+# Autopilot (issue-to-PR)
+swarm autopilot start --label swarm  # Watch GitHub issues
+swarm autopilot status               # Queue and stats
+swarm autopilot stop                 # Stop daemon
+
+# Test generation
+swarm test-gen                       # Generate tests for untested files
+swarm test-gen src/ --verify         # Scope + verify
+
+# Dependency management
+swarm deps check                     # Scan outdated deps
+swarm deps update --level minor      # Apply safe updates
+swarm deps audit                     # Vulnerability check
+
+# Risk scoring
+swarm risk                           # Score changed files
+swarm risk --fail-above 75           # CI gate
+
+# Incident response
+swarm incident respond "description" # Diagnose + fix
+swarm incident history               # Past incidents
+
+# Smart PR creation
+swarm pr --risk --reviewers          # PR with risk scores + reviewers
+
+# Health monitor
+swarm health                         # Codebase health check
+
+# PM integration
+swarm pm sync --provider github      # Sync to PM tool
+swarm pm import ISSUE-123            # Import ticket
+
+# Benchmarks
+swarm benchmark run                  # Run and compare
+swarm benchmark baseline             # Save baseline
+
+# Multi-repo
+swarm multi-repo run "feature"       # Cross-repo feature
+
+# Security
+swarm secure                         # OWASP security scan
+swarm secrets scan                   # Secret detection
+swarm supply-chain check             # Dependency verification
+swarm sandbox set moderate           # Agent sandboxing
+swarm provenance trail               # Code provenance
+swarm prompt-guard scan "text"       # Injection defense
+swarm fingerprint                    # AI code tracking
+swarm monitor events                 # Runtime monitoring
 
 # Utilities
 swarm status                       # Show pipeline state and costs

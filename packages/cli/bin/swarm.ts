@@ -26,6 +26,7 @@ import { registerSpike } from '../src/commands/spike.js';
 import { registerReview } from '../src/commands/review.js';
 import { registerRefactor } from '../src/commands/refactor.js';
 import { registerSimplify } from '../src/commands/simplify.js';
+import { registerTestGen } from '../src/commands/test-gen.js';
 import { registerCi } from '../src/commands/ci.js';
 import { registerLearn } from '../src/commands/learn.js';
 import { registerMemory } from '../src/commands/memory.js';
@@ -36,6 +37,23 @@ import { registerStats } from '../src/commands/stats.js';
 import { registerDeploy } from '../src/commands/deploy.js';
 import { registerMigrate } from '../src/commands/migrate.js';
 import { registerServer } from '../src/commands/server.js';
+import { registerAutopilot } from '../src/commands/autopilot.js';
+import { registerDeps } from '../src/commands/deps.js';
+import { registerRisk } from '../src/commands/risk.js';
+import { registerPm } from '../src/commands/pm.js';
+import { registerIncident } from '../src/commands/incident.js';
+import { registerPr } from '../src/commands/pr.js';
+import { registerHealth } from '../src/commands/health.js';
+import { registerBenchmark } from '../src/commands/benchmark.js';
+import { registerMultiRepo } from '../src/commands/multi-repo.js';
+import { registerSecure } from '../src/commands/secure.js';
+import { registerSecrets } from '../src/commands/secrets.js';
+import { registerProvenance } from '../src/commands/provenance.js';
+import { registerSupplyChain } from '../src/commands/supply-chain.js';
+import { registerSandbox } from '../src/commands/sandbox.js';
+import { registerPromptGuard } from '../src/commands/prompt-guard.js';
+import { registerFingerprint } from '../src/commands/fingerprint.js';
+import { registerRuntimeMonitor } from '../src/commands/runtime-monitor.js';
 import { autoDetectStack, autoInit, loadConfig } from '../src/core/config.js';
 import { createContext } from '../src/commands/shared.js';
 
@@ -104,6 +122,9 @@ registerReview(program);
 registerRefactor(program);
 registerSimplify(program);
 
+// --- Test generation ---
+registerTestGen(program);
+
 // --- CI mode ---
 registerCi(program);
 
@@ -129,6 +150,55 @@ registerStats(program);
 registerDeploy(program);
 registerMigrate(program);
 registerServer(program);
+
+// --- Autopilot (issue-to-PR automation) ---
+registerAutopilot(program);
+
+// --- Dependency management ---
+registerDeps(program);
+
+// --- Risk scoring ---
+registerRisk(program);
+
+// --- Incident response ---
+registerIncident(program);
+registerPr(program);
+
+// --- Codebase health monitor ---
+registerHealth(program);
+
+// --- Benchmark / perf regression ---
+registerBenchmark(program);
+
+// --- Multi-repo orchestration ---
+registerMultiRepo(program);
+
+// --- Security scanner ---
+registerSecure(program);
+
+// --- Supply chain attack prevention ---
+registerSupplyChain(program);
+
+// --- Code provenance & audit trail ---
+registerProvenance(program);
+
+// --- Sandboxed code execution ---
+registerSandbox(program);
+
+// --- Secret detection & prevention ---
+registerSecrets(program);
+
+// --- PM integration ---
+registerPm(program);
+
+// --- Prompt injection defense ---
+registerPromptGuard(program);
+
+// --- AI code fingerprinting ---
+registerFingerprint(program);
+
+// --- Runtime security monitoring ---
+registerRuntimeMonitor(program);
 
 // --- Pipeline management ---
 registerPipeline(program);

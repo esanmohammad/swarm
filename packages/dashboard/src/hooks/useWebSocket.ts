@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import type { PipelineState, PipelineInfo, WsMessage, WsCommand, GuardrailViolation, AgentActivity, HistoryEntry, StageName } from '../types';
+import type { PipelineState, PipelineInfo, WsMessage, WsCommand, GuardrailViolation, AgentActivity, HistoryEntry, StageName, AutopilotState } from '../types';
 
 // WS port is injected by the dashboard HTTP server into window.__SWARM_WS_PORT__
 // Falls back to deriving from dashboard port (wsPort = dashboardPort - 1) or default 3847
@@ -31,6 +31,7 @@ interface UseWebSocketReturn {
   busMessages: Array<{ id: string; fromAgentId: string; fromPersona: string; toAgentId: string; toPersona: string; kind: string; content: string; timestamp: number; delivered: boolean }>;
   deployResult: { environment: string; steps: Array<{ name: string; cmd: string; status: 'pass' | 'fail' | 'skip' | 'pending'; output?: string; durationMs: number }>; success: boolean; rolledBack: boolean; timestamp: number } | null;
   stats: { totalRuns: number; passed: number; failed: number; successRate: number; totalCost: number; avgCostPerRun: number; avgDurationMs: number; avgFixIterations: number; stageCosts: Array<{ stage: string; totalCost: number; avgCost: number; avgDurationMs: number; count: number }>; weeklySpend: Array<{ week: string; cost: number; runs: number }>; recommendations: string[] } | null;
+  autopilotState: AutopilotState | null;
   sendCommand: (cmd: WsCommand) => void;
   switchPipeline: (namespace: string) => void;
   listPipelines: () => void;
@@ -51,6 +52,7 @@ export function useWebSocket(): UseWebSocketReturn {
   const [deployResult, setDeployResult] = useState<UseWebSocketReturn['deployResult']>(null);
   const [busMessages, setBusMessages] = useState<Array<{ id: string; fromAgentId: string; fromPersona: string; toAgentId: string; toPersona: string; kind: string; content: string; timestamp: number; delivered: boolean }>>([]);
   const [stats, setStats] = useState<UseWebSocketReturn['stats']>(null);
+  const [autopilotState, setAutopilotState] = useState<AutopilotState | null>(null);
   const agentOutputsRef = useRef(new Map<string, string>());
   const agentActivitiesRef = useRef(new Map<string, AgentActivity[]>());
   const artifactContentRef = useRef(new Map<StageName, string>());
@@ -199,6 +201,10 @@ export function useWebSocket(): UseWebSocketReturn {
           case 'stats':
             setStats(msg.payload);
             break;
+
+          case 'autopilot-state':
+            setAutopilotState(msg.payload);
+            break;
         }
       } catch {
         // ignore malformed messages
@@ -245,6 +251,7 @@ export function useWebSocket(): UseWebSocketReturn {
     deployResult,
     busMessages,
     stats,
+    autopilotState,
     sendCommand,
     switchPipeline,
     listPipelines,

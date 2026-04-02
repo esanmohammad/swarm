@@ -181,6 +181,40 @@ export interface PipelineInfo {
   worktreePath?: string;
 }
 
+// Autopilot types
+export interface AutopilotIssue {
+  number: number;
+  title: string;
+  body: string;
+  labels: string[];
+  author: string;
+  url: string;
+  updatedAt: string;
+  status: 'pending' | 'running' | 'done' | 'failed';
+  prUrl?: string;
+  cost?: number;
+  duration?: number;
+  error?: string;
+  startedAt?: number;
+  completedAt?: number;
+}
+
+export interface AutopilotState {
+  running: boolean;
+  label: string;
+  pollInterval: number;
+  maxConcurrent: number;
+  budgetPerIssue: number;
+  processedIssues: AutopilotIssue[];
+  queue: AutopilotIssue[];
+  stats: {
+    totalProcessed: number;
+    successful: number;
+    failed: number;
+    totalCost: number;
+  };
+}
+
 export type WsMessage =
   | { type: 'state'; payload: PipelineState }
   | { type: 'agent-update'; payload: Agent }
@@ -200,6 +234,16 @@ export type WsMessage =
   | { type: 'bus-messages'; payload: { messages: Array<{ id: string; fromAgentId: string; fromPersona: string; toAgentId: string; toPersona: string; kind: string; content: string; timestamp: number; delivered: boolean }> } }
   | { type: 'deploy-result'; payload: { environment: string; steps: Array<{ name: string; cmd: string; status: 'pass' | 'fail' | 'skip' | 'pending'; output?: string; durationMs: number }>; success: boolean; rolledBack: boolean; timestamp: number } }
   | { type: 'stats'; payload: { totalRuns: number; passed: number; failed: number; successRate: number; totalCost: number; avgCostPerRun: number; avgDurationMs: number; avgFixIterations: number; stageCosts: Array<{ stage: string; totalCost: number; avgCost: number; avgDurationMs: number; count: number }>; weeklySpend: Array<{ week: string; cost: number; runs: number }>; recommendations: string[] } }
+  | { type: 'autopilot-state'; payload: AutopilotState }
+  | { type: 'risk-scores'; payload: { scores: Array<{ file: string; overall: number; level: string; dimensions: Array<{ name: string; score: number; weight: number; detail: string }> }> } }
+  | { type: 'incidents'; payload: { incidents: Array<{ id: string; description: string; severity: string; status: string; startedAt: number; resolvedAt?: number; rootCause?: string; cost: number }> } }
+  | { type: 'benchmark-report'; payload: { results: Array<{ name: string; opsPerSec?: number; avgMs?: number }>; regressions: Array<{ name: string; changePercent: number }>; bundleSize?: { totalBytes: number }; timestamp: number } }
+  | { type: 'health-report'; payload: { overall: number; metrics: Array<{ name: string; score: number; status: string; detail: string; suggestion?: string }>; timestamp: number } }
+  | { type: 'security-report'; payload: { findings: Array<{ id: string; category: string; severity: string; file: string; line: number; message: string; suggestion: string }>; summary: { critical: number; high: number; medium: number; low: number }; scannedFiles: number } }
+  | { type: 'provenance'; payload: { records: Array<{ runId: string; timestamp: number; model: string; files: Array<{ path: string; action: string }>; cost: number }> } }
+  | { type: 'runtime-events'; payload: { events: Array<{ type: string; detail: string; timestamp: number; severity: string; source: string }>; anomalyCount: number } }
+  | { type: 'secrets-report'; payload: { findings: Array<{ type: string; file: string; line: number; severity: string; message: string }>; gitignoreIssues: string[] } }
+  | { type: 'fingerprint-report'; payload: { files: Array<{ file: string; origin: string; confidence: number; aiPercentage: number; model?: string }>; summary: { totalFiles: number; aiFiles: number; humanFiles: number; mixedFiles: number; aiLinesEstimate: number; totalLines: number } } }
   | { type: 'error'; payload: { message: string } };
 
 export type WsCommand =
@@ -240,4 +284,30 @@ export type WsCommand =
   | { action: 'get-bus-messages' }
   | { action: 'get-stats'; period?: number }
   | { action: 'run-deploy'; environment: string; dryRun?: boolean }
-  | { action: 'run-migrate'; description: string; dryRun?: boolean; model?: string };
+  | { action: 'run-migrate'; description: string; dryRun?: boolean; model?: string }
+  | { action: 'autopilot-start'; label?: string; interval?: number; maxConcurrent?: number; budget?: number; dryRun?: boolean }
+  | { action: 'autopilot-stop' }
+  | { action: 'autopilot-status' }
+  | { action: 'run-test-gen'; scope?: string; model?: string; framework?: string; coverage?: boolean; verify?: boolean; budget?: number }
+  | { action: 'run-deps-check' }
+  | { action: 'run-deps-update'; level?: string; model?: string; verify?: boolean; budget?: number }
+  | { action: 'run-deps-audit' }
+  | { action: 'run-risk'; files?: string[] }
+  | { action: 'run-incident'; description: string; severity?: string; logs?: string; model?: string; fix?: boolean }
+  | { action: 'get-incidents' }
+  | { action: 'run-pm-sync'; provider?: string; project?: string }
+  | { action: 'run-pm-import'; ticketId: string; provider?: string; model?: string }
+  | { action: 'run-benchmark'; cmd?: string; threshold?: number }
+  | { action: 'run-multi-repo'; feature: string; repos?: string[]; model?: string; budget?: number; parallel?: boolean }
+  | { action: 'get-multi-repo-status' }
+  | { action: 'run-health' }
+  | { action: 'run-secure'; full?: boolean; fix?: boolean; scope?: string; model?: string }
+  | { action: 'run-supply-chain-check'; package?: string }
+  | { action: 'get-sandbox-status' }
+  | { action: 'set-sandbox-mode'; mode: string }
+  | { action: 'run-prompt-guard-scan'; text: string }
+  | { action: 'get-provenance'; file?: string; runId?: string; limit?: number }
+  | { action: 'get-runtime-events'; since?: number; severity?: string }
+  | { action: 'save-runtime-baseline' }
+  | { action: 'run-secrets-scan'; scope?: string; includeTests?: boolean }
+  | { action: 'run-fingerprint'; scope?: string };
