@@ -240,6 +240,16 @@ export type WsMessage =
   | { type: 'report-data'; payload: ReportData }
   | { type: 'team-activity'; payload: TeamActivity }
   | { type: 'retro-report'; payload: RetroReport }
+  | { type: 'surfaces-state'; payload: SurfacesState }
+  | { type: 'arch-review'; payload: ArchReviewData }
+  | { type: 'onboard-data'; payload: OnboardData }
+  | { type: 'roadmap-data'; payload: RoadmapData }
+  | { type: 'system-graph'; payload: SystemGraphData }
+  | { type: 'slo-data'; payload: SloData }
+  | { type: 'debt-data'; payload: DebtData }
+  | { type: 'forecast-data'; payload: ForecastData }
+  | { type: 'compliance-data'; payload: ComplianceData }
+  | { type: 'plugin-registry'; payload: PluginRegistryData }
   | { type: 'error'; payload: { message: string } };
 
 export interface PipelineInfo {
@@ -343,7 +353,34 @@ export type WsCommand =
   | { action: 'get-team-activity' }
   | { action: 'team-notify'; message: string }
   | { action: 'get-retro'; period?: string }
-  | { action: 'run-retro'; period?: string; autoApply?: boolean };
+  | { action: 'run-retro'; period?: string; autoApply?: boolean }
+  | { action: 'get-surfaces' }
+  | { action: 'own-surface'; name: string; slos?: Record<string, string> }
+  | { action: 'release-surface'; name: string }
+  | { action: 'run-arch-review'; focus?: string }
+  | { action: 'get-arch-review' }
+  | { action: 'run-onboard'; role?: string; area?: string }
+  | { action: 'run-mentor'; question: string }
+  | { action: 'get-onboard-data' }
+  | { action: 'get-roadmap' }
+  | { action: 'run-roadmap'; goal: string }
+  | { action: 'run-roadmap-execute'; phase: string }
+  | { action: 'get-system-graph' }
+  | { action: 'run-system-map' }
+  | { action: 'run-system-check' }
+  | { action: 'get-slos' }
+  | { action: 'add-slo'; name: string; target: string; source?: string }
+  | { action: 'run-slo-check' }
+  | { action: 'get-debt' }
+  | { action: 'run-debt-scan' }
+  | { action: 'run-debt-fix'; itemId: string }
+  | { action: 'get-forecast'; type?: string }
+  | { action: 'run-forecast'; feature?: string }
+  | { action: 'get-compliance'; framework?: string }
+  | { action: 'run-compliance-check'; framework?: string }
+  | { action: 'get-plugins' }
+  | { action: 'install-plugin'; name: string }
+  | { action: 'remove-plugin'; name: string };
 
 // Guardrail types
 export interface GuardrailRule {
@@ -662,6 +699,166 @@ export interface RetroReport {
   wentPoorly: Array<{ summary: string; evidence: string; impact: string }>;
   actionItems: Array<{ description: string; configChange?: { key: string; oldValue: unknown; newValue: unknown }; priority: string }>;
   metrics: { totalRuns: number; successRate: number; avgCost: number; revertRate: number; fixIterationAvg: number };
+}
+
+// Wave 4 — Surface Ownership types
+export interface SurfaceDefinition {
+  name: string;
+  description: string;
+  paths: string[];
+  slos: Record<string, string>;
+  monitoring?: Record<string, string>;
+  owners?: { human: string[]; swarm: boolean };
+  budget?: { monthly: number };
+}
+
+export interface SurfaceStatus {
+  name: string;
+  description: string;
+  paths: string[];
+  slos: Array<{ name: string; target: string; current: string; status: 'ok' | 'warning' | 'breach' }>;
+  healthScore: number;
+  lastChecked: number;
+  maintenanceHistory: Array<{ action: string; timestamp: number; cost: number }>;
+  budgetUsed: number;
+  budgetTotal: number;
+}
+
+export interface SurfacesState {
+  surfaces: SurfaceStatus[];
+  totalBudget: number;
+  totalSpent: number;
+}
+
+// Wave 4 — Architecture Review types
+export interface ArchReviewData {
+  summary: string;
+  issues: Array<{
+    id: string;
+    title: string;
+    severity: 'critical' | 'high' | 'medium' | 'low';
+    category: string;
+    evidence: string;
+    impact: string;
+    solutions: Array<{ name: string; description: string; effort: string; risk: string; recommended: boolean }>;
+  }>;
+  couplingScore: number;
+  complexityScore: number;
+  trends: Array<{ metric: string; direction: 'improving' | 'degrading' | 'stable'; detail: string }>;
+  actionPlan: Array<{ priority: number; action: string; effort: string; impact: string }>;
+  timestamp: number;
+}
+
+// Wave 4 — Onboarding & Mentoring types
+export interface OnboardData {
+  step: number;
+  totalSteps: number;
+  currentTopic: string;
+  content: string;
+  completed: string[];
+  remaining: string[];
+  mentorHistory: Array<{ question: string; answer: string; timestamp: number }>;
+}
+
+// Wave 4 — Roadmap types
+export interface RoadmapData {
+  goal: string;
+  phases: Array<{
+    id: string;
+    name: string;
+    description: string;
+    status: 'pending' | 'in-progress' | 'done' | 'blocked';
+    progress: number;
+    estimatedWeeks: number;
+    actualWeeks?: number;
+    dependencies: string[];
+    riskLevel: 'low' | 'medium' | 'high';
+    rollbackStrategy: string;
+    successMetrics: string[];
+  }>;
+  criticalPath: string[];
+  estimatedTotalWeeks: number;
+  estimatedTotalCost: number;
+  startedAt?: number;
+  status: 'planning' | 'executing' | 'complete' | 'paused';
+}
+
+// Wave 4 — System Graph types
+export interface SystemGraphData {
+  services: Array<{
+    name: string;
+    repo: string;
+    type: string;
+    apis: Array<{ path: string; method: string; description: string }>;
+    dependencies: string[];
+    healthStatus: 'healthy' | 'degraded' | 'unknown';
+  }>;
+  contracts: Array<{ provider: string; consumer: string; type: string; version: string; status: 'compatible' | 'breaking' | 'unknown' }>;
+  crossRepoPrs: Array<{ repo: string; prNumber: number; title: string; status: string }>;
+}
+
+// Wave 4 — SLO types
+export interface SloData {
+  slos: Array<{
+    id: string;
+    name: string;
+    target: string;
+    current: string;
+    status: 'ok' | 'warning' | 'breach';
+    trend: 'improving' | 'degrading' | 'stable';
+    errorBudget: { total: number; remaining: number; burnRate: number };
+    source: string;
+    lastChecked: number;
+  }>;
+  alerts: Array<{ sloId: string; message: string; severity: string; timestamp: number }>;
+}
+
+// Wave 4 — Tech Debt types
+export interface DebtData {
+  score: number;
+  trend: 'improving' | 'degrading' | 'stable';
+  items: Array<{
+    id: string;
+    type: 'code-quality' | 'architecture' | 'dependency' | 'test' | 'documentation';
+    severity: number;
+    file: string;
+    description: string;
+    estimatedEffort: string;
+    autoFixable: boolean;
+    age: number;
+  }>;
+  burndown: Array<{ date: string; score: number }>;
+  byType: Array<{ type: string; count: number; totalSeverity: number }>;
+}
+
+// Wave 4 — Forecast types
+export interface ForecastData {
+  velocity: { current: number; predicted: number; confidence: number; history: Array<{ week: string; items: number }> };
+  costEstimates: Array<{ feature: string; estimatedCost: number; confidence: number; basis: string }>;
+  risks: Array<{ name: string; probability: number; impact: string; mitigation: string }>;
+  healthProjection: Array<{ metric: string; current: number; projected: number; timeframe: string; warning?: string }>;
+}
+
+// Wave 4 — Compliance types
+export interface ComplianceData {
+  framework: string;
+  overallScore: number;
+  checks: Array<{
+    id: string;
+    requirement: string;
+    category: string;
+    status: 'pass' | 'fail' | 'partial' | 'not-applicable';
+    evidence?: string;
+    remediation?: string;
+  }>;
+  gaps: Array<{ requirement: string; severity: string; remediation: string }>;
+  lastAudit: number;
+}
+
+// Wave 4 — Platform/Plugin types
+export interface PluginRegistryData {
+  installed: Array<{ name: string; type: string; version: string; enabled: boolean; description: string }>;
+  available: Array<{ name: string; type: string; version: string; description: string; downloads: number }>;
 }
 
 // Persona → stage mapping

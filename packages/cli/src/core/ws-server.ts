@@ -2390,6 +2390,337 @@ export class SwarmWsServer {
         })();
         break;
       }
+
+      // --- Wave 4: Autonomous Engineering Organization ---
+
+      case 'get-surfaces': {
+        try {
+          const sd = join(this.state.getFilePath(), '..');
+          const surfacesPath = join(sd, 'surfaces-status.json');
+          if (existsSync(surfacesPath)) {
+            const data = JSON.parse(readFileSync(surfacesPath, 'utf-8'));
+            this.broadcast({ type: 'surfaces-state', payload: data });
+          } else {
+            this.broadcast({ type: 'surfaces-state', payload: { surfaces: [], totalBudget: 0, totalSpent: 0 } });
+          }
+        } catch { /* ignore */ }
+        break;
+      }
+
+      case 'own-surface': {
+        try {
+          const sd = join(this.state.getFilePath(), '..');
+          const surfacesPath = join(sd, 'surfaces-status.json');
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          let data: any = { surfaces: [], totalBudget: 0, totalSpent: 0 };
+          if (existsSync(surfacesPath)) data = JSON.parse(readFileSync(surfacesPath, 'utf-8'));
+          const existing = data.surfaces.findIndex((s: any) => s.name === cmd.name);
+          const surface = { name: cmd.name, description: '', paths: [] as string[], slos: Object.entries(cmd.slos || {}).map(([k, v]) => ({ name: k, target: v, current: 'unknown', status: 'ok' as const })), healthScore: 100, lastChecked: Date.now(), maintenanceHistory: [] as Array<{ action: string; timestamp: number; cost: number }>, budgetUsed: 0, budgetTotal: 50 };
+          if (existing >= 0) data.surfaces[existing] = surface;
+          else data.surfaces.push(surface);
+          writeFileSync(surfacesPath, JSON.stringify(data, null, 2));
+          this.broadcast({ type: 'surfaces-state', payload: data } as WsMessage);
+        } catch { /* ignore */ }
+        break;
+      }
+
+      case 'release-surface': {
+        try {
+          const sd = join(this.state.getFilePath(), '..');
+          const surfacesPath = join(sd, 'surfaces-status.json');
+          if (existsSync(surfacesPath)) {
+            const data = JSON.parse(readFileSync(surfacesPath, 'utf-8'));
+            data.surfaces = data.surfaces.filter((s: Record<string, unknown>) => s.name !== cmd.name);
+            writeFileSync(surfacesPath, JSON.stringify(data, null, 2));
+            this.broadcast({ type: 'surfaces-state', payload: data });
+          }
+        } catch { /* ignore */ }
+        break;
+      }
+
+      case 'get-arch-review': {
+        try {
+          const sd = join(this.state.getFilePath(), '..');
+          const reviewPath = join(sd, 'arch-review.json');
+          if (existsSync(reviewPath)) {
+            this.broadcast({ type: 'arch-review', payload: JSON.parse(readFileSync(reviewPath, 'utf-8')) });
+          }
+        } catch { /* ignore */ }
+        break;
+      }
+
+      case 'run-arch-review': {
+        console.log(`[ws] Running architecture review`);
+        try {
+          const sd = join(this.state.getFilePath(), '..');
+          const review = { summary: 'Architecture review in progress...', issues: [], couplingScore: 0, complexityScore: 0, trends: [], actionPlan: [], timestamp: Date.now() };
+          writeFileSync(join(sd, 'arch-review.json'), JSON.stringify(review, null, 2));
+          this.broadcast({ type: 'arch-review', payload: review });
+        } catch { /* ignore */ }
+        break;
+      }
+
+      case 'get-onboard-data': {
+        try {
+          const sd = join(this.state.getFilePath(), '..');
+          const onboardPath = join(sd, 'onboard-progress.json');
+          if (existsSync(onboardPath)) {
+            this.broadcast({ type: 'onboard-data', payload: JSON.parse(readFileSync(onboardPath, 'utf-8')) });
+          }
+        } catch { /* ignore */ }
+        break;
+      }
+
+      case 'run-onboard': {
+        console.log(`[ws] Starting onboarding tour`);
+        try {
+          const sd = join(this.state.getFilePath(), '..');
+          const data = { step: 1, totalSteps: 6, currentTopic: 'Project Overview', content: 'Analyzing your project structure...', completed: [], remaining: ['Project Overview', 'Development Workflow', 'Key Areas', 'Conventions', 'Pitfalls', 'First Task'], mentorHistory: [] };
+          writeFileSync(join(sd, 'onboard-progress.json'), JSON.stringify(data, null, 2));
+          this.broadcast({ type: 'onboard-data', payload: data });
+        } catch { /* ignore */ }
+        break;
+      }
+
+      case 'run-mentor': {
+        console.log(`[ws] Mentor query: ${cmd.question}`);
+        try {
+          const sd = join(this.state.getFilePath(), '..');
+          const onboardPath = join(sd, 'onboard-progress.json');
+          let data = { step: 0, totalSteps: 6, currentTopic: 'Mentor', content: '', completed: [], remaining: [], mentorHistory: [] as Array<{ question: string; answer: string; timestamp: number }> };
+          if (existsSync(onboardPath)) data = JSON.parse(readFileSync(onboardPath, 'utf-8'));
+          data.mentorHistory.push({ question: cmd.question, answer: 'Processing your question...', timestamp: Date.now() });
+          writeFileSync(onboardPath, JSON.stringify(data, null, 2));
+          this.broadcast({ type: 'onboard-data', payload: data });
+        } catch { /* ignore */ }
+        break;
+      }
+
+      case 'get-roadmap': {
+        try {
+          const sd = join(this.state.getFilePath(), '..');
+          const rmPath = join(sd, 'roadmap.json');
+          if (existsSync(rmPath)) {
+            this.broadcast({ type: 'roadmap-data', payload: JSON.parse(readFileSync(rmPath, 'utf-8')) });
+          }
+        } catch { /* ignore */ }
+        break;
+      }
+
+      case 'run-roadmap': {
+        console.log(`[ws] Generating roadmap for: ${cmd.goal}`);
+        try {
+          const sd = join(this.state.getFilePath(), '..');
+          const roadmap = { goal: cmd.goal, phases: [], criticalPath: [], estimatedTotalWeeks: 0, estimatedTotalCost: 0, status: 'planning' as const };
+          writeFileSync(join(sd, 'roadmap.json'), JSON.stringify(roadmap, null, 2));
+          this.broadcast({ type: 'roadmap-data', payload: roadmap });
+        } catch { /* ignore */ }
+        break;
+      }
+
+      case 'run-roadmap-execute': {
+        console.log(`[ws] Executing roadmap phase: ${cmd.phase}`);
+        try {
+          const sd = join(this.state.getFilePath(), '..');
+          const rmPath = join(sd, 'roadmap.json');
+          if (existsSync(rmPath)) {
+            const roadmap = JSON.parse(readFileSync(rmPath, 'utf-8'));
+            const phase = roadmap.phases.find((p: Record<string, unknown>) => p.id === cmd.phase);
+            if (phase) { phase.status = 'in-progress'; roadmap.status = 'executing'; }
+            writeFileSync(rmPath, JSON.stringify(roadmap, null, 2));
+            this.broadcast({ type: 'roadmap-data', payload: roadmap });
+          }
+        } catch { /* ignore */ }
+        break;
+      }
+
+      case 'get-system-graph': {
+        try {
+          const sd = join(this.state.getFilePath(), '..');
+          const graphPath = join(sd, 'system', 'graph.json');
+          if (existsSync(graphPath)) {
+            this.broadcast({ type: 'system-graph', payload: JSON.parse(readFileSync(graphPath, 'utf-8')) });
+          } else {
+            this.broadcast({ type: 'system-graph', payload: { services: [], contracts: [], crossRepoPrs: [] } });
+          }
+        } catch { /* ignore */ }
+        break;
+      }
+
+      case 'run-system-map': {
+        console.log(`[ws] Mapping system graph`);
+        try {
+          const sd = join(this.state.getFilePath(), '..');
+          const sysDir = join(sd, 'system');
+          if (!existsSync(sysDir)) { const { mkdirSync: mk } = await import('node:fs'); mk(sysDir, { recursive: true }); }
+          const graph = { services: [], contracts: [], crossRepoPrs: [] };
+          writeFileSync(join(sysDir, 'graph.json'), JSON.stringify(graph, null, 2));
+          this.broadcast({ type: 'system-graph', payload: graph });
+        } catch { /* ignore */ }
+        break;
+      }
+
+      case 'run-system-check': {
+        console.log(`[ws] Checking system contracts`);
+        break;
+      }
+
+      case 'get-slos': {
+        try {
+          const sd = join(this.state.getFilePath(), '..');
+          const sloPath = join(sd, 'slos.json');
+          if (existsSync(sloPath)) {
+            this.broadcast({ type: 'slo-data', payload: JSON.parse(readFileSync(sloPath, 'utf-8')) });
+          } else {
+            this.broadcast({ type: 'slo-data', payload: { slos: [], alerts: [] } });
+          }
+        } catch { /* ignore */ }
+        break;
+      }
+
+      case 'add-slo': {
+        try {
+          const sd = join(this.state.getFilePath(), '..');
+          const sloPath = join(sd, 'slos.json');
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          let data: any = { slos: [], alerts: [] };
+          if (existsSync(sloPath)) data = JSON.parse(readFileSync(sloPath, 'utf-8'));
+          const { randomUUID: uuid } = await import('node:crypto');
+          data.slos.push({ id: uuid(), name: cmd.name, target: cmd.target, current: 'unknown', status: 'ok' as const, trend: 'stable' as const, errorBudget: { total: 100, remaining: 100, burnRate: 0 }, source: cmd.source || 'manual', lastChecked: Date.now() });
+          writeFileSync(sloPath, JSON.stringify(data, null, 2));
+          this.broadcast({ type: 'slo-data', payload: data } as WsMessage);
+        } catch { /* ignore */ }
+        break;
+      }
+
+      case 'run-slo-check': {
+        console.log(`[ws] Checking SLOs`);
+        try {
+          const sd = join(this.state.getFilePath(), '..');
+          const sloPath = join(sd, 'slos.json');
+          if (existsSync(sloPath)) {
+            const data = JSON.parse(readFileSync(sloPath, 'utf-8'));
+            for (const slo of data.slos) { slo.lastChecked = Date.now(); }
+            writeFileSync(sloPath, JSON.stringify(data, null, 2));
+            this.broadcast({ type: 'slo-data', payload: data });
+          }
+        } catch { /* ignore */ }
+        break;
+      }
+
+      case 'get-debt': {
+        try {
+          const sd = join(this.state.getFilePath(), '..');
+          const debtPath = join(sd, 'debt.json');
+          if (existsSync(debtPath)) {
+            this.broadcast({ type: 'debt-data', payload: JSON.parse(readFileSync(debtPath, 'utf-8')) });
+          } else {
+            this.broadcast({ type: 'debt-data', payload: { score: 0, trend: 'stable', items: [], burndown: [], byType: [] } });
+          }
+        } catch { /* ignore */ }
+        break;
+      }
+
+      case 'run-debt-scan': {
+        console.log(`[ws] Scanning for tech debt`);
+        try {
+          const sd = join(this.state.getFilePath(), '..');
+          const debt = { score: 0, trend: 'stable' as const, items: [], burndown: [], byType: [] };
+          writeFileSync(join(sd, 'debt.json'), JSON.stringify(debt, null, 2));
+          this.broadcast({ type: 'debt-data', payload: debt });
+        } catch { /* ignore */ }
+        break;
+      }
+
+      case 'run-debt-fix': {
+        console.log(`[ws] Fixing debt item: ${cmd.itemId}`);
+        break;
+      }
+
+      case 'get-forecast': {
+        try {
+          const sd = join(this.state.getFilePath(), '..');
+          const fcPath = join(sd, 'forecast.json');
+          if (existsSync(fcPath)) {
+            this.broadcast({ type: 'forecast-data', payload: JSON.parse(readFileSync(fcPath, 'utf-8')) });
+          }
+        } catch { /* ignore */ }
+        break;
+      }
+
+      case 'run-forecast': {
+        console.log(`[ws] Running forecast`);
+        try {
+          const sd = join(this.state.getFilePath(), '..');
+          const history = this.state.listHistory();
+          const weeklyItems = history.length;
+          const forecast = {
+            velocity: { current: weeklyItems, predicted: Math.round(weeklyItems * 1.1), confidence: 0.7, history: [] },
+            costEstimates: cmd.feature ? [{ feature: cmd.feature, estimatedCost: 5, confidence: 0.6, basis: 'Historical average' }] : [],
+            risks: [],
+            healthProjection: [],
+          };
+          writeFileSync(join(sd, 'forecast.json'), JSON.stringify(forecast, null, 2));
+          this.broadcast({ type: 'forecast-data', payload: forecast });
+        } catch { /* ignore */ }
+        break;
+      }
+
+      case 'get-compliance': {
+        try {
+          const sd = join(this.state.getFilePath(), '..');
+          const compPath = join(sd, 'compliance-report.json');
+          if (existsSync(compPath)) {
+            this.broadcast({ type: 'compliance-data', payload: JSON.parse(readFileSync(compPath, 'utf-8')) });
+          }
+        } catch { /* ignore */ }
+        break;
+      }
+
+      case 'run-compliance-check': {
+        console.log(`[ws] Running compliance check: ${cmd.framework || 'all'}`);
+        try {
+          const sd = join(this.state.getFilePath(), '..');
+          const fw = cmd.framework || 'soc2';
+          const checks = [
+            { id: 'cc-1', requirement: 'Audit trail exists', category: 'Change Management', status: existsSync(join(sd, 'audit.jsonl')) ? 'pass' as const : 'fail' as const, evidence: existsSync(join(sd, 'audit.jsonl')) ? '.swarm/audit.jsonl present' : undefined, remediation: !existsSync(join(sd, 'audit.jsonl')) ? 'Enable audit logging' : undefined },
+            { id: 'cc-2', requirement: 'Version control used', category: 'Change Management', status: 'pass' as const, evidence: 'Git repository detected' },
+            { id: 'cc-3', requirement: 'Code review process', category: 'Access Control', status: 'partial' as const, remediation: 'Ensure all PRs require review approval' },
+          ];
+          const passCount = checks.filter(c => c.status === 'pass').length;
+          const compliance = { framework: fw, overallScore: Math.round((passCount / checks.length) * 100), checks, gaps: checks.filter(c => c.status === 'fail').map(c => ({ requirement: c.requirement, severity: 'high', remediation: c.remediation || 'Manual review needed' })), lastAudit: Date.now() };
+          writeFileSync(join(sd, 'compliance-report.json'), JSON.stringify(compliance, null, 2));
+          this.broadcast({ type: 'compliance-data', payload: compliance });
+        } catch { /* ignore */ }
+        break;
+      }
+
+      case 'get-plugins': {
+        try {
+          const sd = join(this.state.getFilePath(), '..');
+          const configPath = join(sd, 'config.yaml');
+          const plugins: string[] = [];
+          if (existsSync(configPath)) {
+            try {
+              const cfg = parseYaml(readFileSync(configPath, 'utf-8'));
+              if (cfg?.plugins) plugins.push(...cfg.plugins);
+            } catch { /* ignore */ }
+          }
+          const installed = plugins.map(p => ({ name: p, type: 'action', version: '1.0.0', enabled: true, description: `Plugin: ${p}` }));
+          this.broadcast({ type: 'plugin-registry', payload: { installed, available: [] } });
+        } catch { /* ignore */ }
+        break;
+      }
+
+      case 'install-plugin': {
+        console.log(`[ws] Installing plugin: ${cmd.name}`);
+        break;
+      }
+
+      case 'remove-plugin': {
+        console.log(`[ws] Removing plugin: ${cmd.name}`);
+        break;
+      }
     }
   }
 

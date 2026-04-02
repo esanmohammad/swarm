@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import type { PipelineState, PipelineInfo, WsMessage, WsCommand, GuardrailViolation, AgentActivity, HistoryEntry, StageName, AutopilotState, InboxState, StandupReport, JournalData, ScopeAnalysis, ContextIndex, PairSessionState, DelegateState, ReportData, TeamActivity, RetroReport } from '../types';
+import type { PipelineState, PipelineInfo, WsMessage, WsCommand, GuardrailViolation, AgentActivity, HistoryEntry, StageName, AutopilotState, InboxState, StandupReport, JournalData, ScopeAnalysis, ContextIndex, PairSessionState, DelegateState, ReportData, TeamActivity, RetroReport, SurfacesState, ArchReviewData, OnboardData, RoadmapData, SystemGraphData, SloData, DebtData, ForecastData, ComplianceData, PluginRegistryData } from '../types';
 
 // WS port is injected by the dashboard HTTP server into window.__SWARM_WS_PORT__
 // Falls back to deriving from dashboard port (wsPort = dashboardPort - 1) or default 3847
@@ -43,6 +43,16 @@ interface UseWebSocketReturn {
   reportData: ReportData | null;
   teamActivity: TeamActivity | null;
   retroReport: RetroReport | null;
+  surfacesState: SurfacesState | null;
+  archReview: ArchReviewData | null;
+  onboardData: OnboardData | null;
+  roadmapData: RoadmapData | null;
+  systemGraph: SystemGraphData | null;
+  sloData: SloData | null;
+  debtData: DebtData | null;
+  forecastData: ForecastData | null;
+  complianceData: ComplianceData | null;
+  pluginRegistry: PluginRegistryData | null;
   sendCommand: (cmd: WsCommand) => void;
   switchPipeline: (namespace: string) => void;
   listPipelines: () => void;
@@ -75,6 +85,16 @@ export function useWebSocket(): UseWebSocketReturn {
   const [reportData, setReportData] = useState<ReportData | null>(null);
   const [teamActivity, setTeamActivity] = useState<TeamActivity | null>(null);
   const [retroReport, setRetroReport] = useState<RetroReport | null>(null);
+  const [surfacesState, setSurfacesState] = useState<SurfacesState | null>(null);
+  const [archReview, setArchReview] = useState<ArchReviewData | null>(null);
+  const [onboardData, setOnboardData] = useState<OnboardData | null>(null);
+  const [roadmapData, setRoadmapData] = useState<RoadmapData | null>(null);
+  const [systemGraph, setSystemGraph] = useState<SystemGraphData | null>(null);
+  const [sloData, setSloData] = useState<SloData | null>(null);
+  const [debtData, setDebtData] = useState<DebtData | null>(null);
+  const [forecastData, setForecastData] = useState<ForecastData | null>(null);
+  const [complianceData, setComplianceData] = useState<ComplianceData | null>(null);
+  const [pluginRegistry, setPluginRegistry] = useState<PluginRegistryData | null>(null);
   const agentOutputsRef = useRef(new Map<string, string>());
   const agentActivitiesRef = useRef(new Map<string, AgentActivity[]>());
   const artifactContentRef = useRef(new Map<StageName, string>());
@@ -271,6 +291,46 @@ export function useWebSocket(): UseWebSocketReturn {
           case 'retro-report':
             setRetroReport(msg.payload);
             break;
+
+          case 'surfaces-state':
+            setSurfacesState(msg.payload);
+            break;
+
+          case 'arch-review':
+            setArchReview(msg.payload);
+            break;
+
+          case 'onboard-data':
+            setOnboardData(msg.payload);
+            break;
+
+          case 'roadmap-data':
+            setRoadmapData(msg.payload);
+            break;
+
+          case 'system-graph':
+            setSystemGraph(msg.payload);
+            break;
+
+          case 'slo-data':
+            setSloData(msg.payload);
+            break;
+
+          case 'debt-data':
+            setDebtData(msg.payload);
+            break;
+
+          case 'forecast-data':
+            setForecastData(msg.payload);
+            break;
+
+          case 'compliance-data':
+            setComplianceData(msg.payload);
+            break;
+
+          case 'plugin-registry':
+            setPluginRegistry(msg.payload);
+            break;
         }
       } catch {
         // ignore malformed messages
@@ -329,6 +389,16 @@ export function useWebSocket(): UseWebSocketReturn {
     reportData,
     teamActivity,
     retroReport,
+    surfacesState,
+    archReview,
+    onboardData,
+    roadmapData,
+    systemGraph,
+    sloData,
+    debtData,
+    forecastData,
+    complianceData,
+    pluginRegistry,
     sendCommand,
     switchPipeline,
     listPipelines,

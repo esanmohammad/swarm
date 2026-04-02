@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Wifi, WifiOff, Rocket, BarChart3, Clock, Home, UserPlus, Sun, Moon, Monitor, GitCompareArrows, BookOpen, Brain, GitPullRequest, Eye, HelpCircle, TrendingUp, ChevronDown, Wrench, Upload, Database, Bot, Shield, Package, AlertTriangle, Activity, Gauge, Inbox, FileText, Search, Layers, Users, GitBranch, RefreshCw } from 'lucide-react';
+import { Wifi, WifiOff, Rocket, BarChart3, Clock, Home, UserPlus, Sun, Moon, Monitor, GitCompareArrows, BookOpen, Brain, GitPullRequest, Eye, HelpCircle, TrendingUp, ChevronDown, Wrench, Upload, Database, Bot, Shield, Package, AlertTriangle, Activity, Gauge, Inbox, FileText, Search, Layers, Users, GitBranch, RefreshCw, Target, Building2, GraduationCap, Map, Network, Zap, Bug, LineChart, ClipboardCheck, Puzzle } from 'lucide-react';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useOnboarding } from './hooks/useOnboarding';
 import { usePersistedState } from './hooks/usePersistedState';
@@ -35,12 +35,22 @@ import { DelegateView } from './views/DelegateView';
 import { ReportView } from './views/ReportView';
 import { TeamView } from './views/TeamView';
 import { RetroView } from './views/RetroView';
+import { SurfacesView } from './views/SurfacesView';
+import { ArchReviewView } from './views/ArchReviewView';
+import { OnboardView } from './views/OnboardView';
+import { RoadmapView } from './views/RoadmapView';
+import { SystemView } from './views/SystemView';
+import { SloView } from './views/SloView';
+import { DebtView } from './views/DebtView';
+import { ForecastView } from './views/ForecastView';
+import { ComplianceView } from './views/ComplianceView';
+import { PluginsView } from './views/PluginsView';
 import { useTheme } from './hooks/useTheme';
-type View = 'launch' | 'pipeline' | 'results' | 'history' | 'conventions' | 'memory' | 'reviews' | 'watch' | 'explain' | 'stats' | 'deploy' | 'migrate' | 'autopilot' | 'security' | 'deps' | 'incident' | 'health-check' | 'benchmark' | 'inbox' | 'standup' | 'journal' | 'scope' | 'context' | 'pair' | 'delegate' | 'report' | 'team' | 'retro';
+type View = 'launch' | 'pipeline' | 'results' | 'history' | 'conventions' | 'memory' | 'reviews' | 'watch' | 'explain' | 'stats' | 'deploy' | 'migrate' | 'autopilot' | 'security' | 'deps' | 'incident' | 'health-check' | 'benchmark' | 'inbox' | 'standup' | 'journal' | 'scope' | 'context' | 'pair' | 'delegate' | 'report' | 'team' | 'retro' | 'surfaces' | 'arch-review' | 'onboard' | 'roadmap' | 'system' | 'slo' | 'debt' | 'forecast' | 'compliance' | 'plugins';
 
 function getInitialView(): View {
   const hash = window.location.hash.replace('#', '');
-  if (['launch', 'pipeline', 'results', 'history', 'conventions', 'memory', 'reviews', 'watch', 'explain', 'stats', 'deploy', 'migrate', 'autopilot', 'security', 'deps', 'incident', 'health-check', 'benchmark', 'inbox', 'standup', 'journal', 'scope', 'context', 'pair', 'delegate', 'report', 'team', 'retro'].includes(hash)) return hash as View;
+  if (['launch', 'pipeline', 'results', 'history', 'conventions', 'memory', 'reviews', 'watch', 'explain', 'stats', 'deploy', 'migrate', 'autopilot', 'security', 'deps', 'incident', 'health-check', 'benchmark', 'inbox', 'standup', 'journal', 'scope', 'context', 'pair', 'delegate', 'report', 'team', 'retro', 'surfaces', 'arch-review', 'onboard', 'roadmap', 'system', 'slo', 'debt', 'forecast', 'compliance', 'plugins'].includes(hash)) return hash as View;
   return 'launch';
 }
 
@@ -55,7 +65,7 @@ interface Toast {
 let toastId = 0;
 
 export default function App() {
-  const { state, connected, agentOutputs, agentActivities, violations, historyEntries, artifactContent, pipelines, activePipeline, conventions, conventionsLoading, memories, prReviews, watchResults, deployResult, stats, autopilotState, healthReport, inboxState, standupReport, journalData, scopeAnalysis, contextIndex, pairSession, delegateState, reportData, teamActivity, retroReport, sendCommand, switchPipeline } = useWebSocket();
+  const { state, connected, agentOutputs, agentActivities, violations, historyEntries, artifactContent, pipelines, activePipeline, conventions, conventionsLoading, memories, prReviews, watchResults, deployResult, stats, autopilotState, healthReport, inboxState, standupReport, journalData, scopeAnalysis, contextIndex, pairSession, delegateState, reportData, teamActivity, retroReport, surfacesState, archReview, onboardData, roadmapData, systemGraph, sloData, debtData, forecastData, complianceData, pluginRegistry, sendCommand, switchPipeline } = useWebSocket();
   const { theme, cycleTheme } = useTheme();
   const [view, setView] = usePersistedState<View>('swarm_view', getInitialView());
   const [showSpawn, setShowSpawn] = useState(false);
@@ -208,6 +218,16 @@ export default function App() {
     { key: 'report', label: 'Report', icon: BarChart3, hint: 'ROI & impact reports' },
     { key: 'team', label: 'Team', icon: Users, hint: 'Multi-user coordination' },
     { key: 'retro', label: 'Retro', icon: RefreshCw, hint: 'Self-improvement retrospectives' },
+    { key: 'surfaces', label: 'Surfaces', icon: Target, hint: 'Surface ownership & SLOs' },
+    { key: 'arch-review', label: 'Architecture', icon: Building2, hint: 'Strategic architecture review' },
+    { key: 'onboard', label: 'Onboard', icon: GraduationCap, hint: 'Developer onboarding & mentoring' },
+    { key: 'roadmap', label: 'Roadmap', icon: Map, hint: 'Long-term project planning' },
+    { key: 'system', label: 'System', icon: Network, hint: 'Cross-repo orchestration' },
+    { key: 'slo', label: 'SLOs', icon: Zap, hint: 'Production outcome ownership' },
+    { key: 'debt', label: 'Tech Debt', icon: Bug, hint: 'Proactive debt management' },
+    { key: 'forecast', label: 'Forecast', icon: LineChart, hint: 'Engineering intelligence' },
+    { key: 'compliance', label: 'Compliance', icon: ClipboardCheck, hint: 'Regulatory automation' },
+    { key: 'plugins', label: 'Plugins', icon: Puzzle, hint: 'Platform & extensibility' },
   ];
 
   const isToolView = TOOLS_NAV.some(t => t.key === view);
@@ -508,6 +528,36 @@ export default function App() {
           )}
           {view === 'retro' && (
             <RetroView sendCommand={sendCommand} retroReport={retroReport} />
+          )}
+          {view === 'surfaces' && (
+            <SurfacesView sendCommand={sendCommand} surfacesState={surfacesState} />
+          )}
+          {view === 'arch-review' && (
+            <ArchReviewView sendCommand={sendCommand} archReview={archReview} />
+          )}
+          {view === 'onboard' && (
+            <OnboardView sendCommand={sendCommand} onboardData={onboardData} />
+          )}
+          {view === 'roadmap' && (
+            <RoadmapView sendCommand={sendCommand} roadmapData={roadmapData} />
+          )}
+          {view === 'system' && (
+            <SystemView sendCommand={sendCommand} systemGraph={systemGraph} />
+          )}
+          {view === 'slo' && (
+            <SloView sendCommand={sendCommand} sloData={sloData} />
+          )}
+          {view === 'debt' && (
+            <DebtView sendCommand={sendCommand} debtData={debtData} />
+          )}
+          {view === 'forecast' && (
+            <ForecastView sendCommand={sendCommand} forecastData={forecastData} />
+          )}
+          {view === 'compliance' && (
+            <ComplianceView sendCommand={sendCommand} complianceData={complianceData} />
+          )}
+          {view === 'plugins' && (
+            <PluginsView sendCommand={sendCommand} pluginRegistry={pluginRegistry} />
           )}
         </>
       )}

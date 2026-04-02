@@ -64,6 +64,16 @@ import { registerDelegate } from '../src/commands/delegate.js';
 import { registerReport } from '../src/commands/report.js';
 import { registerTeam } from '../src/commands/team.js';
 import { registerRetro } from '../src/commands/retro.js';
+import { registerOwn } from '../src/commands/own.js';
+import { registerArchitectReview } from '../src/commands/architect-review.js';
+import { registerOnboard } from '../src/commands/onboard.js';
+import { registerMentor } from '../src/commands/mentor.js';
+import { registerRoadmap } from '../src/commands/roadmap.js';
+import { registerSystem } from '../src/commands/system.js';
+import { registerSlo } from '../src/commands/slo.js';
+import { registerEvolve } from '../src/commands/evolve.js';
+import { registerForecast } from '../src/commands/forecast.js';
+import { registerCompliance } from '../src/commands/compliance.js';
 import { autoDetectStack, autoInit, loadConfig } from '../src/core/config.js';
 import { createContext } from '../src/commands/shared.js';
 
@@ -221,6 +231,18 @@ registerDelegate(program);
 registerReport(program);
 registerTeam(program);
 registerRetro(program);
+
+// --- Wave 4: Autonomous Engineering Organization ---
+registerOwn(program);
+registerArchitectReview(program);
+registerOnboard(program);
+registerMentor(program);
+registerRoadmap(program);
+registerSystem(program);
+registerSlo(program);
+registerEvolve(program);
+registerForecast(program);
+registerCompliance(program);
 
 // --- Pipeline management ---
 registerPipeline(program);

@@ -371,6 +371,111 @@ swarm retro --auto-apply                 # Apply recommended config changes
 
 Analyzes: success rates, revert rates, fix iteration counts, cost efficiency — then recommends threshold adjustments, model changes, and budget tuning.
 
+## Wave 4 Features — Autonomous Engineering Organization
+
+Wave 4 transforms Swarm from an autonomous employee into a **staff/principal engineer** — it owns product surfaces, makes strategic architecture decisions, mentors developers, plans long-term roadmaps, and manages tech debt proactively.
+
+### Surface Ownership (`swarm own`)
+Assign Swarm ownership of a product surface (auth, API, payments). It continuously monitors SLOs, maintains code quality, and auto-fixes issues within budget.
+
+```bash
+swarm own register auth --paths "src/auth/**" --slo "coverage>=90" --budget 50
+swarm own list                               # Show all surfaces with SLO status
+swarm own check                              # Check all surface SLOs
+swarm own status                             # Detailed surface health
+swarm own release auth                       # Release ownership
+```
+
+### Strategic Architecture Review (`swarm architect-review`)
+Periodic architectural analysis detecting circular dependencies, god modules, coupling hotspots, and growth pattern issues — with multi-phase solution plans.
+
+```bash
+swarm architect-review                       # Full architectural assessment
+swarm architect-review --focus performance   # Focus on performance patterns
+swarm architect-review --focus security      # Security posture analysis
+```
+
+Outputs `ARCHITECTURE-REVIEW.md` with executive summary, per-issue evidence, solution options, and a prioritized action plan.
+
+### Developer Onboarding & Mentoring (`swarm onboard` / `swarm mentor`)
+Interactive onboarding that walks new developers through the codebase, and a persistent mentor for contextual questions.
+
+```bash
+swarm onboard                                # Start guided 5-step tour
+swarm onboard --role frontend                # Role-specific onboarding
+swarm onboard --area auth                    # Area-specific deep dive
+swarm mentor "why does auth use JWT?"        # Ask contextual questions
+swarm mentor review                          # Educational code review
+swarm mentor explain src/billing/            # Deep dive into any area
+```
+
+### Long-Term Project Planning (`swarm roadmap`)
+Multi-phase roadmap generation with dependency graphs, critical path analysis, risk assessment, and execution tracking.
+
+```bash
+swarm roadmap "migrate to microservices"     # Generate multi-phase plan
+swarm roadmap review                         # Review progress vs estimates
+swarm roadmap adjust                         # Re-plan based on actuals
+swarm roadmap execute phase-1                # Start executing a phase
+```
+
+Outputs `ROADMAP.md` with Gantt-style timeline, phase breakdowns, risk register, and decision points.
+
+### Cross-Repository Orchestration (`swarm system`)
+Think in systems, not files. Map services, validate contracts, and coordinate changes across repos.
+
+```bash
+swarm system map                             # Display service dependency graph
+swarm system check                           # Validate cross-repo contracts
+swarm system feature "add notifications"     # Plan cross-repo feature
+swarm system migrate "upgrade auth v2"       # Coordinated migration plan
+```
+
+### Production Outcome Ownership (`swarm slo`)
+Own SLOs, track error budgets, detect trends, and proactively address degradation before incidents happen.
+
+```bash
+swarm slo                                    # Show all SLOs with status
+swarm slo add "p99-latency" --target "<200ms" --source grafana
+swarm slo check                              # Check all SLOs against metrics
+swarm slo remove "p99-latency"               # Remove an SLO
+```
+
+### Proactive Tech Debt Management (`swarm evolve`)
+Continuous tech debt tracking — detects code quality issues, architectural debt, dependency risks, test gaps, and documentation staleness.
+
+```bash
+swarm evolve scan                            # Analyze codebase for tech debt
+swarm evolve plan                            # Generate debt reduction roadmap
+swarm evolve work                            # Auto-fix highest-priority items
+swarm evolve report                          # Debt score trend report
+```
+
+Detects: files >300 lines, functions >50 lines, TODO/FIXME/HACK comments, `any` types, circular imports, missing tests, outdated deps, stale docs.
+
+### Engineering Intelligence (`swarm forecast`)
+Data-driven predictions for velocity, cost, risk, and codebase health trends.
+
+```bash
+swarm forecast velocity                      # Predict next sprint velocity
+swarm forecast risk "planned migration"      # Risk assessment for planned work
+swarm forecast cost "add notifications"      # Estimate cost before starting
+swarm forecast health                        # Predict codebase health trends
+```
+
+### Regulatory Compliance (`swarm compliance`)
+Automated compliance checking for SOC 2, HIPAA, GDPR, and PCI DSS — with evidence collection and gap analysis.
+
+```bash
+swarm compliance check                       # Run all compliance checks
+swarm compliance check --framework soc2      # Framework-specific check
+swarm compliance report --framework hipaa    # Generate audit-ready report
+swarm compliance monitor --interval 60       # Continuous monitoring
+```
+
+### Platform Extensibility (Plugins)
+Plugin system for custom work sources, actions, checks, reporters, and monitors — managed from the dashboard Plugins view.
+
 ## Smart Features
 
 ### Codebase Awareness
@@ -604,6 +709,36 @@ swarm team                           # Team activity status
 swarm team activity                  # Who's working on what
 swarm retro                          # Self-improvement retro
 swarm retro --auto-apply             # Apply recommendations
+
+# Wave 4 — Autonomous Engineering Organization
+swarm own register auth --paths "src/auth/**" --slo "coverage>=90"
+swarm own list                       # Show owned surfaces
+swarm own check                      # Check surface SLOs
+swarm own release auth               # Release ownership
+swarm architect-review               # Full architecture review
+swarm architect-review --focus perf  # Focused review
+swarm onboard                        # Guided onboarding tour
+swarm onboard --role frontend        # Role-specific onboarding
+swarm mentor "why JWT?"              # Ask contextual question
+swarm mentor review                  # Educational code review
+swarm mentor explain src/auth/       # Deep dive into area
+swarm roadmap "migrate to microservices"  # Generate roadmap
+swarm roadmap review                 # Review progress
+swarm roadmap execute phase-1        # Start executing phase
+swarm system map                     # Service dependency graph
+swarm system check                   # Validate contracts
+swarm system feature "add notifs"    # Plan cross-repo feature
+swarm slo                            # Show SLOs
+swarm slo add "p99" --target "<200ms"  # Add SLO
+swarm slo check                      # Check all SLOs
+swarm evolve scan                    # Scan for tech debt
+swarm evolve work                    # Auto-fix debt items
+swarm evolve report                  # Debt trend report
+swarm forecast velocity              # Predict velocity
+swarm forecast risk "migration"      # Risk assessment
+swarm forecast cost "notifications"  # Cost estimate
+swarm compliance check               # Run compliance checks
+swarm compliance report --framework soc2  # Compliance report
 
 # Utilities
 swarm status                       # Show pipeline state and costs
