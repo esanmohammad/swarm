@@ -41,6 +41,7 @@ vi.mock('../../commands/shared.js', () => ({
       }),
       waitForAgent: vi.fn().mockResolvedValue(undefined),
     },
+    state: { saveActivity: vi.fn() },
     cleanup: vi.fn(),
   }),
 }));

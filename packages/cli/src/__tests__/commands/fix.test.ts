@@ -52,9 +52,11 @@ vi.mock('../../commands/shared.js', () => ({
         cost: { totalUsd: 0.05 },
         output: 'Fixed the bug',
         error: null,
+        startedAt: Date.now(),
       }),
       waitForAgent: vi.fn().mockResolvedValue(undefined),
     },
+    state: { saveActivity: vi.fn() },
     cleanup: vi.fn(),
   }),
 }));

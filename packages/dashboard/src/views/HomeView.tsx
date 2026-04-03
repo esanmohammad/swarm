@@ -317,18 +317,36 @@ export function HomeView({ sendCommand, state, agentOutputs, agentActivities, hi
           {recentCompleted.length > 0 ? (
             <div className="space-y-1.5">
               {recentCompleted.map((entry) => {
-                const hasError = Object.values(entry.stagesSummary).some(s => s === 'error');
-                const allDone = Object.values(entry.stagesSummary).every(s => s === 'done' || s === 'skipped');
+                const type = entry.activityType || 'pipeline';
+                const isSuccess = entry.activityStatus === 'success' || (!entry.activityStatus && Object.values(entry.stagesSummary).every(s => s === 'done' || s === 'skipped'));
+                const isError = entry.activityStatus === 'error' || (!entry.activityStatus && Object.values(entry.stagesSummary).some(s => s === 'error'));
+                const label = entry.summary || entry.featureRequest || `${type} run`;
+
+                const TYPE_BADGE: Record<string, { label: string; color: string }> = {
+                  pipeline: { label: 'Pipeline', color: 'bg-blue-500/20 text-blue-300' },
+                  fix: { label: 'Fix', color: 'bg-amber-500/20 text-amber-300' },
+                  review: { label: 'Review', color: 'bg-purple-500/20 text-purple-300' },
+                  spike: { label: 'Spike', color: 'bg-cyan-500/20 text-cyan-300' },
+                  refactor: { label: 'Refactor', color: 'bg-emerald-500/20 text-emerald-300' },
+                  simplify: { label: 'Simplify', color: 'bg-teal-500/20 text-teal-300' },
+                  'test-gen': { label: 'Test Gen', color: 'bg-pink-500/20 text-pink-300' },
+                  learn: { label: 'Learn', color: 'bg-indigo-500/20 text-indigo-300' },
+                  pr: { label: 'PR', color: 'bg-orange-500/20 text-orange-300' },
+                  check: { label: 'Check', color: 'bg-stone-500/20 text-stone-300' },
+                };
+                const badge = TYPE_BADGE[type] || TYPE_BADGE.pipeline;
+
                 return (
                   <div key={entry.runId} className="flex items-center gap-2 px-3 py-2 rounded-md bg-stone-900/30 border border-stone-800/30">
-                    {allDone ? (
+                    {isSuccess ? (
                       <CheckCircle size={14} className="text-green-400 shrink-0" />
-                    ) : hasError ? (
+                    ) : isError ? (
                       <XCircle size={14} className="text-red-400 shrink-0" />
                     ) : (
                       <Loader2 size={14} className="text-stone-500 shrink-0" />
                     )}
-                    <span className="text-xs text-stone-400 truncate flex-1">{entry.featureRequest || 'Pipeline run'}</span>
+                    <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full shrink-0 ${badge.color}`}>{badge.label}</span>
+                    <span className="text-xs text-stone-400 truncate flex-1">{label}</span>
                     <span className="text-[10px] text-amber-400 shrink-0">${entry.totalCost?.totalUsd?.toFixed(2) || '0.00'}</span>
                     <span className="text-[10px] text-stone-600 shrink-0">{timeAgo(entry.timestamp)}</span>
                   </div>

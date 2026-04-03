@@ -34,7 +34,7 @@ export function registerReview(program: Command): void {
       }
 
       const stack = (opts.stack as TechStack) || config.stack;
-      const { agentManager, cleanup } = createContext(swarmDir, config);
+      const { agentManager, state: stateManager, cleanup } = createContext(swarmDir, config);
 
       try {
         let diffContent = '';
@@ -155,8 +155,19 @@ export function registerReview(program: Command): void {
         await agentManager.waitForAgent(agent.id);
         const cost = agent.cost.totalUsd;
 
+        const durationMs = Date.now() - (agent.startedAt ?? Date.now());
+        const reviewSummary = target ? `Review of ${/^\d+$/.test(target) ? `PR #${target}` : target}` : 'Review of staged changes';
+
         if (agent.status === 'done') {
           spinner.succeed(`Review complete. Cost: $${cost.toFixed(2)}`);
+          stateManager.saveActivity({
+            activityType: 'review',
+            summary: reviewSummary,
+            cost: agent.cost,
+            durationMs,
+            status: 'success',
+            model: config.model,
+          });
 
           // Post as PR comment if requested
           if (opts.post && target && /^\d+$/.test(target)) {
@@ -175,6 +186,14 @@ export function registerReview(program: Command): void {
           }
         } else {
           spinner.fail(`Review failed: ${agent.error || 'Unknown error'}`);
+          stateManager.saveActivity({
+            activityType: 'review',
+            summary: reviewSummary,
+            cost: agent.cost,
+            durationMs,
+            status: 'error',
+            model: config.model,
+          });
         }
       } catch (err) {
         console.error(chalk.red(err instanceof Error ? err.message : String(err)));

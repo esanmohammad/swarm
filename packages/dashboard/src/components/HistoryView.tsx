@@ -57,20 +57,38 @@ export function HistoryView({ entries, sendCommand }: HistoryViewProps) {
   return (
     <div className="flex-1 overflow-y-auto p-4 space-y-2">
       <div className="text-xs font-ui text-stone-400 font-medium tracking-widest uppercase mb-3 px-1">
-        pipeline history ({entries.length})
+        activity history ({entries.length})
       </div>
 
       {entries.map((entry) => {
-        const hasError = Object.values(entry.stagesSummary).some((s) => s === 'error');
+        const type = entry.activityType || 'pipeline';
+        const isPipeline = type === 'pipeline';
+        const hasError = entry.activityStatus === 'error' || (!entry.activityStatus && Object.values(entry.stagesSummary).some((s) => s === 'error'));
+        const label = entry.summary || entry.featureRequest || `${type} run`;
+
+        const TYPE_BADGE: Record<string, { label: string; color: string }> = {
+          pipeline: { label: 'Pipeline', color: 'bg-blue-500/20 text-blue-300 border-blue-500/30' },
+          fix: { label: 'Fix', color: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
+          review: { label: 'Review', color: 'bg-purple-500/20 text-purple-300 border-purple-500/30' },
+          spike: { label: 'Spike', color: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30' },
+          refactor: { label: 'Refactor', color: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
+          simplify: { label: 'Simplify', color: 'bg-teal-500/20 text-teal-300 border-teal-500/30' },
+          'test-gen': { label: 'Test Gen', color: 'bg-pink-500/20 text-pink-300 border-pink-500/30' },
+          learn: { label: 'Learn', color: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' },
+          pr: { label: 'PR', color: 'bg-orange-500/20 text-orange-300 border-orange-500/30' },
+          check: { label: 'Check', color: 'bg-stone-500/20 text-stone-300 border-stone-500/30' },
+        };
+        const badge = TYPE_BADGE[type] || TYPE_BADGE.pipeline;
 
         return (
           <div
             key={entry.runId}
             className="border border-stone-800/60 rounded-md bg-[#111010] px-4 py-3 hover:border-stone-700/60 transition-colors"
           >
-            {/* Top row: timestamp + project + stack */}
+            {/* Top row: type badge + project + timestamp */}
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
+                <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full border ${badge.color}`}>{badge.label}</span>
                 <span className="text-xs text-stone-300 font-mono">
                   {entry.projectName}
                 </span>
@@ -83,31 +101,37 @@ export function HistoryView({ entries, sendCommand }: HistoryViewProps) {
               </span>
             </div>
 
-            {/* Feature request */}
-            {entry.featureRequest && (
-              <p className="text-[11px] text-stone-400 mb-2 truncate font-mono" title={entry.featureRequest}>
-                {entry.featureRequest.length > 120
-                  ? entry.featureRequest.slice(0, 120) + '...'
-                  : entry.featureRequest}
-              </p>
-            )}
+            {/* Summary / feature request */}
+            <p className="text-[11px] text-stone-400 mb-2 truncate font-mono" title={label}>
+              {label.length > 120 ? label.slice(0, 120) + '...' : label}
+            </p>
 
-            {/* Bottom row: stage dots + cost + duration */}
+            {/* Bottom row: stage dots (pipeline only) + cost + duration */}
             <div className="flex items-center justify-between">
-              {/* Stage summary dots */}
-              <div className="flex items-center gap-1.5">
-                {STAGE_ORDER.map((stage) => {
-                  const status = entry.stagesSummary[stage] ?? 'pending';
-                  return (
-                    <div key={stage} className="flex items-center gap-0.5" title={`${stage}: ${status}`}>
-                      <span
-                        className={`w-2 h-2 rounded-full ${STATUS_COLORS[status] ?? STATUS_COLORS.pending}`}
-                      />
-                      <span className="text-[10px] text-stone-500">{stage.slice(0, 3)}</span>
-                    </div>
-                  );
-                })}
-              </div>
+              {/* Stage summary dots — only for pipeline runs */}
+              {isPipeline ? (
+                <div className="flex items-center gap-1.5">
+                  {STAGE_ORDER.map((stage) => {
+                    const status = entry.stagesSummary[stage] ?? 'pending';
+                    return (
+                      <div key={stage} className="flex items-center gap-0.5" title={`${stage}: ${status}`}>
+                        <span
+                          className={`w-2 h-2 rounded-full ${STATUS_COLORS[status] ?? STATUS_COLORS.pending}`}
+                        />
+                        <span className="text-[10px] text-stone-500">{stage.slice(0, 3)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="flex items-center gap-1">
+                  {hasError ? (
+                    <span className="text-[10px] text-red-400">Failed</span>
+                  ) : (
+                    <span className="text-[10px] text-green-400">Completed</span>
+                  )}
+                </div>
+              )}
 
               {/* Cost + duration */}
               <div className="flex items-center gap-3">

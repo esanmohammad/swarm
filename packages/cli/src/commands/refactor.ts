@@ -37,7 +37,7 @@ export function registerRefactor(program: Command): void {
       }
 
       const stack = (opts.stack as TechStack) || config.stack;
-      const { agentManager, cleanup } = createContext(swarmDir, config);
+      const { agentManager, state: stateManager, cleanup } = createContext(swarmDir, config);
 
       try {
         let refactorDescription = description;
@@ -135,10 +135,13 @@ export function registerRefactor(program: Command): void {
         await agentManager.waitForAgent(engineer.id);
         const totalCost = analysisCost + engineer.cost.totalUsd;
 
+        const durationMs = Date.now() - (analyst.startedAt ?? Date.now());
         if (engineer.status === 'done') {
           refactorSpinner.succeed(`Refactoring complete. Total cost: $${totalCost.toFixed(2)}`);
+          stateManager.saveActivity({ activityType: 'refactor', summary: refactorDescription.slice(0, 200), cost: { ...engineer.cost, totalUsd: totalCost }, durationMs, status: 'success', model: config.model });
         } else {
           refactorSpinner.fail(`Refactoring failed: ${engineer.error || 'Unknown error'}`);
+          stateManager.saveActivity({ activityType: 'refactor', summary: refactorDescription.slice(0, 200), cost: { ...engineer.cost, totalUsd: totalCost }, durationMs, status: 'error', model: config.model });
           process.exit(1);
         }
       } catch (err) {

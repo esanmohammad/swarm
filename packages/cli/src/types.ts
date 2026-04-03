@@ -147,6 +147,8 @@ export interface StageBreakdown {
   status: 'done' | 'error' | 'skipped' | 'pending';
 }
 
+export type ActivityType = 'pipeline' | 'fix' | 'review' | 'spike' | 'refactor' | 'simplify' | 'test-gen' | 'learn' | 'pr' | 'check';
+
 export interface HistoryEntry {
   runId: string;
   timestamp: number;
@@ -162,6 +164,12 @@ export interface HistoryEntry {
   fixIterations?: number;
   /** Default model used for this run */
   model?: string;
+  /** Type of activity — pipeline run, quick workflow, etc. Defaults to 'pipeline' for backward compat. */
+  activityType?: ActivityType;
+  /** Short summary of what was done (for quick workflows) */
+  summary?: string;
+  /** Status of the activity */
+  activityStatus?: 'success' | 'error' | 'partial';
 }
 
 export function createEmptyPipeline(projectName: string, stack: TechStack): PipelineState {

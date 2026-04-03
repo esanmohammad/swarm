@@ -36,7 +36,7 @@ export function registerSpike(program: Command): void {
       }
 
       const stack = (opts.stack as TechStack) || config.stack;
-      const { agentManager, cleanup } = createContext(swarmDir, config);
+      const { agentManager, state: stateManager, cleanup } = createContext(swarmDir, config);
       const interactive = opts.interactive ?? false;
 
       try {
@@ -95,10 +95,13 @@ export function registerSpike(program: Command): void {
           await agentManager.waitForAgent(agent.id);
           const cost = agent.cost.totalUsd;
 
+          const durationMs = Date.now() - (agent.startedAt ?? Date.now());
           if (agent.status === 'done') {
             spinner.succeed(`Spike complete. Cost: $${cost.toFixed(2)}`);
+            stateManager.saveActivity({ activityType: 'spike', summary: question.slice(0, 200), cost: agent.cost, durationMs, status: 'success', model: config.model });
           } else {
             spinner.fail(`Spike failed: ${agent.error || 'Unknown error'}`);
+            stateManager.saveActivity({ activityType: 'spike', summary: question.slice(0, 200), cost: agent.cost, durationMs, status: 'error', model: config.model });
           }
         }
       } catch (err) {

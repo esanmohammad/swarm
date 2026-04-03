@@ -114,6 +114,8 @@ export interface StageBreakdown {
   status: 'done' | 'error' | 'skipped' | 'pending';
 }
 
+export type ActivityType = 'pipeline' | 'fix' | 'review' | 'spike' | 'refactor' | 'simplify' | 'test-gen' | 'learn' | 'pr' | 'check';
+
 export interface HistoryEntry {
   runId: string;
   timestamp: number;
@@ -126,6 +128,9 @@ export interface HistoryEntry {
   stageBreakdowns?: StageBreakdown[];
   fixIterations?: number;
   model?: string;
+  activityType?: ActivityType;
+  summary?: string;
+  activityStatus?: 'success' | 'error' | 'partial';
 }
 
 export interface QualityScoreInfo {

@@ -41,7 +41,7 @@ export function registerFix(program: Command): void {
       }
 
       const stack = (opts.stack as TechStack) || config.stack;
-      const { agentManager, cleanup } = createContext(swarmDir, config);
+      const { agentManager, state: stateManager, cleanup } = createContext(swarmDir, config);
 
       try {
         let bugDescription = '';
@@ -136,11 +136,28 @@ export function registerFix(program: Command): void {
 
         await agentManager.waitForAgent(agent.id);
         const cost = agent.cost.totalUsd;
+        const durationMs = Date.now() - (agent.startedAt ?? Date.now());
 
         if (agent.status === 'done') {
           spinner.succeed(`Bug fix complete. Cost: $${cost.toFixed(2)}`);
+          stateManager.saveActivity({
+            activityType: 'fix',
+            summary: bugDescription.slice(0, 200),
+            cost: agent.cost,
+            durationMs,
+            status: 'success',
+            model: config.model,
+          });
         } else {
           spinner.fail(`Bug fix failed: ${agent.error || 'Unknown error'}`);
+          stateManager.saveActivity({
+            activityType: 'fix',
+            summary: bugDescription.slice(0, 200),
+            cost: agent.cost,
+            durationMs,
+            status: 'error',
+            model: config.model,
+          });
           process.exit(1);
         }
       } catch (err) {

@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { execSync } from 'node:child_process';
 import { EventEmitter } from 'node:events';
-import type { PipelineState, Agent, StageName, StageState, MaydayState, HistoryEntry } from '../types.js';
+import type { PipelineState, Agent, StageName, StageState, MaydayState, HistoryEntry, ActivityType, CostInfo } from '../types.js';
 import { createEmptyPipeline, emptyCost, addCosts } from '../types.js';
 
 export class StateManager extends EventEmitter {
@@ -445,6 +445,7 @@ export class StateManager extends EventEmitter {
       durationMs,
       stageBreakdowns,
       fixIterations: this.state.mayday?.fixIteration ?? 0,
+      activityType: 'pipeline',
     };
 
     try {
@@ -452,6 +453,49 @@ export class StateManager extends EventEmitter {
       console.log(`[state] Archived run to history/${filename}`);
     } catch (err) {
       console.error(`[state] Failed to archive run: ${err instanceof Error ? err.message : err}`);
+    }
+
+    return runId;
+  }
+
+  /** Save a quick workflow activity (fix, review, spike, etc.) to history. */
+  saveActivity(opts: {
+    activityType: ActivityType;
+    summary: string;
+    cost: CostInfo;
+    durationMs: number;
+    status: 'success' | 'error' | 'partial';
+    model?: string;
+  }): string {
+    const runId = randomUUID();
+    const now = Date.now();
+    const safeProjectName = this.state.projectName.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const filename = `${now}-${opts.activityType}-${safeProjectName}.json`;
+    const historyDir = this.getHistoryDir();
+
+    // Build a minimal HistoryEntry for quick workflows
+    const emptyStages: HistoryEntry['stagesSummary'] = {
+      analyze: 'skipped', architect: 'skipped', plan: 'skipped', build: 'skipped', test: 'skipped',
+    } as HistoryEntry['stagesSummary'];
+
+    const entry: HistoryEntry = {
+      runId,
+      timestamp: now,
+      projectName: this.state.projectName,
+      stack: this.state.stack,
+      totalCost: opts.cost,
+      stagesSummary: emptyStages,
+      durationMs: opts.durationMs,
+      activityType: opts.activityType,
+      summary: opts.summary,
+      activityStatus: opts.status,
+      model: opts.model,
+    };
+
+    try {
+      writeFileSync(join(historyDir, filename), JSON.stringify(entry, null, 2));
+    } catch (err) {
+      console.error(`[state] Failed to save activity: ${err instanceof Error ? err.message : err}`);
     }
 
     return runId;
