@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Wifi, WifiOff, Rocket, BarChart3, Clock, Home, UserPlus, Sun, Moon, Monitor, GitCompareArrows, BookOpen, Brain, GitPullRequest, TrendingUp, ChevronDown, Wrench } from 'lucide-react';
+import { Wifi, WifiOff, Rocket, BarChart3, Clock, Home, UserPlus, Sun, Moon, Monitor, GitCompareArrows, BookOpen, Brain, TrendingUp, ChevronDown, Wrench } from 'lucide-react';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useOnboarding } from './hooks/useOnboarding';
 import { usePersistedState } from './hooks/usePersistedState';
@@ -197,7 +197,6 @@ export default function App() {
   const TOOLS_NAV: { key: View; label: string; icon: typeof Home; hint: string }[] = [
     { key: 'conventions', label: 'Conventions', icon: BookOpen, hint: 'Project patterns & style' },
     { key: 'memory', label: 'Memory', icon: Brain, hint: 'Cross-run learning' },
-    { key: 'reviews', label: 'PR Reviews', icon: GitPullRequest, hint: 'Automated PR review' },
     { key: 'stats', label: 'Cost Intelligence', icon: TrendingUp, hint: 'Spend analytics & ROI' },
   ];
 

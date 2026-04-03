@@ -62,7 +62,7 @@ const NAV_GROUPS: NavGroup[] = [
 function SidebarItem({ item, collapsed }: { item: NavItem; collapsed: boolean }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const isActive = location.pathname === item.path || (item.path !== '/' && location.pathname.startsWith(item.path + '/'));
+  const isActive = location.pathname === item.path;
 
   return (
     <button
