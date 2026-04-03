@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Eye, Play, CheckCircle, XCircle, Wrench } from 'lucide-react';
 import type { WsCommand } from '../types';
+import { FeatureGuide } from '../components/FeatureGuide';
+import { StateView } from '../components/StateView';
 
 interface WatchResult {
   passed: boolean;
@@ -54,6 +56,17 @@ export function WatchView({ sendCommand, watchResults }: WatchViewProps) {
           </button>
         </div>
 
+        <FeatureGuide
+          featureId="watch"
+          title="File Watcher"
+          description="Watches files for changes and automatically runs tests. Great for TDD — save a file, tests run automatically."
+          hasData={watchResults.length > 0}
+          cliCommands={[
+            { command: 'swarm watch', description: 'Start watching files for changes' },
+            { command: 'swarm watch --test "npm test"', description: 'Watch with a custom test command' },
+          ]}
+        />
+
         <p className="text-xs text-stone-500 mb-4">
           Run tests on demand or use <code className="text-stone-400 bg-stone-800/60 px-1 py-0.5 rounded">swarm watch start</code> in your terminal for continuous file watching with auto-fix.
         </p>
@@ -79,15 +92,14 @@ export function WatchView({ sendCommand, watchResults }: WatchViewProps) {
         {/* Results list */}
         <div className="flex-1 min-h-0 overflow-auto space-y-2">
           {watchResults.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <Eye size={36} className="text-stone-600 mb-3" />
-              <p className="text-sm text-stone-400 mb-1">No test runs yet</p>
-              <p className="text-xs text-stone-500 max-w-md">
-                Click "Run Tests Now" or use{' '}
-                <code className="text-stone-400 bg-stone-800/60 px-1 py-0.5 rounded">swarm watch start</code>{' '}
-                for continuous file watching with auto-test and auto-fix.
-              </p>
-            </div>
+            <StateView
+              status="empty"
+              title="No watch results"
+              message="No watch results yet. Start the watcher to auto-run tests on file changes."
+              actions={[
+                { label: 'Run Tests Now', onClick: handleRunTests, variant: 'primary' },
+              ]}
+            />
           ) : (
             [...watchResults].reverse().map((result, idx) => (
               <div

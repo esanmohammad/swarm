@@ -12,6 +12,8 @@ import {
   Send,
   RefreshCw,
 } from 'lucide-react';
+import { FeatureGuide } from '../components/FeatureGuide';
+import { StateView } from '../components/StateView';
 import type { WsCommand } from '../types';
 
 interface StandupReport {
@@ -58,10 +60,29 @@ export function StandupView({ sendCommand, standupReport }: StandupViewProps) {
 
   if (!standupReport) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-center">
-          <FileText size={36} className="text-stone-600 mx-auto mb-3" />
-          <p className="text-sm text-stone-400">Loading standup report...</p>
+      <div className="flex-1 flex flex-col p-6 overflow-auto">
+        <div className="max-w-5xl w-full mx-auto space-y-6">
+          <div className="flex items-center gap-2">
+            <FileText size={18} className="text-amber-400" />
+            <h2 className="text-lg font-semibold text-stone-200">Standup Report</h2>
+            <FeatureGuide
+              featureId="standup"
+              title="Standup"
+              description="Automated async standup reports. Summarizes what was done (from git/pipeline history), what's in progress, and any blockers."
+              cliCommands={[
+                { command: 'swarm standup', description: 'Generate a standup report' },
+              ]}
+              hasData={false}
+            />
+          </div>
+          <StateView
+            status="empty"
+            title="No standup report yet"
+            message="Generate one to see a summary of recent activity."
+            actions={[
+              { label: 'Generate Report', onClick: () => sendCommand({ action: 'get-standup', weekly } as WsCommand), variant: 'primary' },
+            ]}
+          />
         </div>
       </div>
     );
@@ -79,6 +100,15 @@ export function StandupView({ sendCommand, standupReport }: StandupViewProps) {
             <FileText size={18} className="text-amber-400" />
             <h2 className="text-lg font-semibold text-stone-200">Standup Report</h2>
             <span className="text-xs text-stone-500 ml-2">{report.date}</span>
+            <FeatureGuide
+              featureId="standup"
+              title="Standup"
+              description="Automated async standup reports. Summarizes what was done (from git/pipeline history), what's in progress, and any blockers."
+              cliCommands={[
+                { command: 'swarm standup', description: 'Generate a standup report' },
+              ]}
+              hasData={true}
+            />
           </div>
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1.5">

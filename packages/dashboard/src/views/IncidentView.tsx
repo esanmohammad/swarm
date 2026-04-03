@@ -1,6 +1,11 @@
 import { useState } from 'react';
-import { AlertTriangle, Play, Loader2 } from 'lucide-react';
+import { AlertTriangle, Play } from 'lucide-react';
 import type { WsCommand } from '../types';
+import { FeatureGuide } from '../components/FeatureGuide';
+import { StateView } from '../components/StateView';
+import { ActionProgress } from '../components/ActionProgress';
+import { useAction } from '../hooks/useAction';
+import { featureGuides } from '../data/feature-guides';
 
 interface IncidentViewProps {
   sendCommand: (cmd: WsCommand) => void;
@@ -10,18 +15,17 @@ export function IncidentView({ sendCommand }: IncidentViewProps) {
   const [description, setDescription] = useState('');
   const [severity, setSeverity] = useState<'P1' | 'P2' | 'P3' | 'P4'>('P2');
   const [fix, setFix] = useState(false);
-  const [running, setRunning] = useState(false);
+  const incidentAction = useAction(sendCommand);
+  const guide = featureGuides.incident;
 
   const handleRespond = () => {
     if (!description.trim()) return;
-    setRunning(true);
-    sendCommand({
+    incidentAction.execute({
       action: 'run-incident',
       description: description.trim(),
       severity,
       fix,
-    } as WsCommand);
-    setTimeout(() => setRunning(false), 30000);
+    } as WsCommand, `Responding to ${severity} incident...`);
   };
 
   return (
@@ -30,11 +34,30 @@ export function IncidentView({ sendCommand }: IncidentViewProps) {
         <div className="flex items-center gap-2 mb-4">
           <AlertTriangle size={18} className="text-red-400" />
           <h2 className="text-lg font-semibold text-stone-200">Incident Response</h2>
+          <FeatureGuide
+            featureId="incident"
+            title={guide.title}
+            description="AI-assisted incident response. Analyzes logs and errors, identifies root cause, and proposes fixes."
+            setupSteps={[{ label: 'Describe an incident to begin', command: 'swarm incident' }]}
+            cliCommands={[
+              { command: 'swarm incident', description: 'Start incident response' },
+              { command: 'swarm incident "desc" --severity P1', description: 'With severity' },
+              { command: 'swarm incident "desc" --fix', description: 'Auto-fix mode' },
+            ]}
+            hasData={incidentAction.state.status !== 'idle'}
+          />
         </div>
 
         <p className="text-xs text-stone-500 mb-6">
           AI-assisted incident response. Describe the incident and severity to get diagnosis, root cause analysis, and optional automated fix.
         </p>
+
+        {/* Action Progress */}
+        {incidentAction.state.status !== 'idle' && (
+          <div className="mb-3">
+            <ActionProgress state={incidentAction.state} onCancel={incidentAction.cancel} onRetry={handleRespond} onDismiss={incidentAction.reset} />
+          </div>
+        )}
 
         <div className="space-y-3 mb-4">
           <textarea
@@ -79,29 +102,27 @@ export function IncidentView({ sendCommand }: IncidentViewProps) {
 
             <button
               onClick={handleRespond}
-              disabled={running || !description.trim()}
+              disabled={(incidentAction.state.status === 'pending' || incidentAction.state.status === 'running') || !description.trim()}
               className={`flex items-center gap-1.5 px-4 py-1.5 rounded-md text-xs font-semibold transition-colors ${
                 severity === 'P1'
                   ? 'bg-red-600 hover:bg-red-500 text-white'
                   : 'bg-blue-600 hover:bg-blue-500 text-white'
               } disabled:bg-stone-700 disabled:text-stone-500`}
             >
-              {running ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
-              {running ? 'Responding...' : 'Respond'}
+              <Play size={12} />
+              Respond
             </button>
           </div>
         </div>
 
         {/* Empty state */}
-        <div className="flex-1 rounded-lg border border-stone-800/30 bg-stone-900/20 flex items-center justify-center">
-          <div className="text-center">
-            <AlertTriangle size={36} className="text-stone-700 mx-auto mb-3" />
-            <p className="text-xs text-stone-500">Describe the incident above to begin response.</p>
-            <p className="text-[10px] text-stone-600 mt-1">
-              CLI: <code className="text-stone-400 bg-stone-800/60 px-1 py-0.5 rounded">swarm incident "description" --severity P1</code>
-            </p>
-          </div>
-        </div>
+        {incidentAction.state.status === 'idle' && (
+          <StateView
+            status="empty"
+            title="No incidents responded to yet"
+            message="Describe an incident above to get AI-powered diagnosis, root cause analysis, and fix suggestions. Supports P1-P4 severity levels and optional auto-fix."
+          />
+        )}
       </div>
     </div>
   );

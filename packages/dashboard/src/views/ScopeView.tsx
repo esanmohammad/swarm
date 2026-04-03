@@ -10,6 +10,8 @@ import {
   Shield,
   ChevronDown,
 } from 'lucide-react';
+import { FeatureGuide } from '../components/FeatureGuide';
+import { StateView } from '../components/StateView';
 import type { WsCommand } from '../types';
 
 interface ScopeAnalysis {
@@ -176,6 +178,13 @@ export function ScopeView({ sendCommand, scopeAnalysis }: ScopeViewProps) {
         <div className="flex items-center gap-2 mb-4">
           <Search size={18} className="text-purple-400" />
           <h2 className="text-lg font-semibold text-stone-200">Scope & Negotiate</h2>
+          <FeatureGuide
+            featureId="scope"
+            title="Scope Analysis"
+            description="Analyze feature requests for feasibility, complexity, effort estimation, and risk. Get multiple implementation options ranked by effort."
+            cliCommands={[{ command: 'swarm scope "Add SSO support"', description: 'Analyze a feature request' }]}
+            hasData={!!scopeAnalysis}
+          />
         </div>
 
         {/* Request input */}
@@ -198,6 +207,15 @@ export function ScopeView({ sendCommand, scopeAnalysis }: ScopeViewProps) {
             Analyze
           </button>
         </div>
+
+        {/* Empty state */}
+        {!scopeAnalysis && (
+          <StateView
+            status="empty"
+            title="No Scope Analysis"
+            message="No scope analysis yet. Describe a feature to analyze its complexity and effort."
+          />
+        )}
 
         {/* Analysis results */}
         {scopeAnalysis && (

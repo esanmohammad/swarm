@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { HelpCircle, Play, FileText, FolderOpen, MessageCircle, Loader2 } from 'lucide-react';
 import type { WsCommand, Agent } from '../types';
+import { FeatureGuide } from '../components/FeatureGuide';
 
 interface ExplainViewProps {
   sendCommand: (cmd: WsCommand) => void;
@@ -50,6 +51,16 @@ export function ExplainView({ sendCommand, agents, agentOutputs }: ExplainViewPr
           <HelpCircle size={18} className="text-teal-400" />
           <h2 className="text-lg font-semibold text-stone-200">Explain Codebase</h2>
         </div>
+
+        <FeatureGuide
+          featureId="explain"
+          title="Explain"
+          description="Ask questions about your codebase and get AI-powered answers with file references. Like having a senior developer who knows every file."
+          hasData={!!output}
+          cliCommands={[
+            { command: 'swarm explain "How does auth work?"', description: 'Ask a question about your codebase' },
+          ]}
+        />
 
         {/* Query input */}
         <div className="space-y-3 mb-4">

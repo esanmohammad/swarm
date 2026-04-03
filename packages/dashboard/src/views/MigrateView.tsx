@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { Database, Play, Loader2 } from 'lucide-react';
+import { FeatureGuide } from '../components/FeatureGuide';
+import { StateView } from '../components/StateView';
 import type { WsCommand, Agent } from '../types';
 
 interface MigrateViewProps {
@@ -31,6 +33,15 @@ export function MigrateView({ sendCommand, agents, agentOutputs }: MigrateViewPr
         <div className="flex items-center gap-2 mb-4">
           <Database size={18} className="text-orange-400" />
           <h2 className="text-lg font-semibold text-stone-200">Database Migration</h2>
+          <FeatureGuide
+            featureId="migrate"
+            title="Migrations"
+            description="AI-driven database migration generation. Describe what you need and Swarm generates the migration SQL."
+            cliCommands={[
+              { command: 'swarm migrate', description: 'Generate a database migration interactively' },
+            ]}
+            hasData={!!output}
+          />
         </div>
 
         <p className="text-xs text-stone-500 mb-4">
@@ -82,13 +93,11 @@ export function MigrateView({ sendCommand, agents, agentOutputs }: MigrateViewPr
             )}
           </div>
         ) : (
-          <div className="flex-1 rounded-lg border border-stone-800/30 bg-stone-900/20 flex items-center justify-center">
-            <div className="text-center">
-              <Database size={36} className="text-stone-700 mx-auto mb-3" />
-              <p className="text-xs text-stone-500">Describe your migration above to get started.</p>
-              <p className="text-[10px] text-stone-600 mt-1">Supports Prisma, TypeORM, Knex, Drizzle, Django, SQLAlchemy, goose</p>
-            </div>
-          </div>
+          <StateView
+            status="empty"
+            title="No migrations generated yet"
+            message="Describe your migration above and click Generate. Supports Prisma, TypeORM, Knex, Drizzle, Django, SQLAlchemy, and goose."
+          />
         )}
       </div>
     </div>

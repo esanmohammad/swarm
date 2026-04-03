@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Database, Search, RefreshCw, AlertTriangle, GitBranch, FileCode, Layers, Clock } from 'lucide-react';
+import { FeatureGuide } from '../components/FeatureGuide';
+import { StateView } from '../components/StateView';
 import type { WsCommand } from '../types';
 
 interface ContextIndex {
@@ -58,11 +60,28 @@ export function ContextView({ sendCommand, contextIndex }: ContextViewProps) {
 
   if (!contextIndex) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-center">
-          <Database size={36} className="text-stone-600 mx-auto mb-3" />
-          <p className="text-sm text-stone-400">Loading codebase index...</p>
-          <p className="text-xs text-stone-500 mt-1">Run <code className="text-stone-400">swarm context build</code> if no index exists.</p>
+      <div className="flex-1 flex flex-col p-6 overflow-auto">
+        <div className="max-w-5xl w-full mx-auto space-y-6">
+          <div className="flex items-center gap-2">
+            <Database size={18} className="text-blue-400" />
+            <h2 className="text-lg font-semibold text-stone-200">Codebase Context</h2>
+            <FeatureGuide
+              featureId="context"
+              title="Codebase Context"
+              description="Build an intelligent index of your codebase. Maps modules, dependencies, entry points, and ownership for better AI understanding."
+              setupSteps={[{ label: 'Build the codebase index', command: 'swarm context build' }]}
+              cliCommands={[
+                { command: 'swarm context build', description: 'Build or rebuild the index' },
+                { command: 'swarm context', description: 'View context summary' },
+              ]}
+              hasData={false}
+            />
+          </div>
+          <StateView
+            status="empty"
+            title="No Codebase Index"
+            message="No codebase index yet. Build one to help Swarm understand your project structure."
+          />
         </div>
       </div>
     );
@@ -76,6 +95,17 @@ export function ContextView({ sendCommand, contextIndex }: ContextViewProps) {
           <div className="flex items-center gap-2">
             <Database size={18} className="text-blue-400" />
             <h2 className="text-lg font-semibold text-stone-200">Codebase Context</h2>
+            <FeatureGuide
+              featureId="context"
+              title="Codebase Context"
+              description="Build an intelligent index of your codebase. Maps modules, dependencies, entry points, and ownership for better AI understanding."
+              setupSteps={[{ label: 'Build the codebase index', command: 'swarm context build' }]}
+              cliCommands={[
+                { command: 'swarm context build', description: 'Build or rebuild the index' },
+                { command: 'swarm context', description: 'View context summary' },
+              ]}
+              hasData={true}
+            />
           </div>
           <button
             onClick={handleRebuild}

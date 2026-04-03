@@ -12,6 +12,8 @@ import {
   ChevronDown,
   ChevronRight,
 } from 'lucide-react';
+import { FeatureGuide } from '../components/FeatureGuide';
+import { StateView } from '../components/StateView';
 import type { WsCommand } from '../types';
 
 interface JournalData {
@@ -99,10 +101,30 @@ export function JournalView({ sendCommand, journalData }: JournalViewProps) {
 
   if (!journalData) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-center">
-          <BookOpen size={36} className="text-stone-600 mx-auto mb-3" />
-          <p className="text-sm text-stone-400">Loading decision journal...</p>
+      <div className="flex-1 flex flex-col p-6 overflow-auto">
+        <div className="max-w-5xl w-full mx-auto space-y-6">
+          <div className="flex items-center gap-2">
+            <BookOpen size={18} className="text-violet-400" />
+            <h2 className="text-lg font-semibold text-stone-200">Decision Journal</h2>
+            <FeatureGuide
+              featureId="journal"
+              title="Decision Journal"
+              description="Track architectural decisions, their rationale, and outcomes over time. Helps teams understand why things were built a certain way."
+              cliCommands={[
+                { command: 'swarm journal', description: 'View the decision journal' },
+                { command: 'swarm journal add', description: 'Record a new decision' },
+              ]}
+              hasData={false}
+            />
+          </div>
+          <StateView
+            status="empty"
+            title="No decisions recorded yet"
+            message="Add decisions to track architectural choices, their rationale, and outcomes over time."
+            actions={[
+              { label: 'Analyze', onClick: () => sendCommand({ action: 'run-journal-analyze' } as WsCommand), variant: 'primary' },
+            ]}
+          />
         </div>
       </div>
     );
@@ -129,6 +151,16 @@ export function JournalView({ sendCommand, journalData }: JournalViewProps) {
             <BookOpen size={18} className="text-violet-400" />
             <h2 className="text-lg font-semibold text-stone-200">Decision Journal</h2>
             <span className="text-xs text-stone-500 ml-2">{decisions.length} decisions</span>
+            <FeatureGuide
+              featureId="journal"
+              title="Decision Journal"
+              description="Track architectural decisions, their rationale, and outcomes over time. Helps teams understand why things were built a certain way."
+              cliCommands={[
+                { command: 'swarm journal', description: 'View the decision journal' },
+                { command: 'swarm journal add', description: 'Record a new decision' },
+              ]}
+              hasData={true}
+            />
           </div>
           <div className="flex items-center gap-2">
             <button

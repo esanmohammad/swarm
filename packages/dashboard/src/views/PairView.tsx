@@ -3,6 +3,8 @@ import {
   Users, Play, Square, Eye, EyeOff, Bell, CheckCircle, XCircle,
   FileCode, Clock, AlertTriangle, MessageCircle,
 } from 'lucide-react';
+import { FeatureGuide } from '../components/FeatureGuide';
+import { StateView } from '../components/StateView';
 import type { WsCommand } from '../types';
 
 interface PairSuggestion {
@@ -138,6 +140,16 @@ export function PairView({ sendCommand, pairSession }: PairViewProps) {
           )}
         </div>
 
+        <FeatureGuide
+          featureId="pair"
+          title="Pair Programming"
+          description="Real-time AI pair programming. Start a session and get context-aware suggestions as you code."
+          cliCommands={[
+            { command: 'swarm pair', description: 'Start a pair programming session' },
+          ]}
+          hasData={!!pairSession}
+        />
+
         <p className="text-xs text-stone-500 mb-4">
           Real-time collaboration mode — watches files and provides live suggestions for bugs, patterns, security issues, and more.
         </p>
@@ -221,17 +233,13 @@ export function PairView({ sendCommand, pairSession }: PairViewProps) {
             </div>
             <div className="flex-1 min-h-0 overflow-auto space-y-2">
               {suggestions.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 text-center">
-                  <Users size={36} className="text-stone-600 mb-3" />
-                  <p className="text-sm text-stone-400 mb-1">
-                    {isActive ? 'No suggestions yet' : 'Start a pairing session'}
-                  </p>
-                  <p className="text-xs text-stone-500 max-w-md">
-                    {isActive
-                      ? 'Edit some files and suggestions will appear here in real time.'
-                      : 'Click "Start Pairing" to begin watching files and receiving live suggestions.'}
-                  </p>
-                </div>
+                <StateView
+                  status="empty"
+                  title={isActive ? 'No suggestions yet' : 'No active pairing session'}
+                  message={isActive
+                    ? 'Edit some files and suggestions will appear here in real time.'
+                    : 'Start one to get AI-assisted coding help. Click "Start Pairing" to begin watching files and receiving live suggestions.'}
+                />
               ) : (
                 [...suggestions].reverse().map(suggestion => (
                   <div

@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { GitBranch, Play, Merge, CheckCircle, XCircle, Clock, DollarSign, Layers, ArrowRight, Settings } from 'lucide-react';
+import { FeatureGuide } from '../components/FeatureGuide';
+import { StateView } from '../components/StateView';
 import type { WsCommand } from '../types';
 
 // ---------------------------------------------------------------------------
@@ -111,6 +113,16 @@ export function DelegateView({ sendCommand, delegateState }: DelegateViewProps) 
           </button>
         </div>
       </div>
+
+      <FeatureGuide
+        featureId="delegate"
+        title="Delegation"
+        description="Break complex tasks into sub-tasks and delegate to specialized AI agents. Each sub-agent works independently, then results are merged."
+        cliCommands={[
+          { command: 'swarm delegate "Refactor auth module"', description: 'Delegate a feature to parallel workstreams' },
+        ]}
+        hasData={!!delegateState && delegateState.workstreams.length > 0}
+      />
 
       {/* Feature Input */}
       <div className="p-4 rounded-lg bg-stone-900/50 border border-stone-800/50 space-y-3">
@@ -284,13 +296,11 @@ export function DelegateView({ sendCommand, delegateState }: DelegateViewProps) 
 
       {/* Empty State */}
       {(!delegateState || delegateState.workstreams.length === 0) && !isActive && (
-        <div className="text-center py-12 text-stone-500">
-          <Layers size={32} className="mx-auto mb-3 opacity-20" />
-          <p className="text-xs">No active delegation.</p>
-          <p className="text-[10px] text-stone-600 mt-1">
-            Describe a large feature above to decompose it into parallel workstreams.
-          </p>
-        </div>
+        <StateView
+          status="empty"
+          title="No active delegation"
+          message="Describe a large feature above to decompose it into parallel workstreams. Each workstream gets its own branch and agent, then results are merged back together."
+        />
       )}
     </div>
   );

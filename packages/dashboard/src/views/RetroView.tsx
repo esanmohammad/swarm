@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import {
-  RefreshCw,
   ThumbsUp,
   ThumbsDown,
   ListChecks,
@@ -10,6 +9,8 @@ import {
   ArrowRight,
   BarChart3,
 } from 'lucide-react';
+import { FeatureGuide } from '../components/FeatureGuide';
+import { StateView } from '../components/StateView';
 import type { WsCommand } from '../types';
 
 interface RetroReport {
@@ -96,17 +97,23 @@ export function RetroView({ sendCommand, retroReport }: RetroViewProps) {
 
   if (!retroReport) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-center">
-          <RefreshCw size={36} className="text-stone-600 mx-auto mb-3" />
-          <p className="text-sm text-stone-400">Loading retrospective...</p>
-          <button
-            onClick={handleRunRetro}
-            className="mt-4 px-4 py-2 rounded-lg bg-blue-600/20 text-blue-300 border border-blue-500/40 text-xs font-medium hover:bg-blue-600/30 transition-colors flex items-center gap-1.5 mx-auto"
-          >
-            <Play size={12} />
-            Run Retro
-          </button>
+      <div className="flex-1 flex flex-col p-6 overflow-auto">
+        <div className="max-w-5xl w-full mx-auto space-y-6">
+          <FeatureGuide
+            featureId="retro"
+            title="Retrospectives"
+            description="Automated retrospectives analyzing pipeline runs. Identifies what went well, what didn't, and patterns to improve."
+            cliCommands={[
+              { command: 'swarm retro', description: 'Run a retrospective on recent pipeline activity' },
+            ]}
+            hasData={false}
+          />
+          <StateView
+            status="empty"
+            title="No retrospective yet"
+            message="Run one to analyze your recent pipeline activity. Retrospectives surface what went well, what went poorly, and actionable config improvements."
+            actions={[{ label: 'Run Retro', onClick: handleRunRetro, variant: 'primary' }]}
+          />
         </div>
       </div>
     );
@@ -119,6 +126,16 @@ export function RetroView({ sendCommand, retroReport }: RetroViewProps) {
   return (
     <div className="flex-1 flex flex-col p-6 overflow-auto">
       <div className="max-w-5xl w-full mx-auto space-y-6">
+        <FeatureGuide
+          featureId="retro"
+          title="Retrospectives"
+          description="Automated retrospectives analyzing pipeline runs. Identifies what went well, what didn't, and patterns to improve."
+          cliCommands={[
+            { command: 'swarm retro', description: 'Run a retrospective on recent pipeline activity' },
+          ]}
+          hasData={!!retroReport}
+        />
+
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">

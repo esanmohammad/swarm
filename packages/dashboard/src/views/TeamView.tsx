@@ -11,6 +11,8 @@ import {
   Shield,
 } from 'lucide-react';
 import type { WsCommand } from '../types';
+import { FeatureGuide } from '../components/FeatureGuide';
+import { StateView } from '../components/StateView';
 
 interface TeamActivity {
   members: Array<{
@@ -63,15 +65,14 @@ export function TeamView({ sendCommand, teamActivity }: TeamViewProps) {
 
   if (!teamActivity) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-center">
-          <Users size={36} className="text-stone-600 mx-auto mb-3" />
-          <p className="text-sm text-stone-400">Loading team activity...</p>
-          <p className="text-xs text-stone-500 mt-1">
-            Configure team in .swarm/config.yaml under the team: key
-          </p>
-        </div>
-      </div>
+      <StateView
+        status="empty"
+        title="No team activity yet"
+        message="No team activity yet. Team activity appears as multiple developers use Swarm on the same project."
+        actions={[
+          { label: 'Refresh', onClick: () => sendCommand({ action: 'get-team-activity' } as WsCommand), variant: 'primary' },
+        ]}
+      />
     );
   }
 
@@ -88,6 +89,13 @@ export function TeamView({ sendCommand, teamActivity }: TeamViewProps) {
             <span className="text-xs text-stone-500 ml-2">
               {members.length} member{members.length !== 1 ? 's' : ''}
             </span>
+            <FeatureGuide
+              featureId="team"
+              title="Team Coordination"
+              description="Multi-user coordination — see what everyone is working on, shared context, and collaborative development activity."
+              cliCommands={[{ command: 'swarm team', description: 'View team activity and coordination' }]}
+              hasData={members.length > 0}
+            />
           </div>
           <button
             onClick={() => sendCommand({ action: 'get-team-activity' } as WsCommand)}

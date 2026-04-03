@@ -9,6 +9,8 @@ import {
   User,
   LogOut,
 } from 'lucide-react';
+import { FeatureGuide } from '../components/FeatureGuide';
+import { StateView } from '../components/StateView';
 import type { WsCommand } from '../types';
 
 interface SurfaceItem {
@@ -105,6 +107,13 @@ export function SurfacesView({ sendCommand, surfacesState }: SurfacesViewProps) 
             <Layers size={18} className="text-teal-400" />
             <h2 className="text-lg font-semibold text-stone-200">Surfaces</h2>
             <span className="text-xs text-stone-500 ml-2">{surfaces.length} surfaces</span>
+            <FeatureGuide
+              featureId="surfaces"
+              title="Surface Ownership"
+              description="Define and track ownership of code surfaces — APIs, services, modules. Know who owns what and who to ask."
+              cliCommands={[{ command: 'swarm own', description: 'Manage surface ownership' }]}
+              hasData={surfaces.length > 0}
+            />
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -168,10 +177,11 @@ export function SurfacesView({ sendCommand, surfacesState }: SurfacesViewProps) 
 
         {/* Surface cards */}
         {surfaces.length === 0 ? (
-          <div className="text-center py-12">
-            <Layers size={28} className="text-stone-700 mx-auto mb-2" />
-            <p className="text-xs text-stone-500">No surfaces defined yet.</p>
-          </div>
+          <StateView
+            status="empty"
+            title="No Surfaces"
+            message="No surfaces configured. Define ownership to track who maintains which parts of the codebase."
+          />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {surfaces.map(s => {

@@ -6,9 +6,10 @@ import {
   ToggleLeft,
   ToggleRight,
   Search,
-  Package,
   CheckCircle,
 } from 'lucide-react';
+import { FeatureGuide } from '../components/FeatureGuide';
+import { StateView } from '../components/StateView';
 import type { WsCommand } from '../types';
 
 interface InstalledPlugin {
@@ -92,6 +93,16 @@ export function PluginsView({ sendCommand, pluginRegistry }: PluginsViewProps) {
             <Puzzle size={18} className="text-purple-400" />
             <h2 className="text-lg font-semibold text-stone-200">Plugins</h2>
             <span className="text-xs text-stone-500 ml-2">{installed.length} installed</span>
+            <FeatureGuide
+              featureId="plugins"
+              title="Plugins"
+              description="Extend Swarm with custom plugins for webhooks, integrations, and custom workflows."
+              cliCommands={[
+                { command: 'swarm plugin list', description: 'List installed plugins' },
+                { command: 'swarm plugin install', description: 'Install a plugin' },
+              ]}
+              hasData={installed.length > 0}
+            />
           </div>
         </div>
 
@@ -128,12 +139,12 @@ export function PluginsView({ sendCommand, pluginRegistry }: PluginsViewProps) {
         {activeTab === 'installed' && (
           <div className="space-y-2">
             {filteredInstalled.length === 0 ? (
-              <div className="text-center py-12">
-                <Package size={28} className="text-stone-700 mx-auto mb-2" />
-                <p className="text-xs text-stone-500">
-                  {searchQuery ? 'No installed plugins match your search.' : 'No plugins installed yet.'}
-                </p>
-              </div>
+              <StateView
+                status="empty"
+                title={searchQuery ? 'No Results' : 'No Plugins Installed'}
+                message={searchQuery ? 'No installed plugins match your search.' : 'No plugins installed. Browse available plugins or create your own.'}
+                compact
+              />
             ) : (
               filteredInstalled.map(plugin => (
                 <div
@@ -174,12 +185,12 @@ export function PluginsView({ sendCommand, pluginRegistry }: PluginsViewProps) {
         {activeTab === 'available' && (
           <div className="space-y-2">
             {filteredAvailable.length === 0 ? (
-              <div className="text-center py-12">
-                <Package size={28} className="text-stone-700 mx-auto mb-2" />
-                <p className="text-xs text-stone-500">
-                  {searchQuery ? 'No available plugins match your search.' : 'No plugins available.'}
-                </p>
-              </div>
+              <StateView
+                status="empty"
+                title={searchQuery ? 'No Results' : 'No Plugins Available'}
+                message={searchQuery ? 'No available plugins match your search.' : 'No plugins available.'}
+                compact
+              />
             ) : (
               filteredAvailable.map(plugin => {
                 const isInstalled = installedNames.has(plugin.name);

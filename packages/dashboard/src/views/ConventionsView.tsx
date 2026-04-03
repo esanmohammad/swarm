@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
-import { BookOpen, RefreshCw, Save, Eye } from 'lucide-react';
+import { BookOpen, RefreshCw, Save } from 'lucide-react';
 import type { WsCommand } from '../types';
+import { FeatureGuide } from '../components/FeatureGuide';
+import { StateView } from '../components/StateView';
 
 interface ConventionsViewProps {
   sendCommand: (cmd: WsCommand) => void;
@@ -78,6 +80,20 @@ export function ConventionsView({ sendCommand, conventions, conventionsLoading }
           </div>
         </div>
 
+        <FeatureGuide
+          featureId="conventions"
+          title="Conventions"
+          description="Swarm learns your project's coding patterns, naming conventions, and style rules by analyzing your codebase. These conventions are then applied when generating code."
+          hasData={conventions !== null}
+          setupSteps={[
+            { label: 'Run swarm learn to scan your codebase', command: 'swarm learn' },
+          ]}
+          cliCommands={[
+            { command: 'swarm learn', description: 'Scan codebase for conventions' },
+            { command: 'swarm learn --stack node', description: 'Scan with a specific stack context' },
+          ]}
+        />
+
         <p className="text-xs text-stone-500 mb-4">
           Conventions are automatically injected into all pipeline agents as system context.
           {!conventions && ' Click "Scan Codebase" to extract patterns from your project.'}
@@ -86,21 +102,14 @@ export function ConventionsView({ sendCommand, conventions, conventionsLoading }
         {/* Content */}
         <div className="flex-1 min-h-0 overflow-auto rounded-lg border border-stone-800/50 bg-stone-900/40">
           {conventions === null && !conventionsLoading ? (
-            <div className="flex flex-col items-center justify-center h-full py-16 text-center">
-              <BookOpen size={36} className="text-stone-600 mb-3" />
-              <p className="text-sm text-stone-400 mb-1">No conventions detected yet</p>
-              <p className="text-xs text-stone-500 mb-4 max-w-md">
-                Run <code className="text-stone-400 bg-stone-800/60 px-1.5 py-0.5 rounded">swarm learn</code> or
-                click "Scan Codebase" to analyze your project's patterns.
-              </p>
-              <button
-                onClick={handleLearn}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-md text-xs font-medium text-white bg-blue-600 hover:bg-blue-500 transition-colors"
-              >
-                <Eye size={12} />
-                Scan Codebase
-              </button>
-            </div>
+            <StateView
+              status="empty"
+              title="No conventions learned"
+              message="No conventions learned yet. Run 'swarm learn' to analyze your codebase patterns."
+              actions={[
+                { label: 'Scan Codebase', onClick: handleLearn, variant: 'primary' },
+              ]}
+            />
           ) : conventionsLoading ? (
             <div className="flex items-center justify-center h-full py-16">
               <RefreshCw size={20} className="text-stone-500 animate-spin mr-2" />

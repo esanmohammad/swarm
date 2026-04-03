@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Brain, Plus, Trash2, X } from 'lucide-react';
 import type { WsCommand } from '../types';
+import { FeatureGuide } from '../components/FeatureGuide';
+import { StateView } from '../components/StateView';
 
 interface MemoryEntry {
   id: string;
@@ -85,6 +87,17 @@ export function MemoryView({ sendCommand, memories }: MemoryViewProps) {
           </div>
         </div>
 
+        <FeatureGuide
+          featureId="memory"
+          title="Memory"
+          description="Cross-run memory allows Swarm to remember context between pipeline runs — decisions, patterns, lessons learned, and project-specific knowledge."
+          hasData={memories.length > 0}
+          cliCommands={[
+            { command: 'swarm memory', description: 'List all stored memories' },
+            { command: 'swarm memory add "Always use UTC"', description: 'Add a manual memory note' },
+          ]}
+        />
+
         <p className="text-xs text-stone-500 mb-4">
           Memories are recorded automatically after pipeline runs and injected into all agents as context.
           Add manual notes for project-specific knowledge.
@@ -148,13 +161,14 @@ export function MemoryView({ sendCommand, memories }: MemoryViewProps) {
         {/* Memory list */}
         <div className="flex-1 min-h-0 overflow-auto space-y-2">
           {filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <Brain size={36} className="text-stone-600 mb-3" />
-              <p className="text-sm text-stone-400 mb-1">No memories yet</p>
-              <p className="text-xs text-stone-500 max-w-md">
-                Memories are recorded automatically after pipeline runs. You can also add manual notes.
-              </p>
-            </div>
+            <StateView
+              status="empty"
+              title="No memories stored"
+              message="No memories stored yet. Memories are created during pipeline runs or manually via CLI."
+              actions={[
+                { label: 'Add Note', onClick: () => setShowAdd(true), variant: 'primary' },
+              ]}
+            />
           ) : (
             filtered.map(entry => (
               <div

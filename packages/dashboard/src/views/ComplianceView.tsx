@@ -8,6 +8,8 @@ import {
   ChevronDown,
   ChevronRight,
 } from 'lucide-react';
+import { FeatureGuide } from '../components/FeatureGuide';
+import { StateView } from '../components/StateView';
 import type { WsCommand } from '../types';
 
 interface ComplianceCheck {
@@ -91,10 +93,29 @@ export function ComplianceView({ sendCommand, complianceData }: ComplianceViewPr
 
   if (!complianceData) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-center">
-          <Shield size={36} className="text-stone-600 mx-auto mb-3" />
-          <p className="text-sm text-stone-400">Loading compliance data...</p>
+      <div className="flex-1 flex flex-col p-6 overflow-auto">
+        <div className="max-w-5xl w-full mx-auto space-y-6">
+          <div className="flex items-center gap-2">
+            <Shield size={18} className="text-blue-400" />
+            <h2 className="text-lg font-semibold text-stone-200">Compliance</h2>
+            <FeatureGuide
+              featureId="compliance"
+              title="Compliance"
+              description="Automated regulatory compliance checks. Scans code for GDPR, SOC2, HIPAA, and PCI-DSS patterns."
+              cliCommands={[
+                { command: 'swarm compliance', description: 'Run a compliance check' },
+              ]}
+              hasData={false}
+            />
+          </div>
+          <StateView
+            status="empty"
+            title="No compliance data yet"
+            message="Run a compliance check to scan for regulatory issues."
+            actions={[
+              { label: 'Run Check', onClick: handleCheck, variant: 'primary' },
+            ]}
+          />
         </div>
       </div>
     );
@@ -112,6 +133,15 @@ export function ComplianceView({ sendCommand, complianceData }: ComplianceViewPr
           <div className="flex items-center gap-2">
             <Shield size={18} className="text-blue-400" />
             <h2 className="text-lg font-semibold text-stone-200">Compliance</h2>
+            <FeatureGuide
+              featureId="compliance"
+              title="Compliance"
+              description="Automated regulatory compliance checks. Scans code for GDPR, SOC2, HIPAA, and PCI-DSS patterns."
+              cliCommands={[
+                { command: 'swarm compliance', description: 'Run a compliance check' },
+              ]}
+              hasData={true}
+            />
           </div>
           <button
             onClick={handleCheck}

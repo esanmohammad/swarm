@@ -8,6 +8,8 @@ import {
   ChevronDown,
   ChevronRight,
 } from 'lucide-react';
+import { FeatureGuide } from '../components/FeatureGuide';
+import { StateView } from '../components/StateView';
 import type { WsCommand } from '../types';
 
 interface ArchIssue {
@@ -103,10 +105,29 @@ export function ArchReviewView({ sendCommand, archReview }: ArchReviewViewProps)
 
   if (!archReview) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-center">
-          <Building2 size={36} className="text-stone-600 mx-auto mb-3" />
-          <p className="text-sm text-stone-400">Loading architecture review...</p>
+      <div className="flex-1 flex flex-col p-6 overflow-auto">
+        <div className="max-w-5xl w-full mx-auto space-y-6">
+          <div className="flex items-center gap-2">
+            <Building2 size={18} className="text-orange-400" />
+            <h2 className="text-lg font-semibold text-stone-200">Architecture Review</h2>
+            <FeatureGuide
+              featureId="arch-review"
+              title="Architecture Review"
+              description="AI-powered architecture analysis. Reviews coupling, complexity, circular dependencies, and suggests design improvements."
+              cliCommands={[
+                { command: 'swarm architect-review', description: 'Run an architecture review' },
+              ]}
+              hasData={false}
+            />
+          </div>
+          <StateView
+            status="empty"
+            title="No architecture review yet"
+            message="Run a review to analyze coupling, complexity, circular dependencies, and get design improvement suggestions."
+            actions={[
+              { label: 'Run Review', onClick: () => sendCommand({ action: 'run-arch-review' } as WsCommand), variant: 'primary' },
+            ]}
+          />
         </div>
       </div>
     );
@@ -123,6 +144,15 @@ export function ArchReviewView({ sendCommand, archReview }: ArchReviewViewProps)
             <Building2 size={18} className="text-orange-400" />
             <h2 className="text-lg font-semibold text-stone-200">Architecture Review</h2>
             <span className="text-xs text-stone-500 ml-2">{issues.length} issues</span>
+            <FeatureGuide
+              featureId="arch-review"
+              title="Architecture Review"
+              description="AI-powered architecture analysis. Reviews coupling, complexity, circular dependencies, and suggests design improvements."
+              cliCommands={[
+                { command: 'swarm architect-review', description: 'Run an architecture review' },
+              ]}
+              hasData={true}
+            />
           </div>
           <button
             onClick={() => sendCommand({ action: 'run-arch-review' } as WsCommand)}

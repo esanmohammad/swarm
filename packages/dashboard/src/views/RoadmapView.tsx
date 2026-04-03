@@ -9,6 +9,8 @@ import {
   Target,
 } from 'lucide-react';
 import type { WsCommand } from '../types';
+import { FeatureGuide } from '../components/FeatureGuide';
+import { StateView } from '../components/StateView';
 
 interface RoadmapPhase {
   id: string;
@@ -80,12 +82,14 @@ export function RoadmapView({ sendCommand, roadmapData }: RoadmapViewProps) {
 
   if (!roadmapData) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-center">
-          <Map size={36} className="text-stone-600 mx-auto mb-3" />
-          <p className="text-sm text-stone-400">Loading roadmap...</p>
-        </div>
-      </div>
+      <StateView
+        status="empty"
+        title="No roadmap yet"
+        message="No roadmap yet. Generate one to plan your project timeline."
+        actions={[
+          { label: 'Generate Roadmap', onClick: () => sendCommand({ action: 'run-roadmap' } as WsCommand), variant: 'primary' },
+        ]}
+      />
     );
   }
 
@@ -101,6 +105,13 @@ export function RoadmapView({ sendCommand, roadmapData }: RoadmapViewProps) {
           <div className="flex items-center gap-2">
             <Map size={18} className="text-indigo-400" />
             <h2 className="text-lg font-semibold text-stone-200">Roadmap</h2>
+            <FeatureGuide
+              featureId="roadmap"
+              title="Roadmap"
+              description="Long-term project planning with AI-assisted prioritization, dependency analysis, and milestone tracking."
+              cliCommands={[{ command: 'swarm roadmap', description: 'Generate or view your project roadmap' }]}
+              hasData={phases.length > 0}
+            />
           </div>
           <button
             onClick={() => sendCommand({ action: 'run-roadmap' } as WsCommand)}

@@ -8,6 +8,8 @@ import {
   ChevronUp,
   CheckCircle,
 } from 'lucide-react';
+import { FeatureGuide } from '../components/FeatureGuide';
+import { StateView } from '../components/StateView';
 import type { WsCommand } from '../types';
 
 interface DebtItem {
@@ -82,10 +84,26 @@ export function DebtView({ sendCommand, debtData }: DebtViewProps) {
 
   if (!debtData) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-center">
-          <Trash2 size={36} className="text-stone-600 mx-auto mb-3" />
-          <p className="text-sm text-stone-400">Loading tech debt data...</p>
+      <div className="flex-1 flex flex-col p-6 overflow-auto">
+        <div className="max-w-5xl w-full mx-auto">
+          <div className="flex items-center gap-2 mb-4">
+            <Trash2 size={18} className="text-rose-400" />
+            <h2 className="text-lg font-semibold text-stone-200">Tech Debt</h2>
+          </div>
+          <FeatureGuide
+            featureId="debt"
+            title="Tech Debt"
+            description="Track and prioritize technical debt. Identifies hotspots, calculates debt scores, and suggests where to invest refactoring effort."
+            cliCommands={[
+              { command: 'swarm health', description: 'Run health check including tech debt analysis' },
+            ]}
+            hasData={false}
+          />
+          <StateView
+            status="empty"
+            title="No tech debt data yet"
+            message="Run a health scan to detect code quality issues, architecture debt, dependency staleness, test coverage gaps, and documentation holes."
+          />
         </div>
       </div>
     );
@@ -109,6 +127,15 @@ export function DebtView({ sendCommand, debtData }: DebtViewProps) {
             <Trash2 size={18} className="text-rose-400" />
             <h2 className="text-lg font-semibold text-stone-200">Tech Debt</h2>
             <span className="text-xs text-stone-500 ml-2">{items.length} items</span>
+            <FeatureGuide
+              featureId="debt"
+              title="Tech Debt"
+              description="Track and prioritize technical debt. Identifies hotspots, calculates debt scores, and suggests where to invest refactoring effort."
+              cliCommands={[
+                { command: 'swarm health', description: 'Run health check including tech debt analysis' },
+              ]}
+              hasData={items.length > 0}
+            />
           </div>
           <button
             onClick={() => sendCommand({ action: 'run-debt-scan' } as WsCommand)}

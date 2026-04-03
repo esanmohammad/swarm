@@ -14,6 +14,8 @@ import {
   Shield,
 } from 'lucide-react';
 import type { WsCommand } from '../types';
+import { FeatureGuide } from '../components/FeatureGuide';
+import { StateView } from '../components/StateView';
 
 interface ReportData {
   period: { start: string; end: string; label: string };
@@ -61,12 +63,14 @@ export function ReportView({ sendCommand, reportData }: ReportViewProps) {
 
   if (!reportData) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-center">
-          <BarChart3 size={36} className="text-stone-600 mx-auto mb-3" />
-          <p className="text-sm text-stone-400">Loading report data...</p>
-        </div>
-      </div>
+      <StateView
+        status="empty"
+        title="No reports generated yet"
+        message="No reports generated yet. Generate one to see the impact of AI-assisted development."
+        actions={[
+          { label: 'Generate Report', onClick: () => sendCommand({ action: 'get-report', period, compare } as WsCommand), variant: 'primary' },
+        ]}
+      />
     );
   }
 
@@ -97,6 +101,13 @@ export function ReportView({ sendCommand, reportData }: ReportViewProps) {
             <span className="text-xs text-stone-500 ml-2">
               {reportData.period.start} to {reportData.period.end}
             </span>
+            <FeatureGuide
+              featureId="report"
+              title="Impact Reports"
+              description="Generate ROI and impact reports showing the value of AI-assisted development — time saved, bugs prevented, cost efficiency."
+              cliCommands={[{ command: 'swarm report', description: 'Generate an impact report' }]}
+              hasData={!!reportData}
+            />
           </div>
           <div className="flex items-center gap-2">
             {/* Period selector */}

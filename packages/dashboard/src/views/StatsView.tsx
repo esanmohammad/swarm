@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { TrendingUp, AlertTriangle } from 'lucide-react';
 import type { WsCommand } from '../types';
+import { FeatureGuide } from '../components/FeatureGuide';
+import { StateView } from '../components/StateView';
 
 interface StatsData {
   totalRuns: number;
@@ -36,10 +38,23 @@ export function StatsView({ sendCommand, stats }: StatsViewProps) {
 
   if (!stats) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-center">
-          <TrendingUp size={36} className="text-stone-600 mx-auto mb-3" />
-          <p className="text-sm text-stone-400">Loading stats...</p>
+      <div className="flex-1 flex flex-col p-6">
+        <FeatureGuide
+          featureId="stats"
+          title="Cost Intelligence"
+          description="Track spending across pipeline runs. See cost breakdown by stage, weekly trends, and get optimization recommendations."
+          hasData={false}
+          cliCommands={[
+            { command: 'swarm stats', description: 'View pipeline cost statistics' },
+            { command: 'swarm stats --period 7', description: 'View stats for the last 7 days' },
+          ]}
+        />
+        <div className="flex-1 flex items-center justify-center">
+          <StateView
+            status="loading"
+            title="Loading stats"
+            message="Fetching pipeline statistics..."
+          />
         </div>
       </div>
     );
@@ -47,11 +62,23 @@ export function StatsView({ sendCommand, stats }: StatsViewProps) {
 
   if (stats.totalRuns === 0) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-center">
-          <TrendingUp size={36} className="text-stone-600 mx-auto mb-3" />
-          <p className="text-sm text-stone-400">No pipeline runs in the last {period} days</p>
-          <p className="text-xs text-stone-500 mt-1">Run a pipeline first to see cost intelligence data.</p>
+      <div className="flex-1 flex flex-col p-6">
+        <FeatureGuide
+          featureId="stats"
+          title="Cost Intelligence"
+          description="Track spending across pipeline runs. See cost breakdown by stage, weekly trends, and get optimization recommendations."
+          hasData={false}
+          cliCommands={[
+            { command: 'swarm stats', description: 'View pipeline cost statistics' },
+            { command: 'swarm stats --period 7', description: 'View stats for the last 7 days' },
+          ]}
+        />
+        <div className="flex-1 flex items-center justify-center">
+          <StateView
+            status="empty"
+            title="No stats yet"
+            message="No stats yet. Run a pipeline first — costs and performance are tracked automatically."
+          />
         </div>
       </div>
     );
@@ -63,6 +90,17 @@ export function StatsView({ sendCommand, stats }: StatsViewProps) {
   return (
     <div className="flex-1 flex flex-col p-6 overflow-auto">
       <div className="max-w-5xl w-full mx-auto space-y-6">
+        <FeatureGuide
+          featureId="stats"
+          title="Cost Intelligence"
+          description="Track spending across pipeline runs. See cost breakdown by stage, weekly trends, and get optimization recommendations."
+          hasData={true}
+          cliCommands={[
+            { command: 'swarm stats', description: 'View pipeline cost statistics' },
+            { command: 'swarm stats --period 7', description: 'View stats for the last 7 days' },
+          ]}
+        />
+
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">

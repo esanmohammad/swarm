@@ -10,6 +10,8 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import type { WsCommand } from '../types';
+import { FeatureGuide } from '../components/FeatureGuide';
+import { StateView } from '../components/StateView';
 
 interface ServiceNode {
   name: string;
@@ -82,12 +84,14 @@ export function SystemView({ sendCommand, systemGraph }: SystemViewProps) {
 
   if (!systemGraph) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-center">
-          <Network size={36} className="text-stone-600 mx-auto mb-3" />
-          <p className="text-sm text-stone-400">Loading system graph...</p>
-        </div>
-      </div>
+      <StateView
+        status="empty"
+        title="No system map yet"
+        message="No system map yet. Generate one to visualize your architecture."
+        actions={[
+          { label: 'Generate System Map', onClick: () => sendCommand({ action: 'run-system-map' } as WsCommand), variant: 'primary' },
+        ]}
+      />
     );
   }
 
@@ -103,6 +107,13 @@ export function SystemView({ sendCommand, systemGraph }: SystemViewProps) {
             <Network size={18} className="text-sky-400" />
             <h2 className="text-lg font-semibold text-stone-200">System Map</h2>
             <span className="text-xs text-stone-500 ml-2">{services.length} services</span>
+            <FeatureGuide
+              featureId="system"
+              title="System Map"
+              description="Visualize your system architecture — services, dependencies, and cross-repo relationships. Helps understand the big picture."
+              cliCommands={[{ command: 'swarm system', description: 'Generate or refresh the system map' }]}
+              hasData={services.length > 0}
+            />
           </div>
           <div className="flex items-center gap-2">
             <button

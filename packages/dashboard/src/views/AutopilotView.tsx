@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Bot, Play, Square, CheckCircle, XCircle, Clock, ExternalLink, GitPullRequest, Loader2 } from 'lucide-react';
 import type { WsCommand, AutopilotState, AutopilotIssue } from '../types';
+import { FeatureGuide } from '../components/FeatureGuide';
+import { StateView } from '../components/StateView';
 
 interface AutopilotViewProps {
   sendCommand: (cmd: WsCommand) => void;
@@ -82,6 +84,22 @@ export function AutopilotView({ sendCommand, autopilotState }: AutopilotViewProp
           </span>
         </div>
       </div>
+
+      <FeatureGuide
+        featureId="autopilot"
+        title="Autopilot"
+        description="Watches GitHub issues with a specific label and automatically creates PRs. Zero-touch issue-to-PR automation."
+        hasData={isRunning || allIssues.length > 0}
+        setupSteps={[
+          { label: 'Ensure GitHub CLI is authenticated', command: 'gh auth status' },
+          { label: 'Start autopilot', command: 'swarm autopilot start' },
+        ]}
+        cliCommands={[
+          { command: 'swarm autopilot start', description: 'Start watching for labeled issues' },
+          { command: 'swarm autopilot stop', description: 'Stop the autopilot watcher' },
+          { command: 'swarm autopilot status', description: 'Check autopilot status' },
+        ]}
+      />
 
       {/* Config + Controls */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -176,13 +194,14 @@ export function AutopilotView({ sendCommand, autopilotState }: AutopilotViewProp
           Issues ({allIssues.length})
         </h3>
         {allIssues.length === 0 ? (
-          <div className="text-center py-8 text-stone-500">
-            <Bot size={28} className="mx-auto mb-2 opacity-30" />
-            <p className="text-xs">No issues processed yet.</p>
-            <p className="text-[10px] text-stone-600 mt-1">
-              Label issues with "{label}" on GitHub to queue them for autopilot.
-            </p>
-          </div>
+          <StateView
+            status="empty"
+            title="No issues processed"
+            message="Autopilot is not running. Start it to automatically process labeled GitHub issues into PRs."
+            actions={[
+              { label: 'Start Autopilot', onClick: handleStart, variant: 'primary' },
+            ]}
+          />
         ) : (
           <div className="space-y-1">
             {allIssues.map((issue) => (

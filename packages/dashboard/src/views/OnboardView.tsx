@@ -9,6 +9,8 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import type { WsCommand } from '../types';
+import { FeatureGuide } from '../components/FeatureGuide';
+import { StateView } from '../components/StateView';
 
 interface OnboardData {
   step: number;
@@ -45,12 +47,14 @@ export function OnboardView({ sendCommand, onboardData }: OnboardViewProps) {
 
   if (!onboardData) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-center">
-          <GraduationCap size={36} className="text-stone-600 mx-auto mb-3" />
-          <p className="text-sm text-stone-400">Loading onboarding data...</p>
-        </div>
-      </div>
+      <StateView
+        status="empty"
+        title="No onboarding guide yet"
+        message="No onboarding guide yet. Generate one to help new developers get up to speed."
+        actions={[
+          { label: 'Generate Onboarding Guide', onClick: handleRunOnboard, variant: 'primary' },
+        ]}
+      />
     );
   }
 
@@ -67,6 +71,13 @@ export function OnboardView({ sendCommand, onboardData }: OnboardViewProps) {
             <span className="text-xs text-stone-500 ml-2">
               Step {step} of {totalSteps}
             </span>
+            <FeatureGuide
+              featureId="onboard"
+              title="Onboarding"
+              description="Guided developer onboarding. Generates a personalized tour of the codebase, key concepts, and getting-started steps for new team members."
+              cliCommands={[{ command: 'swarm onboard', description: 'Generate an onboarding guide' }]}
+              hasData={!!onboardData}
+            />
           </div>
           <button
             onClick={handleRunOnboard}

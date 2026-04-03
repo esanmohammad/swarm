@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { Upload, Play, AlertTriangle, CheckCircle, XCircle, RotateCcw, Loader2, MinusCircle } from 'lucide-react';
+import { FeatureGuide } from '../components/FeatureGuide';
+import { StateView } from '../components/StateView';
 import type { WsCommand } from '../types';
 
 interface DeployStep {
@@ -51,6 +53,16 @@ export function DeployView({ sendCommand, deployResult }: DeployViewProps) {
         <div className="flex items-center gap-2 mb-4">
           <Upload size={18} className="text-emerald-400" />
           <h2 className="text-lg font-semibold text-stone-200">Deploy</h2>
+          <FeatureGuide
+            featureId="deploy"
+            title="Deploy"
+            description="AI-assisted deployments with pre-flight checks, rollback support, and step-by-step execution visibility."
+            cliCommands={[
+              { command: 'swarm deploy staging', description: 'Deploy to staging environment' },
+              { command: 'swarm deploy production', description: 'Deploy to production environment' },
+            ]}
+            hasData={!!deployResult}
+          />
         </div>
 
         <p className="text-xs text-stone-500 mb-4">
@@ -171,21 +183,21 @@ export function DeployView({ sendCommand, deployResult }: DeployViewProps) {
             })}
           </div>
         ) : (
-          /* Setup instructions when no deploy has been run */
-          <div className="flex-1 rounded-lg border border-stone-800/30 bg-stone-900/20 p-6">
-            <h3 className="text-xs font-medium text-stone-400 mb-3">Setup</h3>
-            <p className="text-xs text-stone-500 mb-3">Create <code className="text-stone-400">.swarm/deploy.yaml</code>:</p>
-            <pre className="text-[10px] text-stone-400 font-mono leading-relaxed">{`staging:
+          <StateView
+            status="empty"
+            title="No deployments yet"
+            message="Configure your deployment pipeline in .swarm/deploy.yaml, then run a deploy from here or the CLI."
+          >
+            <pre className="text-[10px] text-stone-400 font-mono leading-relaxed text-left mt-3 bg-stone-900/40 rounded-md p-3">{`staging:
   build: "docker build -t app:staging ."
   deploy: "kubectl apply -f k8s/staging/"
   healthcheck: "curl -f http://staging.internal/health"
-  smoketest: "npx playwright test --config=e2e/staging.config.ts"
 
 production:
   promote: "kubectl set image deployment/app app=app:staging"
   healthcheck: "curl -f http://prod.internal/health"
   rollback: "kubectl rollout undo deployment/app"`}</pre>
-          </div>
+          </StateView>
         )}
       </div>
     </div>

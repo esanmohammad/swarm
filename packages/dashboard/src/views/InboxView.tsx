@@ -3,6 +3,8 @@ import {
   Inbox, Play, Pause, Square, Plus, Filter, ArrowUp, ExternalLink,
   Clock, DollarSign, CheckCircle, XCircle, AlertCircle, ChevronDown, ChevronRight,
 } from 'lucide-react';
+import { FeatureGuide } from '../components/FeatureGuide';
+import { StateView } from '../components/StateView';
 import type { WsCommand } from '../types';
 
 // ---------------------------------------------------------------------------
@@ -197,6 +199,17 @@ export function InboxView({ sendCommand, inboxState }: InboxViewProps) {
           </span>
         </div>
       </div>
+
+      <FeatureGuide
+        featureId="inbox"
+        title="Inbox"
+        description="Self-directed work queue. Swarm identifies tasks from issues, TODOs, and failed tests, prioritizes them, and works through them."
+        cliCommands={[
+          { command: 'swarm inbox', description: 'View the current inbox queue' },
+          { command: 'swarm inbox process', description: 'Start processing inbox items' },
+        ]}
+        hasData={(inboxState?.queue?.length ?? 0) + (inboxState?.processed?.length ?? 0) > 0}
+      />
 
       {/* Config + Controls */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -403,13 +416,11 @@ export function InboxView({ sendCommand, inboxState }: InboxViewProps) {
           Work Items ({filteredItems.length})
         </h3>
         {filteredItems.length === 0 ? (
-          <div className="text-center py-8 text-stone-500">
-            <Inbox size={28} className="mx-auto mb-2 opacity-30" />
-            <p className="text-xs">No work items yet.</p>
-            <p className="text-[10px] text-stone-600 mt-1">
-              Label issues with "{label}" on GitHub or add tasks manually.
-            </p>
-          </div>
+          <StateView
+            status="empty"
+            title="Inbox is empty"
+            message={`Swarm will populate it with tasks from issues, TODOs, and test failures. Label issues with "${label}" on GitHub or add tasks manually above.`}
+          />
         ) : (
           <div className="space-y-1">
             {filteredItems.map((item) => (

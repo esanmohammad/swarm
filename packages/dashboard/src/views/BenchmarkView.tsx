@@ -1,6 +1,11 @@
 import { useState } from 'react';
-import { Gauge, Play, Loader2, Save } from 'lucide-react';
+import { Gauge, Play, Save } from 'lucide-react';
 import type { WsCommand } from '../types';
+import { FeatureGuide } from '../components/FeatureGuide';
+import { StateView } from '../components/StateView';
+import { ActionProgress } from '../components/ActionProgress';
+import { useAction } from '../hooks/useAction';
+import { featureGuides } from '../data/feature-guides';
 
 interface BenchmarkViewProps {
   sendCommand: (cmd: WsCommand) => void;
@@ -8,15 +13,14 @@ interface BenchmarkViewProps {
 
 export function BenchmarkView({ sendCommand }: BenchmarkViewProps) {
   const [command, setCommand] = useState('');
-  const [running, setRunning] = useState(false);
+  const benchmarkAction = useAction(sendCommand, { timeout: 180000 });
+  const guide = featureGuides.benchmark;
 
   const handleRun = () => {
-    setRunning(true);
-    sendCommand({
+    benchmarkAction.execute({
       action: 'run-benchmark',
       command: command.trim() || undefined,
-    } as WsCommand);
-    setTimeout(() => setRunning(false), 60000);
+    } as WsCommand, 'Running benchmark...');
   };
 
   const handleSaveBaseline = () => {
@@ -29,12 +33,30 @@ export function BenchmarkView({ sendCommand }: BenchmarkViewProps) {
         <div className="flex items-center gap-2 mb-4">
           <Gauge size={18} className="text-amber-400" />
           <h2 className="text-lg font-semibold text-stone-200">Benchmarks</h2>
+          <FeatureGuide
+            featureId="benchmark"
+            title={guide.title}
+            description="Run performance benchmarks and detect regressions. Compares against previous baselines to catch slowdowns."
+            setupSteps={[{ label: 'Run your first benchmark', command: 'swarm benchmark' }]}
+            cliCommands={[
+              { command: 'swarm benchmark', description: 'Run benchmarks' },
+              { command: 'swarm benchmark --save', description: 'Save as baseline' },
+            ]}
+            hasData={benchmarkAction.state.status !== 'idle'}
+          />
         </div>
 
         <p className="text-xs text-stone-500 mb-6">
           Run performance benchmarks and compare against baselines.
           Results are saved for regression detection across runs.
         </p>
+
+        {/* Action Progress */}
+        {benchmarkAction.state.status !== 'idle' && (
+          <div className="mb-3">
+            <ActionProgress state={benchmarkAction.state} onCancel={benchmarkAction.cancel} onRetry={handleRun} onDismiss={benchmarkAction.reset} />
+          </div>
+        )}
 
         <div className="space-y-3 mb-4">
           <input
@@ -49,11 +71,11 @@ export function BenchmarkView({ sendCommand }: BenchmarkViewProps) {
           <div className="flex items-center gap-3">
             <button
               onClick={handleRun}
-              disabled={running}
+              disabled={benchmarkAction.state.status === 'pending' || benchmarkAction.state.status === 'running'}
               className="flex items-center gap-1.5 px-4 py-1.5 rounded-md text-xs font-medium text-white bg-blue-600 hover:bg-blue-500 disabled:bg-stone-700 disabled:text-stone-500 transition-colors"
             >
-              {running ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
-              {running ? 'Running...' : 'Run Benchmark'}
+              <Play size={12} />
+              Run Benchmark
             </button>
 
             <button
@@ -67,15 +89,13 @@ export function BenchmarkView({ sendCommand }: BenchmarkViewProps) {
         </div>
 
         {/* Empty state */}
-        <div className="flex-1 rounded-lg border border-stone-800/30 bg-stone-900/20 flex items-center justify-center">
-          <div className="text-center">
-            <Gauge size={36} className="text-stone-700 mx-auto mb-3" />
-            <p className="text-xs text-stone-500">Run a benchmark to measure performance.</p>
-            <p className="text-[10px] text-stone-600 mt-1">
-              CLI: <code className="text-stone-400 bg-stone-800/60 px-1 py-0.5 rounded">swarm benchmark</code>
-            </p>
-          </div>
-        </div>
+        {benchmarkAction.state.status === 'idle' && (
+          <StateView
+            status="empty"
+            title="No benchmarks run yet"
+            message="Run a benchmark to measure performance metrics like response time, throughput, and memory usage. Results are compared against saved baselines to detect regressions."
+          />
+        )}
       </div>
     </div>
   );

@@ -10,6 +10,8 @@ import {
   TrendingDown,
   Minus,
 } from 'lucide-react';
+import { FeatureGuide } from '../components/FeatureGuide';
+import { StateView } from '../components/StateView';
 import type { WsCommand } from '../types';
 
 interface SloItem {
@@ -84,10 +86,30 @@ export function SloView({ sendCommand, sloData }: SloViewProps) {
 
   if (!sloData) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-center">
-          <Gauge size={36} className="text-stone-600 mx-auto mb-3" />
-          <p className="text-sm text-stone-400">Loading SLOs...</p>
+      <div className="flex-1 flex flex-col p-6 overflow-auto">
+        <div className="max-w-5xl w-full mx-auto">
+          <div className="flex items-center gap-2 mb-4">
+            <Gauge size={18} className="text-emerald-400" />
+            <h2 className="text-lg font-semibold text-stone-200">SLO Tracker</h2>
+          </div>
+          <FeatureGuide
+            featureId="slo"
+            title="SLO Management"
+            description="Define reliability targets for your services. Track error budgets, get alerts when SLOs are burning, and maintain production quality."
+            setupSteps={[
+              { label: 'Add your first SLO', command: 'swarm slo add' },
+            ]}
+            cliCommands={[
+              { command: 'swarm slo', description: 'List all SLOs and their status' },
+              { command: 'swarm slo check', description: 'Check all SLOs against current metrics' },
+            ]}
+            hasData={false}
+          />
+          <StateView
+            status="empty"
+            title="No SLOs defined yet"
+            message="SLOs (Service Level Objectives) let you define reliability targets like 99.9% uptime or p99 latency under 200ms. Add one to start tracking error budgets."
+          />
         </div>
       </div>
     );
@@ -115,6 +137,19 @@ export function SloView({ sendCommand, sloData }: SloViewProps) {
             <span className={`text-xs font-medium ml-2 ${healthColor}`}>
               {overallHealth.toUpperCase()}
             </span>
+            <FeatureGuide
+              featureId="slo"
+              title="SLO Management"
+              description="Define reliability targets for your services. Track error budgets, get alerts when SLOs are burning, and maintain production quality."
+              setupSteps={[
+                { label: 'Add your first SLO', command: 'swarm slo add' },
+              ]}
+              cliCommands={[
+                { command: 'swarm slo', description: 'List all SLOs and their status' },
+                { command: 'swarm slo check', description: 'Check all SLOs against current metrics' },
+              ]}
+              hasData={slos.length > 0}
+            />
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -183,11 +218,12 @@ export function SloView({ sendCommand, sloData }: SloViewProps) {
 
         {/* SLO cards */}
         {slos.length === 0 ? (
-          <div className="text-center py-12">
-            <Gauge size={28} className="text-stone-700 mx-auto mb-2" />
-            <p className="text-xs text-stone-500">No SLOs defined yet.</p>
-            <p className="text-xs text-stone-600 mt-1">Click "Add SLO" to create one.</p>
-          </div>
+          <StateView
+            status="empty"
+            title="No SLOs defined yet"
+            message="SLOs (Service Level Objectives) let you define reliability targets like 99.9% uptime or p99 latency under 200ms. Click 'Add SLO' above to create one."
+            actions={[{ label: 'Add SLO', onClick: () => setShowAddForm(true), variant: 'primary' }]}
+          />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {slos.map(slo => (
