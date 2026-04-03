@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Wifi, WifiOff, Rocket, BarChart3, Clock, Home, UserPlus, Sun, Moon, Monitor, GitCompareArrows, BookOpen, Brain, GitPullRequest, Eye, HelpCircle, TrendingUp, ChevronDown, Wrench, Upload, Database, Bot, Shield, Package, AlertTriangle, Activity, Gauge, Inbox, FileText, Search, Layers, Users, GitBranch, RefreshCw, Target, Building2, GraduationCap, Map, Network, Zap, Bug, LineChart, ClipboardCheck, Puzzle } from 'lucide-react';
+import { Wifi, WifiOff, Rocket, BarChart3, Clock, Home, UserPlus, Sun, Moon, Monitor, GitCompareArrows, BookOpen, Brain, GitPullRequest, TrendingUp, ChevronDown, Wrench } from 'lucide-react';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useOnboarding } from './hooks/useOnboarding';
 import { usePersistedState } from './hooks/usePersistedState';
@@ -193,41 +193,12 @@ export default function App() {
     { key: 'history', label: 'History', icon: Clock },
   ];
 
+  // v0.1 launch set — only tools available in this release
   const TOOLS_NAV: { key: View; label: string; icon: typeof Home; hint: string }[] = [
     { key: 'conventions', label: 'Conventions', icon: BookOpen, hint: 'Project patterns & style' },
     { key: 'memory', label: 'Memory', icon: Brain, hint: 'Cross-run learning' },
     { key: 'reviews', label: 'PR Reviews', icon: GitPullRequest, hint: 'Automated PR review' },
-    { key: 'watch', label: 'Watch', icon: Eye, hint: 'File watcher & auto-test' },
-    { key: 'explain', label: 'Explain', icon: HelpCircle, hint: 'Codebase Q&A' },
     { key: 'stats', label: 'Cost Intelligence', icon: TrendingUp, hint: 'Spend analytics & ROI' },
-    { key: 'deploy', label: 'Deploy', icon: Upload, hint: 'Deploy to staging/production' },
-    { key: 'migrate', label: 'Migrate', icon: Database, hint: 'Database migrations' },
-    { key: 'autopilot', label: 'Autopilot', icon: Bot, hint: 'Issue-to-PR automation' },
-    { key: 'security', label: 'Security', icon: Shield, hint: 'Scans, secrets & sandbox' },
-    { key: 'deps', label: 'Dependencies', icon: Package, hint: 'Dependency management' },
-    { key: 'incident', label: 'Incident', icon: AlertTriangle, hint: 'Incident response' },
-    { key: 'health-check', label: 'Health', icon: Activity, hint: 'Codebase health check' },
-    { key: 'benchmark', label: 'Benchmark', icon: Gauge, hint: 'Performance benchmarks' },
-    { key: 'inbox', label: 'Inbox', icon: Inbox, hint: 'Self-directed work queue' },
-    { key: 'standup', label: 'Standup', icon: FileText, hint: 'Async status reports' },
-    { key: 'journal', label: 'Journal', icon: BookOpen, hint: 'Decision tracking & learning' },
-    { key: 'scope', label: 'Scope', icon: Search, hint: 'Requirement negotiation' },
-    { key: 'context', label: 'Context', icon: Layers, hint: 'Codebase intelligence' },
-    { key: 'pair', label: 'Pair', icon: Users, hint: 'Real-time collaboration' },
-    { key: 'delegate', label: 'Delegate', icon: GitBranch, hint: 'Multi-agent decomposition' },
-    { key: 'report', label: 'Report', icon: BarChart3, hint: 'ROI & impact reports' },
-    { key: 'team', label: 'Team', icon: Users, hint: 'Multi-user coordination' },
-    { key: 'retro', label: 'Retro', icon: RefreshCw, hint: 'Self-improvement retrospectives' },
-    { key: 'surfaces', label: 'Surfaces', icon: Target, hint: 'Surface ownership & SLOs' },
-    { key: 'arch-review', label: 'Architecture', icon: Building2, hint: 'Strategic architecture review' },
-    { key: 'onboard', label: 'Onboard', icon: GraduationCap, hint: 'Developer onboarding & mentoring' },
-    { key: 'roadmap', label: 'Roadmap', icon: Map, hint: 'Long-term project planning' },
-    { key: 'system', label: 'System', icon: Network, hint: 'Cross-repo orchestration' },
-    { key: 'slo', label: 'SLOs', icon: Zap, hint: 'Production outcome ownership' },
-    { key: 'debt', label: 'Tech Debt', icon: Bug, hint: 'Proactive debt management' },
-    { key: 'forecast', label: 'Forecast', icon: LineChart, hint: 'Engineering intelligence' },
-    { key: 'compliance', label: 'Compliance', icon: ClipboardCheck, hint: 'Regulatory automation' },
-    { key: 'plugins', label: 'Plugins', icon: Puzzle, hint: 'Platform & extensibility' },
   ];
 
   const isToolView = TOOLS_NAV.some(t => t.key === view);

@@ -5,7 +5,6 @@ import {
   Wrench, GitPullRequest,
   TrendingUp,
   Layers, BookOpen, Brain,
-  Cpu,
   ChevronRight, ChevronDown, PanelLeftClose, PanelLeft,
   Sparkles
 } from 'lucide-react';
@@ -56,13 +55,6 @@ const NAV_GROUPS: NavGroup[] = [
       { path: '/codebase', label: 'Overview', icon: Layers },
       { path: '/codebase/conventions', label: 'Conventions', icon: BookOpen },
       { path: '/codebase/memory', label: 'Memory', icon: Brain },
-    ],
-  },
-  {
-    label: 'Settings',
-    defaultOpen: false,
-    items: [
-      { path: '/settings/models', label: 'Models & Providers', icon: Cpu },
     ],
   },
 ];

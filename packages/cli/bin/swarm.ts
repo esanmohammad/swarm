@@ -302,7 +302,7 @@ for (const register of advancedCommands) {
 // v0.1 launch set — all other commands are registered but hidden from help
 const V01_COMMANDS = new Set([
   'mayday', 'analyze', 'architect', 'plan', 'build', 'test',
-  'fix', 'review', 'pr', 'refactor', 'spike', 'test-gen', 'learn',
+  'fix', 'review', 'pr', 'refactor', 'simplify', 'spike', 'test-gen', 'learn',
   'init', 'doctor', 'status', 'stats', 'memory', 'dashboard', 'check',
 ]);
 
