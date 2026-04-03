@@ -466,6 +466,7 @@ export class StateManager extends EventEmitter {
     durationMs: number;
     status: 'success' | 'error' | 'partial';
     model?: string;
+    agentIds?: string[];
   }): string {
     const runId = randomUUID();
     const now = Date.now();
@@ -490,6 +491,7 @@ export class StateManager extends EventEmitter {
       summary: opts.summary,
       activityStatus: opts.status,
       model: opts.model,
+      agentIds: opts.agentIds,
     };
 
     try {

@@ -82,6 +82,14 @@ export function registerStats(program: Command): void {
     });
 }
 
+interface ActivityBreakdown {
+  type: string;
+  count: number;
+  cost: number;
+  successCount: number;
+  avgDurationMs: number;
+}
+
 interface Stats {
   totalRuns: number;
   passed: number;
@@ -94,11 +102,15 @@ interface Stats {
   stageCosts: Array<{ stage: string; totalCost: number; avgCost: number; avgDurationMs: number; count: number }>;
   weeklySpend: Array<{ week: string; cost: number; runs: number }>;
   recommendations: string[];
+  activityBreakdown: ActivityBreakdown[];
 }
 
 function computeStats(entries: HistoryEntry[]): Stats {
   const totalRuns = entries.length;
   const passed = entries.filter(e => {
+    // For entries with activityStatus, use it directly
+    if (e.activityStatus) return e.activityStatus === 'success';
+    // For legacy pipeline entries, check stage statuses
     const stages = Object.values(e.stagesSummary);
     return stages.every(s => s === 'done' || s === 'skipped' || s === 'pending');
   }).length;
@@ -181,9 +193,33 @@ function computeStats(entries: HistoryEntry[]): Stats {
     );
   }
 
+  // Per-activity-type breakdown
+  const activityMap = new Map<string, { count: number; cost: number; successCount: number; totalDuration: number }>();
+  for (const entry of entries) {
+    const type = entry.activityType || 'pipeline';
+    const existing = activityMap.get(type) || { count: 0, cost: 0, successCount: 0, totalDuration: 0 };
+    existing.count += 1;
+    existing.cost += entry.totalCost.totalUsd;
+    existing.totalDuration += entry.durationMs;
+    const isSuccess = entry.activityStatus ? entry.activityStatus === 'success'
+      : Object.values(entry.stagesSummary).every(s => s === 'done' || s === 'skipped' || s === 'pending');
+    if (isSuccess) existing.successCount += 1;
+    activityMap.set(type, existing);
+  }
+  const activityBreakdown: ActivityBreakdown[] = Array.from(activityMap.entries())
+    .map(([type, data]) => ({
+      type,
+      count: data.count,
+      cost: data.cost,
+      successCount: data.successCount,
+      avgDurationMs: data.count > 0 ? data.totalDuration / data.count : 0,
+    }))
+    .sort((a, b) => b.count - a.count);
+
   return {
     totalRuns, passed, failed, successRate, totalCost, avgCostPerRun,
     avgDurationMs, avgFixIterations, stageCosts, weeklySpend, recommendations,
+    activityBreakdown,
   };
 }
 

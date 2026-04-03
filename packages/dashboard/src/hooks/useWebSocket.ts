@@ -214,6 +214,13 @@ export function useWebSocket(): UseWebSocketReturn {
             setHistoryEntries(msg.payload);
             break;
 
+          case 'agent-log':
+            if (msg.payload?.agentId && msg.payload?.log) {
+              agentOutputsRef.current.set(msg.payload.agentId, msg.payload.log);
+              forceUpdate(n => n + 1);
+            }
+            break;
+
           case 'artifact-content':
             if (msg.payload.content) {
               artifactContentRef.current.set(msg.payload.stage, msg.payload.content);

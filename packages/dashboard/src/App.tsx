@@ -86,27 +86,27 @@ export default function App() {
   const autoNavRef = useRef<string | null>(null);
 
   // Auto-navigate based on pipeline state
+  // ONLY triggers for MayDay pipeline runs — NOT for spawned agents, PR reviews, or quick workflows
   useEffect(() => {
     if (!state) return;
 
-    const hasRunning = Object.values(state.stages).some((s) => s.status === 'running');
     const maydayActive = state.mayday?.active;
     const maydayComplete = state.mayday?.currentStage === 'complete';
     const runKey = state.mayday?.startedAt ? String(state.mayday.startedAt) : null;
 
-    // If pipeline just started running, navigate to pipeline view (once per run)
-    if ((hasRunning || maydayActive) && view === 'launch' && autoNavRef.current !== runKey) {
+    // If MayDay pipeline just started, navigate to pipeline view (once per run)
+    if (maydayActive && view === 'launch' && autoNavRef.current !== runKey) {
       autoNavRef.current = runKey;
       navigate('pipeline');
     }
 
-    // If pipeline just completed, navigate to results
+    // If MayDay pipeline just completed, navigate to results
     if (maydayComplete && view === 'pipeline') {
       navigate('results');
     }
 
     // Reset auto-nav tracker when no pipeline is active
-    if (!maydayActive && !hasRunning) {
+    if (!maydayActive) {
       autoNavRef.current = null;
     }
 

@@ -626,6 +626,37 @@ export class SwarmWsServer {
         break;
       }
 
+      case 'get-agent-log': {
+        // Retrieve persisted log for a completed agent from .swarm/logs/{agentId}.jsonl
+        const agentId = (cmd as { agentId?: string }).agentId;
+        if (!agentId) {
+          _ws.send(JSON.stringify({ type: 'agent-log', payload: { agentId: '', log: '' } }));
+          break;
+        }
+        const logPath = join(this.state.getFilePath(), '..', 'logs', `${agentId}.jsonl`);
+        let logContent = '';
+        try {
+          const { readFileSync } = await import('node:fs');
+          const raw = readFileSync(logPath, 'utf-8');
+          // Parse JSONL and extract output chunks
+          const lines = raw.split('\n').filter(Boolean);
+          const outputChunks: string[] = [];
+          for (const line of lines) {
+            try {
+              const entry = JSON.parse(line);
+              if (entry.type === 'output' && entry.chunk) {
+                outputChunks.push(entry.chunk);
+              }
+            } catch { /* skip malformed lines */ }
+          }
+          logContent = outputChunks.join('');
+        } catch {
+          logContent = '(No logs available for this agent)';
+        }
+        _ws.send(JSON.stringify({ type: 'agent-log', payload: { agentId, log: logContent } }));
+        break;
+      }
+
       case 'get-artifact': {
         const stage = cmd.stage;
         const artifactMap: Record<string, string> = {
@@ -836,6 +867,7 @@ export class SwarmWsServer {
               durationMs: Date.now() - startedAt,
               status: agent.status === 'done' ? 'success' : 'error',
               model: fixModel,
+              agentIds: [agent.id],
             });
             console.log(`[ws] Fix complete`);
           } catch (err) {
@@ -887,6 +919,7 @@ export class SwarmWsServer {
               durationMs: Date.now() - spikeStart,
               status: spikeAgent.status === 'done' ? 'success' : 'error',
               model: spikeModel,
+              agentIds: [spikeAgent.id],
             });
             console.log(`[ws] Spike complete`);
           } catch (err) {
@@ -976,6 +1009,7 @@ export class SwarmWsServer {
               durationMs: Date.now() - reviewStart,
               status: reviewAgent.status === 'done' ? 'success' : 'error',
               model: reviewModel,
+              agentIds: [reviewAgent.id],
             });
             console.log(`[ws] Review complete`);
           } catch (err) {
@@ -1042,6 +1076,7 @@ export class SwarmWsServer {
               durationMs: Date.now() - refactorStart,
               status: refactorAgent.status === 'done' ? 'success' : 'error',
               model: refactorModel,
+              agentIds: [analyst.id, refactorAgent.id],
             });
             console.log(`[ws] Refactor complete`);
           } catch (err) {

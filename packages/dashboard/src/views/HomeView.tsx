@@ -315,6 +315,7 @@ export function HomeView({ sendCommand, state, agentOutputs, agentActivities, hi
           agentOutputs={agentOutputs}
           agentActivities={agentActivities}
           state={state}
+          sendCommand={sendCommand}
         />
       </div>
     </div>
@@ -371,9 +372,10 @@ interface ActivityCenterProps {
   agentOutputs: Map<string, string>;
   agentActivities: Map<string, AgentActivity[]>;
   state: PipelineState | null;
+  sendCommand: (cmd: WsCommand) => void;
 }
 
-function ActivityCenter({ historyEntries, runningAgents, agentOutputs, state }: ActivityCenterProps) {
+function ActivityCenter({ historyEntries, runningAgents, agentOutputs, state, sendCommand }: ActivityCenterProps) {
   const [tab, setTab] = useState<ActivityTab>('pipelines');
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -422,6 +424,16 @@ function ActivityCenter({ historyEntries, runningAgents, agentOutputs, state }: 
   // Find the selected entry or running agent for detail view
   const selectedEntry = currentEntries.find(e => e.runId === selectedId);
   const selectedAgent = selectedId ? state?.agents.find(a => a.id === selectedId) : null;
+
+  // Request logs for completed entries when selected
+  useEffect(() => {
+    if (!selectedEntry?.agentIds?.length) return;
+    for (const agentId of selectedEntry.agentIds) {
+      if (!agentOutputs.has(agentId)) {
+        sendCommand({ action: 'get-agent-log', agentId });
+      }
+    }
+  }, [selectedEntry, agentOutputs, sendCommand]);
 
   const TABS: { key: ActivityTab; label: string; icon: typeof Rocket }[] = [
     { key: 'pipelines', label: 'Pipelines', icon: Rocket },
@@ -615,6 +627,16 @@ function ActivityCenter({ historyEntries, runningAgents, agentOutputs, state }: 
                     <div>
                       <h4 className="text-[10px] font-medium text-stone-500 uppercase tracking-wider mb-1">Description</h4>
                       <p className="text-xs text-stone-400">{selectedEntry.summary || selectedEntry.featureRequest}</p>
+                    </div>
+                  )}
+
+                  {/* Agent logs (from persisted .swarm/logs/) */}
+                  {selectedEntry.agentIds && selectedEntry.agentIds.length > 0 && (
+                    <div>
+                      <h4 className="text-[10px] font-medium text-stone-500 uppercase tracking-wider mb-1">Output Log</h4>
+                      <pre className="text-[11px] text-stone-400 font-mono bg-stone-950/50 rounded p-3 max-h-[300px] overflow-y-auto whitespace-pre-wrap scrollbar-thin">
+                        {selectedEntry.agentIds.map(id => agentOutputs.get(id) || '').filter(Boolean).join('\n---\n') || 'Loading logs...'}
+                      </pre>
                     </div>
                   )}
 

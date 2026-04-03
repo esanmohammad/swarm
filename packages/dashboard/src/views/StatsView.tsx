@@ -16,6 +16,7 @@ interface StatsData {
   stageCosts: Array<{ stage: string; totalCost: number; avgCost: number; avgDurationMs: number; count: number }>;
   weeklySpend: Array<{ week: string; cost: number; runs: number }>;
   recommendations: string[];
+  activityBreakdown?: Array<{ type: string; count: number; cost: number; successCount: number; avgDurationMs: number }>;
 }
 
 interface StatsViewProps {
@@ -151,6 +152,39 @@ export function StatsView({ sendCommand, stats }: StatsViewProps) {
                     <span className="text-xs text-amber-400 font-mono w-16 text-right">${sc.totalCost.toFixed(2)}</span>
                     <span className="text-[10px] text-stone-500 w-12 text-right">{pct.toFixed(0)}%</span>
                     <span className="text-[10px] text-stone-500 w-16 text-right">{formatDuration(sc.avgDurationMs)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Activity type breakdown */}
+        {stats.activityBreakdown && stats.activityBreakdown.length > 0 && (
+          <div className="p-4 rounded-lg bg-stone-900/40 border border-stone-800/40">
+            <h3 className="text-xs font-medium text-stone-400 uppercase tracking-wider mb-3">Activity Breakdown</h3>
+            <div className="space-y-2.5">
+              {stats.activityBreakdown.map(ab => {
+                const maxCount = Math.max(...stats.activityBreakdown!.map(a => a.count), 1);
+                const successRate = ab.count > 0 ? Math.round((ab.successCount / ab.count) * 100) : 0;
+                const TYPE_COLORS: Record<string, string> = {
+                  pipeline: 'bg-blue-500/40', fix: 'bg-amber-500/40', review: 'bg-purple-500/40',
+                  spike: 'bg-cyan-500/40', refactor: 'bg-emerald-500/40', simplify: 'bg-teal-500/40',
+                  'test-gen': 'bg-pink-500/40', learn: 'bg-indigo-500/40', pr: 'bg-orange-500/40', check: 'bg-stone-500/40',
+                };
+                return (
+                  <div key={ab.type} className="flex items-center gap-3">
+                    <span className="text-xs text-stone-300 w-20 shrink-0 capitalize">{ab.type}</span>
+                    <div className="flex-1 h-4 bg-stone-800/60 rounded overflow-hidden">
+                      <div
+                        className={`h-full rounded ${TYPE_COLORS[ab.type] || 'bg-stone-500/40'}`}
+                        style={{ width: `${(ab.count / maxCount) * 100}%` }}
+                      />
+                    </div>
+                    <span className="text-xs text-stone-300 font-mono w-10 text-right">{ab.count}</span>
+                    <span className="text-xs text-amber-400 font-mono w-16 text-right">${ab.cost.toFixed(2)}</span>
+                    <span className="text-[10px] text-green-400 w-12 text-right">{successRate}%</span>
+                    <span className="text-[10px] text-stone-500 w-16 text-right">{formatDuration(ab.avgDurationMs)}</span>
                   </div>
                 );
               })}

@@ -131,6 +131,7 @@ export interface HistoryEntry {
   activityType?: ActivityType;
   summary?: string;
   activityStatus?: 'success' | 'error' | 'partial';
+  agentIds?: string[];
 }
 
 export interface QualityScoreInfo {
@@ -669,6 +670,7 @@ export type WsMessage =
   | { type: 'guardrail-alert'; payload: GuardrailViolation }
   | { type: 'cost-update'; payload: CostInfo }
   | { type: 'history-list'; payload: HistoryEntry[] }
+  | { type: 'agent-log'; payload: { agentId: string; log: string } }
   | { type: 'approval-request'; payload: { stage: StageName; summary: string } }
   | { type: 'artifact-content'; payload: { stage: StageName; artifact: string; content: string | null } }
   | { type: 'pipeline-list'; payload: { pipelines: PipelineInfo[]; active: string } }
@@ -743,6 +745,7 @@ export type WsCommand =
   | { action: 'mayday-approve'; stage: StageName }
   | { action: 'mayday-reject'; stage: StageName; reason?: string }
   | { action: 'get-history' }
+  | { action: 'get-agent-log'; agentId: string }
   | { action: 'get-artifact'; stage: StageName }
   | { action: 'list-pipelines' }
   | { action: 'switch-pipeline'; namespace: string }
