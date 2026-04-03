@@ -78,7 +78,7 @@ function PipelineCard({
           }`} />
           <span className="text-sm text-stone-200 font-medium truncate">{pipeline.namespace}</span>
           {isActive && (
-            <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 uppercase tracking-wider">active</span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 uppercase tracking-wider">active</span>
           )}
         </div>
         <div className="text-[10px] text-stone-500 mt-1">

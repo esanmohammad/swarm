@@ -55,7 +55,7 @@ export function ModelPicker({ value, onChange, models, minTier, className = '' }
           {selected ? selected.name : value || 'Select model...'}
         </span>
         {selected && (
-          <span className={`shrink-0 px-1 py-0.5 rounded text-[9px] font-medium ${TIER_COLORS[selected.tier]}`}>
+          <span className={`shrink-0 px-1 py-0.5 rounded text-[10px] font-medium ${TIER_COLORS[selected.tier]}`}>
             {TIER_LABELS[selected.tier]}
           </span>
         )}
@@ -113,7 +113,7 @@ export function ModelPicker({ value, onChange, models, minTier, className = '' }
                     >
                       <span className="flex-1 truncate">{m.name}</span>
                       <span className="text-[10px] text-stone-600 shrink-0">{formatCtx(m.contextWindow)}</span>
-                      <span className={`shrink-0 px-1 py-0.5 rounded text-[9px] font-medium ${TIER_COLORS[m.tier]}`}>
+                      <span className={`shrink-0 px-1 py-0.5 rounded text-[10px] font-medium ${TIER_COLORS[m.tier]}`}>
                         {TIER_LABELS[m.tier]}
                       </span>
                       {disabled && <AlertTriangle size={10} className="text-stone-600" />}

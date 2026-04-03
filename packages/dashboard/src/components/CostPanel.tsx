@@ -24,33 +24,33 @@ export function CostPanel({ pipeline }: { pipeline: PipelineState }) {
     <div className="px-3 py-3 font-mono">
       {/* Total cost — prominent */}
       <div className="flex items-center justify-between mb-2">
-        <span className="text-[10px] text-stone-300 uppercase tracking-widest">cost</span>
-        <span className="text-sm font-semibold text-amber-500 tabular-nums">
+        <span className="text-xs font-ui text-stone-300 uppercase tracking-widest">cost</span>
+        <span className="text-sm font-semibold font-code text-amber-500 tabular-nums">
           ${totalCost.totalUsd.toFixed(4)}
         </span>
       </div>
 
       {/* Token breakdown */}
-      <div className="text-[10px] text-stone-400 space-y-0.5 mb-3">
+      <div className="text-xs text-stone-400 space-y-1 mb-3">
         <div className="flex justify-between">
-          <span>in</span>
-          <span className="text-stone-400 tabular-nums">{totalCost.inputTokens.toLocaleString()}</span>
+          <span className="font-ui">in</span>
+          <span className="text-stone-300 tabular-nums font-code">{totalCost.inputTokens.toLocaleString()}</span>
         </div>
         <div className="flex justify-between">
-          <span>out</span>
-          <span className="text-stone-400 tabular-nums">{totalCost.outputTokens.toLocaleString()}</span>
+          <span className="font-ui">out</span>
+          <span className="text-stone-300 tabular-nums font-code">{totalCost.outputTokens.toLocaleString()}</span>
         </div>
         {totalCost.cacheReadTokens > 0 && (
           <div className="flex justify-between">
-            <span>cache</span>
-            <span className="text-stone-400 tabular-nums">
+            <span className="font-ui">cache</span>
+            <span className="text-stone-300 tabular-nums font-code">
               {totalCost.cacheReadTokens.toLocaleString()}r / {totalCost.cacheWriteTokens.toLocaleString()}w
             </span>
           </div>
         )}
         <div className="flex justify-between">
-          <span>time</span>
-          <span className="text-stone-400 tabular-nums">{(totalCost.durationMs / 1000).toFixed(1)}s</span>
+          <span className="font-ui">time</span>
+          <span className="text-stone-300 tabular-nums font-code">{(totalCost.durationMs / 1000).toFixed(1)}s</span>
         </div>
       </div>
 
@@ -59,9 +59,9 @@ export function CostPanel({ pipeline }: { pipeline: PipelineState }) {
         <div className="space-y-1.5 pt-2 border-t border-stone-800/40">
           {Object.entries(agentsByPersona).map(([persona, cost]) => (
             <div key={persona}>
-              <div className="flex justify-between text-[10px] mb-0.5">
-                <span className="text-stone-400">{persona}</span>
-                <span className="text-stone-400 tabular-nums">${cost.toFixed(4)}</span>
+              <div className="flex justify-between text-xs mb-0.5">
+                <span className="text-stone-400 font-ui">{persona}</span>
+                <span className="text-stone-300 tabular-nums font-code">${cost.toFixed(4)}</span>
               </div>
               <div className="h-1 bg-stone-800 rounded-full overflow-hidden">
                 <div

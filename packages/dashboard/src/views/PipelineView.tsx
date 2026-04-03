@@ -138,7 +138,7 @@ export function PipelineView({ pipeline, sendCommand, agentOutputs, agentActivit
                           e.stopPropagation();
                           sendCommand({ action: 'run-stage', stage: stage.key as 'analyze' | 'architect' | 'plan' | 'build' | 'test' });
                         }}
-                        className="hidden group-hover:flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] text-stone-400 hover:text-blue-300 hover:bg-blue-600/10 transition-colors"
+                        className="hidden group-hover:flex items-center gap-0.5 px-1 py-0.5 rounded text-[10px] text-stone-400 hover:text-blue-300 hover:bg-blue-600/10 transition-colors"
                         aria-label={`Re-run ${stage.label} stage`}
                         title={`Re-run ${stage.label}`}
                       >
@@ -228,7 +228,7 @@ export function PipelineView({ pipeline, sendCommand, agentOutputs, agentActivit
           <>
             {/* Mobile: dropdown select */}
             <div className="md:hidden flex items-center gap-2 px-3 py-2 border-b border-stone-800/50 bg-[#0e0c0b]">
-              <label htmlFor="agent-select" className="text-[10px] text-stone-500 uppercase tracking-wider font-medium shrink-0">Agent:</label>
+              <label htmlFor="agent-select" className="text-xs font-ui text-stone-400 uppercase tracking-wider font-medium shrink-0">Agent:</label>
               <select
                 id="agent-select"
                 value={selectedAgentId || ''}
@@ -246,7 +246,7 @@ export function PipelineView({ pipeline, sendCommand, agentOutputs, agentActivit
               {selectedAgent?.status === 'running' && (
                 <button
                   onClick={() => sendCommand({ action: 'kill', agentId: selectedAgent.id })}
-                  className="text-[9px] text-red-500/60 hover:text-red-400 transition-colors flex items-center gap-0.5 shrink-0 px-2 py-1 rounded bg-red-950/30"
+                  className="text-[10px] text-red-500/60 hover:text-red-400 transition-colors flex items-center gap-0.5 shrink-0 px-2 py-1 rounded bg-red-950/30"
                   aria-label={`Stop ${selectedAgent.name}`}
                 >
                   Stop
@@ -255,7 +255,7 @@ export function PipelineView({ pipeline, sendCommand, agentOutputs, agentActivit
               {agents.filter(a => a.status === 'running').length > 1 && (
                 <button
                   onClick={() => agents.filter(a => a.status === 'running').forEach(a => sendCommand({ action: 'kill', agentId: a.id }))}
-                  className="text-[9px] text-red-500/60 hover:text-red-400 transition-colors flex items-center gap-0.5 shrink-0 px-2 py-1"
+                  className="text-[10px] text-red-500/60 hover:text-red-400 transition-colors flex items-center gap-0.5 shrink-0 px-2 py-1"
                   aria-label="Stop all running agents"
                 >
                   <Trash2 size={9} />
@@ -267,13 +267,13 @@ export function PipelineView({ pipeline, sendCommand, agentOutputs, agentActivit
             {/* Desktop: sidebar */}
             <div className="hidden md:block w-56 border-r border-stone-800/50 overflow-y-auto bg-[#0e0c0b]" role="listbox" aria-label="Agent list">
               <div className="flex items-center justify-between px-3 py-2">
-                <span className="text-[10px] text-stone-500 uppercase tracking-wider font-medium">
+                <span className="text-xs font-ui text-stone-400 uppercase tracking-wider font-medium">
                   Agents ({agents.length})
                 </span>
                 {agents.some(a => a.status === 'running') && (
                   <button
                     onClick={() => agents.filter(a => a.status === 'running').forEach(a => sendCommand({ action: 'kill', agentId: a.id }))}
-                    className="text-[9px] text-red-500/60 hover:text-red-400 transition-colors flex items-center gap-0.5"
+                    className="text-[10px] text-red-500/60 hover:text-red-400 transition-colors flex items-center gap-0.5"
                     aria-label="Stop all running agents"
                   >
                     <Trash2 size={9} />
@@ -312,7 +312,7 @@ export function PipelineView({ pipeline, sendCommand, agentOutputs, agentActivit
                             e.stopPropagation();
                             sendCommand({ action: 'kill', agentId: agent.id });
                           }}
-                          className="text-[9px] text-red-600 hover:text-red-400 px-1 py-0.5 rounded bg-red-950/40 hover:bg-red-950/60 uppercase tracking-wider font-semibold transition-colors cursor-pointer shrink-0"
+                          className="text-[10px] text-red-600 hover:text-red-400 px-1 py-0.5 rounded bg-red-950/40 hover:bg-red-950/60 uppercase tracking-wider font-semibold transition-colors cursor-pointer shrink-0"
                           role="button"
                           aria-label={`Stop ${agent.name}`}
                         >

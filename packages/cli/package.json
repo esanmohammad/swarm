@@ -36,6 +36,9 @@
     "build": "tsc",
     "dev": "tsx bin/swarm.ts",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest watch",
+    "test:coverage": "vitest run --coverage",
     "prepublishOnly": "npm run build && cd ../.. && npm run build:dashboard && cd packages/cli && node scripts/bundle-assets.js"
   },
   "dependencies": {
@@ -51,7 +54,9 @@
     "@types/node": "^22.14.0",
     "@types/uuid": "^10.0.0",
     "@types/ws": "^8.18.0",
+    "@vitest/coverage-v8": "^4.1.2",
     "tsx": "^4.19.0",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.2"
   }
 }

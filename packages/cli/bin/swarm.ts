@@ -92,6 +92,7 @@ import { registerCompete } from '../src/commands/compete.js';
 import { registerSpawnCapability } from '../src/commands/spawn-capability.js';
 import { registerFederate } from '../src/commands/federate.js';
 import { registerModels } from '../src/commands/models.js';
+import { registerCheck } from '../src/commands/check.js';
 import { autoDetectStack, autoInit, loadConfig } from '../src/core/config.js';
 import { createContext } from '../src/commands/shared.js';
 
@@ -289,37 +290,46 @@ registerModels(program);
 // --- Pipeline management ---
 registerPipeline(program);
 
-// --- Advanced commands (hidden unless --all) ---
+// --- Guardrail checks ---
+registerCheck(program);
+
+// --- Advanced commands ---
 const advancedCommands = [registerEvaluate, registerAgent, registerRecover, registerAudit, registerPlugin, registerTelemetry];
 for (const register of advancedCommands) {
   register(program);
 }
 
-// Hide advanced commands from default help
+// v0.1 launch set — all other commands are registered but hidden from help
+const V01_COMMANDS = new Set([
+  'mayday', 'analyze', 'architect', 'plan', 'build', 'test',
+  'fix', 'review', 'pr', 'refactor', 'spike', 'test-gen', 'learn',
+  'init', 'doctor', 'status', 'stats', 'memory', 'dashboard', 'check',
+]);
+
 if (!showAll) {
   for (const cmd of program.commands) {
-    const name = cmd.name();
-    if (['evaluate', 'eval', 'agent', 'recover', 'audit', 'plugin', 'telemetry'].includes(name)) {
+    if (!V01_COMMANDS.has(cmd.name())) {
       (cmd as unknown as { _hidden: boolean })._hidden = true;
     }
   }
 }
 
-// Override help to add usage examples and --all hint
+// Override help to add usage examples
 program.addHelpText('after', () => {
+  const visible = program.commands.filter(c => !(c as unknown as { _hidden: boolean })._hidden).length;
+  const total = program.commands.length;
   const lines = [
     '',
     chalk.bold('Quick start:'),
-    `  ${chalk.cyan('swarm "add a login page with JWT auth"')}  Build a feature end-to-end`,
-    `  ${chalk.cyan('swarm fix "login button not working"')}    Fix a bug directly`,
-    `  ${chalk.cyan('swarm review')}                            Review current code changes`,
-    `  ${chalk.cyan('swarm simplify')}                          Clean up changed code`,
-    `  ${chalk.cyan('swarm spike "how does auth work here?"')}  Quick codebase exploration`,
-    `  ${chalk.cyan('swarm dashboard')}                         Open the web UI`,
+    `  ${chalk.cyan('swarm "add a login page"')}           Full pipeline end-to-end`,
+    `  ${chalk.cyan('swarm fix "login not working"')}      Fix a bug directly`,
+    `  ${chalk.cyan('swarm review')}                       Review staged changes`,
+    `  ${chalk.cyan('swarm pr --reviewers --risk')}        Smart PR with risk scores`,
+    `  ${chalk.cyan('swarm spike "how does auth work?"')}  Quick exploration`,
+    `  ${chalk.cyan('swarm dashboard')}                    Real-time web UI`,
   ];
   if (!showAll) {
-    lines.push('');
-    lines.push(chalk.dim('  Run swarm --help --all to see all commands'));
+    lines.push('', chalk.dim(`  Showing ${visible} commands. Run ${chalk.cyan('swarm --help --all')} to see all ${total}.`));
   }
   return lines.join('\n');
 });

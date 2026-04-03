@@ -137,7 +137,7 @@ export function LaunchView({ sendCommand, historyEntries, onNavigate }: LaunchVi
                   title={m.hint}
                 >
                   {m.id}
-                  {model === m.id && <span className="text-[9px] text-blue-400/60 ml-1">{m.hint}</span>}
+                  {model === m.id && <span className="text-[10px] text-blue-400/60 ml-1">{m.hint}</span>}
                 </button>
               ))}
               <button

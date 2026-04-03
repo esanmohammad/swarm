@@ -334,7 +334,7 @@ export function ReportView({ sendCommand, reportData }: ReportViewProps) {
             <div className="flex items-end gap-1.5" style={{ height: '120px' }}>
               {reportData.trends.velocity.map(v => (
                 <div key={v.period} className="flex-1 flex flex-col items-center justify-end h-full">
-                  <div className="text-[9px] text-stone-400 font-mono mb-1">{v.items}</div>
+                  <div className="text-[10px] text-stone-400 font-mono mb-1">{v.items}</div>
                   <div
                     className="w-full bg-cyan-500/40 rounded-t min-h-[2px]"
                     style={{ height: `${(v.items / maxVelocity) * 100}%` }}
@@ -488,7 +488,7 @@ function GaugeMetric({
         <div className={`h-full rounded ${fillColor}`} style={{ width: `${barWidth}%` }} />
       </div>
       {invert && (
-        <div className="text-[9px] text-stone-600 mt-0.5">lower is better</div>
+        <div className="text-[10px] text-stone-500 mt-0.5">lower is better</div>
       )}
     </div>
   );

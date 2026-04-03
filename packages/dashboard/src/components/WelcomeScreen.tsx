@@ -35,8 +35,8 @@ export function WelcomeScreen({ onGetStarted, onSkip }: WelcomeScreenProps) {
                   <div className={`w-10 h-10 rounded-lg bg-stone-800/60 flex items-center justify-center ${stage.color}`}>
                     <Icon size={18} />
                   </div>
-                  <span className="text-[10px] text-stone-400 font-medium">{stage.label}</span>
-                  <span className="text-[9px] text-stone-500">{stage.desc}</span>
+                  <span className="text-xs font-ui text-stone-400 font-medium">{stage.label}</span>
+                  <span className="text-[10px] font-ui text-stone-500">{stage.desc}</span>
                 </div>
                 {i < STAGES.length - 1 && (
                   <ArrowRight size={12} className="text-stone-700 mb-6" />

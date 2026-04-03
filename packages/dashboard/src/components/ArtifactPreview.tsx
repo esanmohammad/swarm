@@ -75,7 +75,7 @@ export function ArtifactButton({ stage, onClick }: ArtifactButtonProps) {
   return (
     <button
       onClick={onClick}
-      className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] text-stone-400 hover:text-stone-300 hover:bg-stone-800/40 transition-colors"
+      className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] text-stone-400 hover:text-stone-300 hover:bg-stone-800/40 transition-colors"
       title={`View ${artifactName}`}
     >
       <FileText size={9} />

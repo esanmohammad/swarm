@@ -1,5 +1,14 @@
 @import "tailwindcss";
 
+/* ── Font System ── */
+:root {
+  --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-code: 'JetBrains Mono', 'IBM Plex Mono', monospace;
+}
+
+.font-ui { font-family: var(--font-ui); }
+.font-code { font-family: var(--font-code); }
+
 /* ── Theme Variables ── */
 :root {
   /* Dark theme (default) */
@@ -131,7 +140,7 @@ body {
 .log-line::before {
   content: counter(log-counter, decimal-leading-zero);
   color: #44403c;
-  font-size: 9px;
+  font-size: 10px;
   width: 24px;
   text-align: right;
   flex-shrink: 0;

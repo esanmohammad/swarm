@@ -239,7 +239,7 @@ export function ArchReviewView({ sendCommand, archReview }: ArchReviewViewProps)
                               <div className="flex items-center gap-2 mb-1">
                                 <p className="text-xs text-stone-300 flex-1">{sol.name}: {sol.description}</p>
                                 {sol.recommended && (
-                                  <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-blue-500/20 text-[9px] font-medium text-blue-300 border border-blue-500/30">
+                                  <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-blue-500/20 text-[10px] font-medium text-blue-300 border border-blue-500/30">
                                     <Star size={9} /> RECOMMENDED
                                   </span>
                                 )}

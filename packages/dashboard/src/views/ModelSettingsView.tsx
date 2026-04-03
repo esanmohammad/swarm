@@ -139,7 +139,7 @@ export function ModelSettingsView({ sendCommand, modelConfig, availableModels, p
             >
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-medium text-stone-300">Per-Stage Model Assignment</h3>
-                <span className="text-[10px] text-stone-600">Configure which model runs each stage</span>
+                <span className="text-xs text-stone-500">Configure which model runs each stage</span>
               </div>
               {expandedSection === 'stages' ? <ChevronUp size={14} className="text-stone-500" /> : <ChevronDown size={14} className="text-stone-500" />}
             </button>
@@ -164,7 +164,7 @@ export function ModelSettingsView({ sendCommand, modelConfig, availableModels, p
                         {/* Stage info */}
                         <div className="w-28 shrink-0">
                           <div className="text-xs font-medium text-stone-300">{stage.label}</div>
-                          <div className="text-[10px] text-stone-600">{stage.description}</div>
+                          <div className="text-xs text-stone-500">{stage.description}</div>
                         </div>
 
                         {/* Model picker */}
@@ -179,16 +179,16 @@ export function ModelSettingsView({ sendCommand, modelConfig, availableModels, p
                         {/* Capability badges */}
                         {model && (
                           <div className="flex items-center gap-1 shrink-0">
-                            <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-stone-800 text-stone-500">
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-stone-800 text-stone-500">
                               text
                             </span>
                             {model.supportsTools && (
-                              <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-blue-900/40 text-blue-400">
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-900/40 text-blue-400">
                                 tools
                               </span>
                             )}
                             {model.supportsStreaming && (
-                              <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-green-900/40 text-green-400">
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-900/40 text-green-400">
                                 stream
                               </span>
                             )}
@@ -227,7 +227,7 @@ export function ModelSettingsView({ sendCommand, modelConfig, availableModels, p
             >
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-medium text-stone-300">Providers</h3>
-                <span className="text-[10px] text-stone-600">
+                <span className="text-xs text-stone-500">
                   {providers.filter(p => p.connected).length}/{providers.length} connected
                 </span>
               </div>
@@ -325,7 +325,7 @@ export function ModelSettingsView({ sendCommand, modelConfig, availableModels, p
             >
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-medium text-stone-300">Available Models</h3>
-                <span className="text-[10px] text-stone-600">{models.length} models</span>
+                <span className="text-xs text-stone-500">{models.length} models</span>
               </div>
               {expandedSection === 'models' ? <ChevronUp size={14} className="text-stone-500" /> : <ChevronDown size={14} className="text-stone-500" />}
             </button>
@@ -411,7 +411,7 @@ export function ModelSettingsView({ sendCommand, modelConfig, availableModels, p
                             <td className="px-2 py-2 text-stone-300 font-medium">{m.name}</td>
                             <td className="px-2 py-2 text-stone-500">{formatCtx(m.contextWindow)}</td>
                             <td className="px-2 py-2">
-                              <span className={`px-1.5 py-0.5 rounded text-[9px] font-medium ${
+                              <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
                                 m.tier === 3 ? 'bg-blue-900/50 text-blue-400' :
                                 m.tier === 2 ? 'bg-amber-900/50 text-amber-400' :
                                 'bg-stone-700 text-stone-400'

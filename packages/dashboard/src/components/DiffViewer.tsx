@@ -162,7 +162,7 @@ export function DiffViewer({ activities }: DiffViewerProps) {
     <div className="flex h-full font-mono">
       {/* File list */}
       <div className="w-52 shrink-0 border-r border-stone-800/50 overflow-auto bg-[#0b0908]">
-        <div className="px-2 py-1.5 text-[9px] text-stone-500 uppercase tracking-wider border-b border-stone-800/30">
+        <div className="px-2 py-1.5 text-[10px] font-ui text-stone-400 uppercase tracking-wider border-b border-stone-800/30">
           Files changed ({fileChanges.length})
         </div>
         {fileChanges.map((fc) => {

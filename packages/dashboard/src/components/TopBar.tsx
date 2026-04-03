@@ -172,7 +172,7 @@ export function TopBar({ pipeline, violationCount, onRunStage }: TopBarProps) {
                 {isSkipped && <span className="text-stone-500 text-[10px]">-</span>}
                 {stage.label}
                 {isActive && s.startedAt && (
-                  <span className="text-[9px] text-stone-400 ml-0.5">{formatElapsed(Date.now() - s.startedAt)}</span>
+                  <span className="text-[10px] text-stone-400 ml-0.5">{formatElapsed(Date.now() - s.startedAt)}</span>
                 )}
                 {canRun && !isActive && !isDone && (
                   <Play size={8} className="text-stone-400 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -203,7 +203,7 @@ export function TopBar({ pipeline, violationCount, onRunStage }: TopBarProps) {
         {violationCount > 0 && (
           <div className="flex items-center gap-1 px-2 py-0.5 rounded bg-amber-950/30 border border-amber-900/30">
             <AlertTriangle size={10} className="text-amber-500" />
-            <span className="text-[10px] font-medium text-amber-400">{violationCount}</span>
+            <span className="text-xs font-medium text-amber-300">{violationCount}</span>
           </div>
         )}
 
@@ -316,7 +316,7 @@ export function TopBar({ pipeline, violationCount, onRunStage }: TopBarProps) {
                 </button>
               ))}
             </div>
-            <span className="text-[10px] text-stone-500 ml-2">
+            <span className="text-xs text-stone-400 ml-2">
               Estimated: ~${estimateMaydayCost(maydayModelInput).low.toFixed(2)}-${estimateMaydayCost(maydayModelInput).high.toFixed(2)}
             </span>
           </div>
@@ -426,13 +426,13 @@ export function TopBar({ pipeline, violationCount, onRunStage }: TopBarProps) {
             <button
               onClick={handlePromptSubmit}
               disabled={!promptInput.trim()}
-              className="px-2 py-1 text-[10px] text-green-500 hover:text-green-400 disabled:text-stone-500 font-medium transition-colors"
+              className="px-2 py-1 text-xs text-green-500 hover:text-green-400 disabled:text-stone-500 font-medium transition-colors"
             >
               [enter]
             </button>
             <button
               onClick={() => { setShowPromptFor(null); setPromptInput(''); setFigmaInput(''); }}
-              className="text-[10px] text-stone-400 hover:text-stone-300 transition-colors"
+              className="text-xs text-stone-400 hover:text-stone-300 transition-colors"
             >
               [esc]
             </button>
@@ -468,13 +468,13 @@ export function TopBar({ pipeline, violationCount, onRunStage }: TopBarProps) {
             <button
               onClick={handlePromptSubmit}
               disabled={!promptInput.trim()}
-              className="px-2 py-1 text-[10px] text-green-500 hover:text-green-400 disabled:text-stone-500 font-medium transition-colors"
+              className="px-2 py-1 text-xs text-green-500 hover:text-green-400 disabled:text-stone-500 font-medium transition-colors"
             >
               [enter]
             </button>
             <button
               onClick={() => { setShowPromptFor(null); setPromptInput(''); }}
-              className="text-[10px] text-stone-400 hover:text-stone-300 transition-colors"
+              className="text-xs text-stone-400 hover:text-stone-300 transition-colors"
             >
               [esc]
             </button>
@@ -487,7 +487,7 @@ export function TopBar({ pipeline, violationCount, onRunStage }: TopBarProps) {
         <div className="mb-2.5 space-y-1.5 font-mono">
           <div className="flex items-center gap-2">
             <span className="text-cyan-500 text-xs w-3 text-right">{'>'}</span>
-            <span className="text-stone-400 text-[10px] w-12">url</span>
+            <span className="text-stone-400 text-xs font-ui w-12">url</span>
             <input
               type="text"
               value={baseUrlInput}
@@ -505,14 +505,14 @@ export function TopBar({ pipeline, violationCount, onRunStage }: TopBarProps) {
             </button>
             <button
               onClick={() => { setShowPromptFor(null); setFigmaInput(''); setBaseUrlInput(''); setAuthStateInput(''); }}
-              className="text-[10px] text-stone-400 hover:text-stone-300 transition-colors"
+              className="text-xs text-stone-400 hover:text-stone-300 transition-colors"
             >
               [esc]
             </button>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-amber-500 text-xs w-3 text-right">{'~'}</span>
-            <span className="text-stone-400 text-[10px] w-12">auth</span>
+            <span className="text-stone-400 text-xs font-ui w-12">auth</span>
             <input
               type="text"
               value={authStateInput}
@@ -524,7 +524,7 @@ export function TopBar({ pipeline, violationCount, onRunStage }: TopBarProps) {
           </div>
           <div className="flex items-center gap-2">
             <span className="text-purple-500 text-xs w-3 text-right">{'~'}</span>
-            <span className="text-stone-400 text-[10px] w-12">figma</span>
+            <span className="text-stone-400 text-xs font-ui w-12">figma</span>
             <input
               type="text"
               value={figmaInput}
@@ -538,7 +538,7 @@ export function TopBar({ pipeline, violationCount, onRunStage }: TopBarProps) {
       )}
 
       {/* Stats — terminal-style info line */}
-      <div className="flex items-center gap-4 text-[10px] font-mono text-stone-400">
+      <div className="flex items-center gap-4 text-xs font-mono text-stone-400">
         <span>
           {running > 0 && <span className="text-red-400">{running} running</span>}
           {running > 0 && (done > 0 || errored > 0) && <span className="text-stone-500"> | </span>}

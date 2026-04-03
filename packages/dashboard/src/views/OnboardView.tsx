@@ -109,7 +109,7 @@ export function OnboardView({ sendCommand, onboardData }: OnboardViewProps) {
             ))}
             <div className="flex items-center gap-2 p-2">
               <div className="w-4 h-4 rounded-full bg-blue-500 flex items-center justify-center shrink-0">
-                <span className="text-[9px] font-bold text-white">{step}</span>
+                <span className="text-[10px] font-bold text-white">{step}</span>
               </div>
               <span className="text-xs text-stone-200 font-medium truncate">{currentTopic}</span>
               <ChevronRight size={12} className="text-stone-500 ml-auto shrink-0" />

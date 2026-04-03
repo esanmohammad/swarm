@@ -33,12 +33,12 @@ export function PipelineView({ pipeline, sendCommand }: { pipeline: PipelineStat
                 size={16}
                 className={`${cfg.color} ${isRunning ? 'animate-spin' : ''}`}
               />
-              <span className={`text-sm font-medium ${cfg.color}`}>{stage.label}</span>
+              <span className={`text-sm font-medium font-ui ${cfg.color}`}>{stage.label}</span>
               {s.artifact && (
-                <span className="text-xs text-gray-500 ml-1">{s.artifact}</span>
+                <span className="text-xs font-ui text-gray-400 ml-1">{s.artifact}</span>
               )}
               {s.agentIds.length > 0 && (
-                <span className="text-xs bg-gray-700 px-1.5 py-0.5 rounded-full text-gray-300">
+                <span className="text-xs font-code bg-gray-700 px-1.5 py-0.5 rounded-full text-gray-300">
                   {s.agentIds.length}
                 </span>
               )}
@@ -48,7 +48,7 @@ export function PipelineView({ pipeline, sendCommand }: { pipeline: PipelineStat
                     e.stopPropagation();
                     sendCommand({ action: 'run-mayday', prompt: '', resume: true });
                   }}
-                  className="flex items-center gap-1 text-xs text-amber-400 hover:text-amber-300 ml-1"
+                  className="flex items-center gap-1 text-xs font-ui text-amber-300 hover:text-amber-200 ml-1"
                   title="Resume interrupted stage"
                 >
                   <RotateCcw size={12} />

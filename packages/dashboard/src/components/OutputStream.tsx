@@ -54,7 +54,7 @@ function ActivityItem({ activity, index, isExpanded, onToggleExpanded }: {
     return (
       <div className="group hover:bg-stone-800/20 transition-colors">
         <div className="flex items-start px-3 py-1">
-          <span className="text-[9px] text-stone-500 w-7 shrink-0 text-right pr-2 pt-0.5 tabular-nums select-none">{lineNum}</span>
+          <span className="text-[10px] text-stone-400 w-7 shrink-0 text-right pr-2 pt-0.5 tabular-nums select-none font-code">{lineNum}</span>
           <span className="text-stone-500 w-1 shrink-0 mr-2 pt-0.5">|</span>
           <div className="flex-1 min-w-0">
             <pre className="text-xs text-stone-300 whitespace-pre-wrap break-words leading-relaxed">
@@ -62,7 +62,7 @@ function ActivityItem({ activity, index, isExpanded, onToggleExpanded }: {
               {hasExpandableContent && !expanded && <span className="text-stone-400">...</span>}
             </pre>
             {expanded && activity.content && (
-              <pre className="text-xs text-stone-400 whitespace-pre-wrap break-words mt-1">{activity.content}</pre>
+              <pre className="text-xs text-stone-400 whitespace-pre-wrap break-words mt-1 font-code">{activity.content}</pre>
             )}
           </div>
           {hasExpandableContent && (
@@ -90,14 +90,14 @@ function ActivityItem({ activity, index, isExpanded, onToggleExpanded }: {
           hasExpandableContent ? 'cursor-pointer' : 'cursor-default'
         }`}
       >
-        <span className="text-[9px] text-stone-500 w-7 shrink-0 text-right pr-2 pt-0.5 tabular-nums select-none">{lineNum}</span>
+        <span className="text-[10px] text-stone-400 w-7 shrink-0 text-right pr-2 pt-0.5 tabular-nums select-none font-code">{lineNum}</span>
         <span className="text-stone-500 w-1 shrink-0 mr-2 pt-0.5">|</span>
         <Icon size={11} className={`${meta.color} shrink-0 mt-0.5 mr-1.5`} />
-        <span className={`text-[10px] font-semibold ${meta.color} shrink-0 mr-2 mt-px tracking-wider`}>
+        <span className={`text-xs font-semibold font-ui ${meta.color} shrink-0 mr-2 mt-px tracking-wider`}>
           {meta.prefix}
         </span>
-        <span className="text-xs text-stone-400 truncate flex-1">{activity.summary}</span>
-        <span className="text-[9px] text-stone-500 shrink-0 ml-2 tabular-nums">{time}</span>
+        <span className="text-xs text-stone-300 truncate flex-1">{activity.summary}</span>
+        <span className="text-[10px] text-stone-400 shrink-0 ml-2 tabular-nums font-code">{time}</span>
         {hasExpandableContent && (
           <span className="shrink-0 text-stone-400 ml-1">
             {expanded ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
@@ -106,7 +106,7 @@ function ActivityItem({ activity, index, isExpanded, onToggleExpanded }: {
       </button>
       {expanded && activity.content && (
         <div className="pl-12 pr-3 pb-1.5">
-          <pre className="text-[10px] text-stone-400 whitespace-pre-wrap break-words max-h-48 overflow-auto bg-[#0a0908] rounded px-2 py-1.5 border border-stone-800/30 leading-relaxed">
+          <pre className="text-[11px] font-code text-stone-400 whitespace-pre-wrap break-words max-h-48 overflow-auto bg-[#0a0908] rounded px-2 py-1.5 border border-stone-800/30 leading-relaxed">
             {activity.content}
           </pre>
         </div>
@@ -304,7 +304,7 @@ export function OutputStream({ agent, liveOutput, activities, onSendInput }: Out
         </div>
         <div className="flex items-center gap-2">
           {/* View mode toggle */}
-          <div className="flex text-[9px] font-medium">
+          <div className="flex text-[10px] font-medium font-ui">
             <button
               onClick={() => setViewMode('activity')}
               className={`px-2 py-0.5 rounded-l border transition-colors ${
@@ -357,13 +357,13 @@ export function OutputStream({ agent, liveOutput, activities, onSendInput }: Out
               <div className="absolute right-0 top-full mt-1 z-50 bg-stone-900 border border-stone-700 rounded shadow-lg py-1 min-w-[120px]">
                 <button
                   onClick={() => handleExport('txt')}
-                  className="w-full text-left px-3 py-1 text-[10px] text-stone-300 hover:bg-stone-800 transition-colors"
+                  className="w-full text-left px-3 py-1.5 text-xs font-ui text-stone-300 hover:bg-stone-800 transition-colors"
                 >
                   Export .txt
                 </button>
                 <button
                   onClick={() => handleExport('json')}
-                  className="w-full text-left px-3 py-1 text-[10px] text-stone-300 hover:bg-stone-800 transition-colors"
+                  className="w-full text-left px-3 py-1.5 text-xs font-ui text-stone-300 hover:bg-stone-800 transition-colors"
                 >
                   Export .json
                 </button>
@@ -379,12 +379,12 @@ export function OutputStream({ agent, liveOutput, activities, onSendInput }: Out
             <Search size={12} />
           </button>
           {isRunning && (
-            <span className="flex items-center gap-1 text-[9px] text-red-400">
+            <span className="flex items-center gap-1 text-[10px] font-ui text-red-400">
               <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
               live
             </span>
           )}
-          <span className="text-[9px] text-stone-500 tabular-nums">{agent.id.slice(0, 8)}</span>
+          <span className="text-[10px] text-stone-400 tabular-nums font-code">{agent.id.slice(0, 8)}</span>
         </div>
       </div>
 
@@ -414,7 +414,7 @@ export function OutputStream({ agent, liveOutput, activities, onSendInput }: Out
                 <button
                   key={tool}
                   onClick={() => setFilterTool(filterTool === tool ? null : tool)}
-                  className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] transition-colors ${
+                  className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-ui transition-colors ${
                     filterTool === tool
                       ? `${meta.color} bg-stone-800/60 border border-stone-600/40`
                       : 'text-stone-500 hover:text-stone-400'
@@ -427,7 +427,7 @@ export function OutputStream({ agent, liveOutput, activities, onSendInput }: Out
               );
             })}
             {filterTool && (
-              <button onClick={() => setFilterTool(null)} className="text-[9px] text-stone-400 hover:text-stone-300 ml-1">
+              <button onClick={() => setFilterTool(null)} className="text-[10px] font-ui text-stone-400 hover:text-stone-300 ml-1">
                 clear
               </button>
             )}

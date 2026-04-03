@@ -88,7 +88,7 @@ export function SpawnDialog({ onSpawn, onClose }: SpawnDialogProps) {
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
           {/* Name */}
           <div>
-            <label className="block text-[10px] text-stone-500 mb-1 tracking-wider">Agent Name</label>
+            <label className="block text-xs font-ui text-stone-400 mb-1 tracking-wider">Agent Name</label>
             <input
               type="text"
               value={name}
@@ -97,12 +97,12 @@ export function SpawnDialog({ onSpawn, onClose }: SpawnDialogProps) {
               className="w-full px-2.5 py-1.5 bg-[#0c0a09] border border-stone-800/50 rounded text-xs text-stone-300 placeholder-stone-600 focus:border-stone-600 focus:outline-none"
               autoFocus
             />
-            <p className="text-[9px] text-stone-600 mt-1">A label for this agent (e.g., "auth-engineer", "api-fix")</p>
+            <p className="text-[10px] text-stone-500 mt-1">A label for this agent (e.g., "auth-engineer", "api-fix")</p>
           </div>
 
           {/* Persona */}
           <div>
-            <label className="block text-[10px] text-stone-500 mb-1 tracking-wider">Role</label>
+            <label className="block text-xs font-ui text-stone-400 mb-1 tracking-wider">Role</label>
             <select
               value={persona}
               onChange={(e) => setPersona(e.target.value as Persona)}
@@ -113,13 +113,13 @@ export function SpawnDialog({ onSpawn, onClose }: SpawnDialogProps) {
               <option value="lead">lead</option>
               <option value="engineer">engineer</option>
             </select>
-            <p className="text-[9px] text-stone-600 mt-1">{PERSONA_DESCRIPTIONS[persona]}</p>
+            <p className="text-[10px] text-stone-500 mt-1">{PERSONA_DESCRIPTIONS[persona]}</p>
           </div>
 
           {/* Stack / Model row */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-[10px] text-stone-500 mb-1 tracking-wider">Tech Stack</label>
+              <label className="block text-xs font-ui text-stone-400 mb-1 tracking-wider">Tech Stack</label>
               <select
                 value={stack}
                 onChange={(e) => setStack(e.target.value as TechStack)}
@@ -133,11 +133,11 @@ export function SpawnDialog({ onSpawn, onClose }: SpawnDialogProps) {
                 <option value="swift">swift</option>
                 <option value="custom">custom</option>
               </select>
-              <p className="text-[9px] text-stone-600 mt-1">Tailors the agent's prompts to your framework</p>
+              <p className="text-[10px] text-stone-500 mt-1">Tailors the agent's prompts to your framework</p>
             </div>
 
             <div>
-              <label className="block text-[10px] text-stone-500 mb-1 tracking-wider">Model</label>
+              <label className="block text-xs font-ui text-stone-400 mb-1 tracking-wider">Model</label>
               <select
                 value={model}
                 onChange={(e) => setModel(e.target.value)}
@@ -147,13 +147,13 @@ export function SpawnDialog({ onSpawn, onClose }: SpawnDialogProps) {
                 <option value="opus">opus</option>
                 <option value="haiku">haiku</option>
               </select>
-              <p className="text-[9px] text-stone-600 mt-1">{MODEL_DESCRIPTIONS[model]}</p>
+              <p className="text-[10px] text-stone-500 mt-1">{MODEL_DESCRIPTIONS[model]}</p>
             </div>
           </div>
 
           {/* Permissions */}
           <div>
-            <label className="block text-[10px] text-stone-500 mb-1.5 tracking-wider">Permissions</label>
+            <label className="block text-xs font-ui text-stone-400 mb-1.5 tracking-wider">Permissions</label>
             <div className="grid grid-cols-3 gap-1.5">
               {PERMISSION_OPTIONS.map((opt) => (
                 <button
@@ -167,7 +167,7 @@ export function SpawnDialog({ onSpawn, onClose }: SpawnDialogProps) {
                   }`}
                 >
                   <div className="text-[10px] font-medium">{opt.label}</div>
-                  <div className="text-[9px] text-stone-600 mt-0.5">{opt.desc}</div>
+                  <div className="text-[10px] text-stone-500 mt-0.5">{opt.desc}</div>
                 </button>
               ))}
             </div>
@@ -175,7 +175,7 @@ export function SpawnDialog({ onSpawn, onClose }: SpawnDialogProps) {
               <button
                 type="button"
                 onClick={() => setShowAdvancedPerms(true)}
-                className="text-[9px] text-stone-600 hover:text-stone-400 mt-1.5 transition-colors"
+                className="text-[10px] text-stone-500 hover:text-stone-400 mt-1.5 transition-colors"
               >
                 Show advanced permissions
               </button>
@@ -193,7 +193,7 @@ export function SpawnDialog({ onSpawn, onClose }: SpawnDialogProps) {
                     }`}
                   >
                     <div className="text-[10px] font-medium">{opt.label}</div>
-                    <div className="text-[9px] text-amber-600 mt-0.5">{opt.desc}</div>
+                    <div className="text-[10px] text-amber-500 mt-0.5">{opt.desc}</div>
                   </button>
                 ))}
               </div>
@@ -202,7 +202,7 @@ export function SpawnDialog({ onSpawn, onClose }: SpawnDialogProps) {
 
           {/* Prompt */}
           <div>
-            <label className="block text-[10px] text-stone-500 mb-1 tracking-wider">Task Description</label>
+            <label className="block text-xs font-ui text-stone-400 mb-1 tracking-wider">Task Description</label>
             <textarea
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
@@ -210,7 +210,7 @@ export function SpawnDialog({ onSpawn, onClose }: SpawnDialogProps) {
               rows={3}
               className="w-full px-2.5 py-1.5 bg-[#0c0a09] border border-stone-800/50 rounded text-xs text-stone-300 placeholder-stone-600 focus:border-stone-600 focus:outline-none resize-none leading-relaxed"
             />
-            <p className="text-[9px] text-stone-600 mt-1">What should this agent do? Be specific for best results.</p>
+            <p className="text-[10px] text-stone-500 mt-1">What should this agent do? Be specific for best results.</p>
           </div>
 
           <button

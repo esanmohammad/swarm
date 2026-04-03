@@ -294,7 +294,7 @@ export function RetroView({ sendCommand, retroReport }: RetroViewProps) {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className={`px-1.5 py-0.5 rounded text-[9px] font-medium border ${pc.bg} ${pc.text} ${pc.border}`}>
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium border ${pc.bg} ${pc.text} ${pc.border}`}>
                             {item.priority.toUpperCase()}
                           </span>
                           <p className="text-xs text-stone-300">{item.description}</p>

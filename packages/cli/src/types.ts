@@ -497,6 +497,16 @@ export type WsCommand =
   | { action: 'save-provider-url'; provider: string; baseUrl: string };
 
 // Guardrail types
+export interface GuardrailFix {
+  type: 'insert-section' | 'insert-pattern' | 'extend-content';
+  description: string;
+  patch: string;
+  location: 'append' | 'after-section';
+  afterSection?: string;
+}
+
+export type GuardrailPreset = 'strict' | 'standard' | 'lenient' | 'off';
+
 export interface GuardrailRule {
   name: string;
   target: string;
@@ -508,6 +518,7 @@ export interface GuardrailCheck {
   value: string;
   message: string;
   severity?: 'error' | 'warning';
+  fix?: GuardrailFix;
 }
 
 export interface GuardrailViolation {
@@ -516,6 +527,7 @@ export interface GuardrailViolation {
   file: string;
   message: string;
   severity: 'error' | 'warning';
+  fix?: GuardrailFix;
 }
 
 // Custom pipeline definition types

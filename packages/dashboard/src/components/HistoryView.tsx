@@ -56,7 +56,7 @@ export function HistoryView({ entries, sendCommand }: HistoryViewProps) {
 
   return (
     <div className="flex-1 overflow-y-auto p-4 space-y-2">
-      <div className="text-[10px] text-stone-500 font-medium tracking-widest uppercase mb-3 px-1">
+      <div className="text-xs font-ui text-stone-400 font-medium tracking-widest uppercase mb-3 px-1">
         pipeline history ({entries.length})
       </div>
 
@@ -103,7 +103,7 @@ export function HistoryView({ entries, sendCommand }: HistoryViewProps) {
                       <span
                         className={`w-2 h-2 rounded-full ${STATUS_COLORS[status] ?? STATUS_COLORS.pending}`}
                       />
-                      <span className="text-[9px] text-stone-600">{stage.slice(0, 3)}</span>
+                      <span className="text-[10px] text-stone-500">{stage.slice(0, 3)}</span>
                     </div>
                   );
                 })}
@@ -114,11 +114,11 @@ export function HistoryView({ entries, sendCommand }: HistoryViewProps) {
                 {hasError && (
                   <span className="text-[10px] text-red-500/80 font-mono">err</span>
                 )}
-                <div className="flex items-center gap-1 text-[10px] text-stone-500">
+                <div className="flex items-center gap-1 text-xs text-stone-400">
                   <DollarSign size={10} />
                   <span className="font-mono">{entry.totalCost.totalUsd.toFixed(2)}</span>
                 </div>
-                <div className="flex items-center gap-1 text-[10px] text-stone-500">
+                <div className="flex items-center gap-1 text-xs text-stone-400">
                   <Timer size={10} />
                   <span className="font-mono">{formatDuration(entry.durationMs)}</span>
                 </div>

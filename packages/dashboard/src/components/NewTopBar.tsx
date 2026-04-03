@@ -26,7 +26,7 @@ export function NewTopBar({
     <header className="flex items-center justify-between px-4 py-2 border-b border-stone-800/50 bg-[#0e0c0b]">
       <div className="flex items-center gap-3 min-w-0">
         {projectName && (
-          <span className="text-xs text-stone-500 truncate">{projectName}</span>
+          <span className="text-xs font-ui text-stone-400 truncate">{projectName}</span>
         )}
       </div>
 
@@ -34,11 +34,11 @@ export function NewTopBar({
         {/* Command palette shortcut */}
         <button
           onClick={onOpenPalette}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs text-stone-500 hover:text-stone-300 hover:bg-stone-800/40 border border-stone-800/40 transition-colors"
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-ui text-stone-400 hover:text-stone-300 hover:bg-stone-800/40 border border-stone-800/40 transition-colors"
           title="Command palette (Cmd+K)"
         >
           <Search size={12} />
-          <span className="hidden md:inline text-stone-600">Cmd+K</span>
+          <span className="hidden md:inline text-stone-500">Cmd+K</span>
         </button>
 
         {/* Compare */}
@@ -82,7 +82,7 @@ export function NewTopBar({
           ) : (
             <WifiOff size={12} className="text-red-500" />
           )}
-          <span className={`text-[10px] font-medium hidden sm:inline ${connected ? 'text-green-500' : 'text-red-500'}`}>
+          <span className={`text-xs font-ui font-medium hidden sm:inline ${connected ? 'text-green-500' : 'text-red-500'}`}>
             {connected ? 'connected' : 'offline'}
           </span>
         </div>

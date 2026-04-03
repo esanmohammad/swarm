@@ -106,7 +106,7 @@ function OptionCard({
       <div className="flex items-center gap-2 mb-2">
         <h4 className="text-sm font-semibold text-stone-200">{option.name}</h4>
         {option.recommended && (
-          <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-blue-500/20 text-[9px] font-medium text-blue-300 border border-blue-500/30">
+          <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-blue-500/20 text-[10px] font-medium text-blue-300 border border-blue-500/30">
             <CheckCircle size={9} /> RECOMMENDED
           </span>
         )}

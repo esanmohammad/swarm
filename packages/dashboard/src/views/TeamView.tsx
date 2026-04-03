@@ -199,7 +199,7 @@ export function TeamView({ sendCommand, teamActivity }: TeamViewProps) {
                             {member.areas.map((area, j) => (
                               <span
                                 key={j}
-                                className="px-1.5 py-0.5 rounded text-[9px] bg-stone-700/40 text-stone-400 border border-stone-600/30"
+                                className="px-1.5 py-0.5 rounded text-[10px] bg-stone-700/40 text-stone-400 border border-stone-600/30"
                               >
                                 {area}
                               </span>

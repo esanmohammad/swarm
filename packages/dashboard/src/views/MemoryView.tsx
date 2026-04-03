@@ -194,12 +194,12 @@ export function MemoryView({ sendCommand, memories }: MemoryViewProps) {
                     {entry.tags.length > 0 && (
                       <div className="flex items-center gap-1 mt-1.5">
                         {entry.tags.slice(0, 5).map(tag => (
-                          <span key={tag} className="px-1.5 py-0.5 rounded bg-stone-800/60 text-[9px] text-stone-400">
+                          <span key={tag} className="px-1.5 py-0.5 rounded bg-stone-800/60 text-[10px] text-stone-400">
                             {tag}
                           </span>
                         ))}
                         {entry.tags.length > 5 && (
-                          <span className="text-[9px] text-stone-500">+{entry.tags.length - 5}</span>
+                          <span className="text-[10px] text-stone-400">+{entry.tags.length - 5}</span>
                         )}
                       </div>
                     )}
@@ -212,7 +212,7 @@ export function MemoryView({ sendCommand, memories }: MemoryViewProps) {
                     <X size={12} />
                   </button>
                 </div>
-                <div className="mt-1.5 text-[9px] text-stone-600">
+                <div className="mt-1.5 text-[10px] text-stone-500">
                   Created: {entry.createdAt.split('T')[0]} | Expires: {entry.expiresAt.split('T')[0]}
                 </div>
               </div>
