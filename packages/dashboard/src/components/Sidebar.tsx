@@ -2,7 +2,6 @@ import { usePersistedState } from '../hooks/usePersistedState';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Home, Rocket, BarChart3, Clock, Users as AgentsIcon,
-  Wrench, GitPullRequest,
   TrendingUp,
   Layers, BookOpen, Brain,
   ChevronRight, ChevronDown, PanelLeftClose, PanelLeft,
@@ -34,14 +33,6 @@ const PRIMARY_ITEMS: NavItem[] = [
 
 // v0.1 navigation — only launch-ready features
 const NAV_GROUPS: NavGroup[] = [
-  {
-    label: 'Workflows',
-    defaultOpen: true,
-    items: [
-      { path: '/workflows', label: 'Overview', icon: Wrench },
-      { path: '/workflows/review', label: 'Code Review', icon: GitPullRequest },
-    ],
-  },
   {
     label: 'Intelligence',
     items: [

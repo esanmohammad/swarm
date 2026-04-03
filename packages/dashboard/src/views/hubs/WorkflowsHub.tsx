@@ -1,16 +1,14 @@
-import { Wrench, GitPullRequest } from 'lucide-react';
+import { Wrench } from 'lucide-react';
 import { HubLayout } from '../../layouts/HubLayout';
 
 export function WorkflowsHub() {
   return (
     <HubLayout
       title="Workflows"
-      description="Quick AI-powered workflows for common development tasks."
+      description="Quick AI-powered workflows for common development tasks. Use the Launch view or CLI to run workflows."
       icon={<Wrench size={20} />}
-      features={[
-        { name: 'Code Review', route: '/workflows/review', icon: <GitPullRequest size={18} />, description: 'Review staged changes or GitHub PRs', status: 'not-setup', actionLabel: 'Review' },
-      ]}
-      quickStart="Run 'swarm review' to review current changes, or 'swarm review 123' to review a GitHub PR."
+      features={[]}
+      quickStart="Run swarm fix, swarm review, or swarm refactor from the CLI. Use the Launch view for guided workflows."
     />
   );
 }
