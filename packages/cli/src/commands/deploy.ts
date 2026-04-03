@@ -34,7 +34,7 @@ export function registerDeploy(program: Command): void {
       try {
         swarmDir = requireSwarmDir();
       } catch {
-        console.error(chalk.red('No .swarm/ directory found. Run `swarm init` first.'));
+        console.error(chalk.red('No .swarm/ directory found. Run `hivemind init` first.'));
         process.exit(1);
       }
 

@@ -488,7 +488,7 @@ export function registerMultiRepo(program: Command): void {
           console.log(`    ${chalk.yellow('!')} ${chalk.bold(m.file)} differs between ${m.repos.join(' and ')}`);
           console.log(chalk.dim(`      ${m.detail}`));
         }
-        console.log(chalk.dim('\n  Run "swarm multi-repo run <feature>" to align contracts across repos.'));
+        console.log(chalk.dim('\n  Run "hivemind multi-repo run <feature>" to align contracts across repos.'));
       } else if (repoContracts.some(rc => rc.contracts.length > 0)) {
         console.log(chalk.green('\n  All shared contracts are in sync.'));
       } else {

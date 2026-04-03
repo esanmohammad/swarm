@@ -14,7 +14,7 @@ export function registerContext(program: Command): void {
 
       if (!index) {
         console.log(chalk.yellow('No codebase index found.'));
-        console.log(chalk.dim('Run `swarm context build` to create one.'));
+        console.log(chalk.dim('Run `hivemind context build` to create one.'));
         return;
       }
 
@@ -34,7 +34,7 @@ export function registerContext(program: Command): void {
       console.log(`  ${chalk.cyan('Built:')}       ${new Date(index.builtAt).toLocaleString()} (${ageStr})`);
 
       if (age > 86400000) {
-        console.log(chalk.yellow('\n  Index is stale. Run `swarm context build` to refresh.'));
+        console.log(chalk.yellow('\n  Index is stale. Run `hivemind context build` to refresh.'));
       }
       console.log();
     });
@@ -69,7 +69,7 @@ export function registerContext(program: Command): void {
       const index = loadIndex(swarmDir);
 
       if (!index) {
-        console.log(chalk.yellow('No codebase index found. Run `swarm context build` first.'));
+        console.log(chalk.yellow('No codebase index found. Run `hivemind context build` first.'));
         return;
       }
 
@@ -99,7 +99,7 @@ export function registerContext(program: Command): void {
       const index = loadIndex(swarmDir);
 
       if (!index) {
-        console.log(chalk.yellow('No codebase index found. Run `swarm context build` first.'));
+        console.log(chalk.yellow('No codebase index found. Run `hivemind context build` first.'));
         return;
       }
 
@@ -140,7 +140,7 @@ export function registerContext(program: Command): void {
       const index = loadIndex(swarmDir);
 
       if (!index) {
-        console.log(chalk.yellow('No codebase index found. Run `swarm context build` first.'));
+        console.log(chalk.yellow('No codebase index found. Run `hivemind context build` first.'));
         return;
       }
 
@@ -172,7 +172,7 @@ export function registerContext(program: Command): void {
       const index = loadIndex(swarmDir);
 
       if (!index) {
-        console.log(chalk.yellow('No codebase index found. Run `swarm context build` first.'));
+        console.log(chalk.yellow('No codebase index found. Run `hivemind context build` first.'));
         return;
       }
 
@@ -195,6 +195,6 @@ export function registerContext(program: Command): void {
         console.log(`  ${chalk.yellow(f.path)} ${chalk.dim(`modified ${agoStr}`)}`);
       }
 
-      console.log(chalk.dim(`\n  Run \`swarm context build\` to refresh the index.\n`));
+      console.log(chalk.dim(`\n  Run \`hivemind context build\` to refresh the index.\n`));
     });
 }

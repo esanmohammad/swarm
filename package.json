@@ -1,13 +1,13 @@
 {
-  "name": "swarm-orchestrator",
+  "name": "hivemind-orchestrator",
   "private": true,
   "workspaces": ["packages/*"],
   "scripts": {
-    "build": "npm run build -w swarm-pipeline && npm run build -w @swarm/dashboard",
-    "build:cli": "npm run build -w swarm-pipeline",
-    "build:dashboard": "npm run build -w @swarm/dashboard",
+    "build": "npm run build -w hivemind-pipeline && npm run build -w @hivemind/dashboard",
+    "build:cli": "npm run build -w hivemind-pipeline",
+    "build:dashboard": "npm run build -w @hivemind/dashboard",
     "build:vscode": "npm run build -w swarm-vscode",
-    "dev": "npm run dev -w swarm-pipeline",
-    "dev:dashboard": "npm run dev -w @swarm/dashboard"
+    "dev": "npm run dev -w hivemind-pipeline",
+    "dev:dashboard": "npm run dev -w @hivemind/dashboard"
   }
 }

@@ -102,7 +102,7 @@ const program = new Command();
 const showAll = process.argv.includes('--all');
 
 program
-  .name('swarm')
+  .name('hivemind')
   .description('AI builds your feature while you watch')
   .version('0.1.0')
   .argument('[feature-request]', 'Describe what to build — runs the full pipeline automatically')
@@ -321,15 +321,15 @@ program.addHelpText('after', () => {
   const lines = [
     '',
     chalk.bold('Quick start:'),
-    `  ${chalk.cyan('swarm "add a login page"')}           Full pipeline end-to-end`,
-    `  ${chalk.cyan('swarm fix "login not working"')}      Fix a bug directly`,
-    `  ${chalk.cyan('swarm review')}                       Review staged changes`,
-    `  ${chalk.cyan('swarm pr --reviewers --risk')}        Smart PR with risk scores`,
-    `  ${chalk.cyan('swarm spike "how does auth work?"')}  Quick exploration`,
-    `  ${chalk.cyan('swarm dashboard')}                    Real-time web UI`,
+    `  ${chalk.cyan('hivemind "add a login page"')}           Full pipeline end-to-end`,
+    `  ${chalk.cyan('hivemind fix "login not working"')}      Fix a bug directly`,
+    `  ${chalk.cyan('hivemind review')}                       Review staged changes`,
+    `  ${chalk.cyan('hivemind pr --reviewers --risk')}        Smart PR with risk scores`,
+    `  ${chalk.cyan('hivemind spike "how does auth work?"')}  Quick exploration`,
+    `  ${chalk.cyan('hivemind dashboard')}                    Real-time web UI`,
   ];
   if (!showAll) {
-    lines.push('', chalk.dim(`  Showing ${visible} commands. Run ${chalk.cyan('swarm --help --all')} to see all ${total}.`));
+    lines.push('', chalk.dim(`  Showing ${visible} commands. Run ${chalk.cyan('hivemind --help --all')} to see all ${total}.`));
   }
   return lines.join('\n');
 });

@@ -59,7 +59,7 @@ export function registerTeach(program: Command): void {
       try {
         swarmDir = requireSwarmDir();
       } catch {
-        console.error(chalk.red('No .swarm/ directory found. Run `swarm init` first.'));
+        console.error(chalk.red('No .swarm/ directory found. Run `hivemind init` first.'));
         process.exit(1);
       }
       loadConfig();
@@ -109,7 +109,7 @@ export function registerTeach(program: Command): void {
       }
 
       if (state.examples === 0 && state.trainingJobs.length === 0) {
-        console.log(chalk.dim('\n  No training data yet. Run `swarm teach collect` to gather examples.\n'));
+        console.log(chalk.dim('\n  No training data yet. Run `hivemind teach collect` to gather examples.\n'));
       } else {
         console.log('');
       }
@@ -126,7 +126,7 @@ export function registerTeach(program: Command): void {
       try {
         swarmDir = requireSwarmDir();
       } catch {
-        console.error(chalk.red('No .swarm/ directory found. Run `swarm init` first.'));
+        console.error(chalk.red('No .swarm/ directory found. Run `hivemind init` first.'));
         process.exit(1);
       }
       loadConfig();
@@ -270,7 +270,7 @@ export function registerTeach(program: Command): void {
       try {
         swarmDir = requireSwarmDir();
       } catch {
-        console.error(chalk.red('No .swarm/ directory found. Run `swarm init` first.'));
+        console.error(chalk.red('No .swarm/ directory found. Run `hivemind init` first.'));
         process.exit(1);
       }
       loadConfig();
@@ -280,7 +280,7 @@ export function registerTeach(program: Command): void {
 
       if (examples.length < 10) {
         console.error(chalk.red(`Need at least 10 training examples (have ${examples.length}).`));
-        console.log(chalk.dim('Run `swarm teach collect` to gather more data.'));
+        console.log(chalk.dim('Run `hivemind teach collect` to gather more data.'));
         process.exit(1);
       }
 
@@ -306,7 +306,7 @@ export function registerTeach(program: Command): void {
 
       console.log(chalk.yellow('  Job submitted. Fine-tuning is an async process.'));
       console.log(chalk.dim('  In production, this would call the Anthropic fine-tuning API.'));
-      console.log(chalk.dim('  Run `swarm teach` to check job status.\n'));
+      console.log(chalk.dim('  Run `hivemind teach` to check job status.\n'));
 
       // Simulate immediate completion for local development
       job.status = 'complete';
@@ -332,7 +332,7 @@ export function registerTeach(program: Command): void {
       try {
         swarmDir = requireSwarmDir();
       } catch {
-        console.error(chalk.red('No .swarm/ directory found. Run `swarm init` first.'));
+        console.error(chalk.red('No .swarm/ directory found. Run `hivemind init` first.'));
         process.exit(1);
       }
       loadConfig();
@@ -342,7 +342,7 @@ export function registerTeach(program: Command): void {
 
       if (completedJobs.length === 0) {
         console.error(chalk.red('No completed training jobs to evaluate.'));
-        console.log(chalk.dim('Run `swarm teach train` first.'));
+        console.log(chalk.dim('Run `hivemind teach train` first.'));
         process.exit(1);
       }
 
@@ -393,7 +393,7 @@ export function registerTeach(program: Command): void {
         console.log(chalk.red('  Recommendation: Do not deploy. Fine-tuned model underperforms baseline.'));
       }
 
-      console.log(chalk.dim('  Run `swarm teach deploy` to activate the fine-tuned model.\n'));
+      console.log(chalk.dim('  Run `hivemind teach deploy` to activate the fine-tuned model.\n'));
     });
 
   // --- swarm teach deploy ---
@@ -406,7 +406,7 @@ export function registerTeach(program: Command): void {
       try {
         swarmDir = requireSwarmDir();
       } catch {
-        console.error(chalk.red('No .swarm/ directory found. Run `swarm init` first.'));
+        console.error(chalk.red('No .swarm/ directory found. Run `hivemind init` first.'));
         process.exit(1);
       }
       loadConfig();
@@ -416,7 +416,7 @@ export function registerTeach(program: Command): void {
 
       if (completedJobs.length === 0) {
         console.error(chalk.red('No completed training jobs to deploy.'));
-        console.log(chalk.dim('Run `swarm teach train` first.'));
+        console.log(chalk.dim('Run `hivemind teach train` first.'));
         process.exit(1);
       }
 
@@ -461,6 +461,6 @@ export function registerTeach(program: Command): void {
       console.log(chalk.dim(`  Quality delta: ${deployment.qualityDelta >= 0 ? '+' : ''}${deployment.qualityDelta.toFixed(1)}\n`));
 
       console.log(chalk.dim('  The fine-tuned model will now be used for routine tasks in the specified types.'));
-      console.log(chalk.dim('  Run `swarm teach` to view deployment status.\n'));
+      console.log(chalk.dim('  Run `hivemind teach` to view deployment status.\n'));
     });
 }

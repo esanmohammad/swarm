@@ -105,9 +105,9 @@ export function registerInit(program: Command): void {
       console.log(`  Config: ${chalk.dim(join(swarmDir, 'config.yaml'))}`);
       console.log('');
       console.log(chalk.dim('Quick start:'));
-      console.log(`  ${chalk.bold('swarm "your feature request"')}   Build a feature end-to-end`);
-      console.log(`  ${chalk.bold('swarm dashboard')}                Open the web UI`);
-      console.log(`  ${chalk.bold('swarm doctor')}                   Check your environment`);
+      console.log(`  ${chalk.bold('hivemind "your feature request"')}   Build a feature end-to-end`);
+      console.log(`  ${chalk.bold('hivemind dashboard')}                Open the web UI`);
+      console.log(`  ${chalk.bold('hivemind doctor')}                   Check your environment`);
       console.log('');
     });
 }

@@ -102,7 +102,7 @@ export function registerCheck(program: Command): void {
         } else if (violations.length > 0) {
           const fixable = violations.filter(v => v.fix).length;
           if (fixable > 0) {
-            console.log(chalk.dim(`  Run ${chalk.bold('swarm check --fix')} to auto-fix ${fixable} issue${fixable !== 1 ? 's' : ''}.\n`));
+            console.log(chalk.dim(`  Run ${chalk.bold('hivemind check --fix')} to auto-fix ${fixable} issue${fixable !== 1 ? 's' : ''}.\n`));
           }
         }
       }

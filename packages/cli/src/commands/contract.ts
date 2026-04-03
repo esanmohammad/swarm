@@ -45,7 +45,7 @@ export function registerContract(program: Command): void {
       try {
         swarmDir = requireSwarmDir();
       } catch {
-        console.error(chalk.red('No .swarm/ directory found. Run `swarm init` first.'));
+        console.error(chalk.red('No .swarm/ directory found. Run `hivemind init` first.'));
         process.exit(1);
       }
       loadConfig();
@@ -55,7 +55,7 @@ export function registerContract(program: Command): void {
       console.log(chalk.bold('\nAPI Contracts Overview\n'));
 
       if (data.endpoints.length === 0) {
-        console.log(chalk.dim('  No API contracts generated yet. Run `swarm contract generate` to scan your codebase.'));
+        console.log(chalk.dim('  No API contracts generated yet. Run `hivemind contract generate` to scan your codebase.'));
         console.log('');
         return;
       }
@@ -105,7 +105,7 @@ export function registerContract(program: Command): void {
       try {
         swarmDir = requireSwarmDir();
       } catch {
-        console.error(chalk.red('No .swarm/ directory found. Run `swarm init` first.'));
+        console.error(chalk.red('No .swarm/ directory found. Run `hivemind init` first.'));
         process.exit(1);
       }
       loadConfig();
@@ -148,7 +148,7 @@ export function registerContract(program: Command): void {
       try {
         swarmDir = requireSwarmDir();
       } catch {
-        console.error(chalk.red('No .swarm/ directory found. Run `swarm init` first.'));
+        console.error(chalk.red('No .swarm/ directory found. Run `hivemind init` first.'));
         process.exit(1);
       }
       loadConfig();
@@ -215,7 +215,7 @@ export function registerContract(program: Command): void {
       try {
         swarmDir = requireSwarmDir();
       } catch {
-        console.error(chalk.red('No .swarm/ directory found. Run `swarm init` first.'));
+        console.error(chalk.red('No .swarm/ directory found. Run `hivemind init` first.'));
         process.exit(1);
       }
       loadConfig();
@@ -223,7 +223,7 @@ export function registerContract(program: Command): void {
       const data = loadContractData(swarmDir);
 
       if (data.endpoints.length === 0) {
-        console.error(chalk.red('No API schema found. Run `swarm contract generate` first.'));
+        console.error(chalk.red('No API schema found. Run `hivemind contract generate` first.'));
         process.exit(1);
       }
 
@@ -280,7 +280,7 @@ export function registerContract(program: Command): void {
       try {
         swarmDir = requireSwarmDir();
       } catch {
-        console.error(chalk.red('No .swarm/ directory found. Run `swarm init` first.'));
+        console.error(chalk.red('No .swarm/ directory found. Run `hivemind init` first.'));
         process.exit(1);
       }
       loadConfig();
@@ -288,7 +288,7 @@ export function registerContract(program: Command): void {
       const data = loadContractData(swarmDir);
 
       if (data.endpoints.length === 0) {
-        console.error(chalk.red('No API schema found. Run `swarm contract generate` first.'));
+        console.error(chalk.red('No API schema found. Run `hivemind contract generate` first.'));
         process.exit(1);
       }
 
@@ -364,7 +364,7 @@ export function registerContract(program: Command): void {
       try {
         swarmDir = requireSwarmDir();
       } catch {
-        console.error(chalk.red('No .swarm/ directory found. Run `swarm init` first.'));
+        console.error(chalk.red('No .swarm/ directory found. Run `hivemind init` first.'));
         process.exit(1);
       }
       loadConfig();
@@ -429,7 +429,7 @@ export function registerContract(program: Command): void {
 
       // Step 4: Verification
       console.log(`  ${step++}. ${chalk.yellow('Verification')}`);
-      console.log(chalk.dim('     Run `swarm contract check` to verify no remaining breaking changes.'));
+      console.log(chalk.dim('     Run `hivemind contract check` to verify no remaining breaking changes.'));
       console.log('');
 
       // Save migration plan

@@ -100,7 +100,7 @@ export function registerMayday(program: Command): void {
           const mayday = state.getMayday();
           if (!mayday?.active) {
             console.error(chalk.red('No active MayDay session to resume.'));
-            console.error(chalk.dim(`Start a new one: ${chalk.bold('swarm mayday "your feature request"')}`));
+            console.error(chalk.dim(`Start a new one: ${chalk.bold('hivemind mayday "your feature request"')}`));
             process.exit(1);
           }
           await pipeline.resumeMayday({ parallel: parseInt(opts.parallel, 10) });

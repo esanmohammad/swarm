@@ -263,7 +263,7 @@ export function registerModels(program: Command): void {
       const configPath = join(swarmDir, 'config.yaml');
 
       if (!existsSync(swarmDir)) {
-        console.error(chalk.red('No .swarm/ directory found. Run `swarm init` first.'));
+        console.error(chalk.red('No .swarm/ directory found. Run `hivemind init` first.'));
         process.exit(1);
       }
 
@@ -301,7 +301,7 @@ export function registerModels(program: Command): void {
       const configPath = join(swarmDir, 'config.yaml');
 
       if (!existsSync(swarmDir)) {
-        console.error(chalk.red('No .swarm/ directory found. Run `swarm init` first.'));
+        console.error(chalk.red('No .swarm/ directory found. Run `hivemind init` first.'));
         process.exit(1);
       }
 

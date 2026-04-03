@@ -252,7 +252,7 @@ export function registerOwn(program: Command): void {
       const surfaces = loadSurfaces(swarmDir);
 
       if (surfaces.length === 0) {
-        console.log(chalk.dim('No surfaces registered. Use `swarm own register <name>` to add one.'));
+        console.log(chalk.dim('No surfaces registered. Use `hivemind own register <name>` to add one.'));
         return;
       }
 
@@ -317,7 +317,7 @@ export function registerOwn(program: Command): void {
       const idx = surfaces.findIndex((s) => s.name === name);
       if (idx < 0) {
         console.log(chalk.red(`Surface not found: ${name}`));
-        console.log(chalk.dim('Use `swarm own list` to see registered surfaces.'));
+        console.log(chalk.dim('Use `hivemind own list` to see registered surfaces.'));
         process.exitCode = 1;
         return;
       }
@@ -449,7 +449,7 @@ export function registerOwn(program: Command): void {
       const surfaces = loadSurfaces(swarmDir);
 
       if (surfaces.length === 0) {
-        console.log(chalk.dim('No surfaces registered. Use `swarm own register <name>` to add one.'));
+        console.log(chalk.dim('No surfaces registered. Use `hivemind own register <name>` to add one.'));
         return;
       }
 

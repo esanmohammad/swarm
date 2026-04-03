@@ -58,7 +58,7 @@ export function registerJournal(program: Command): void {
       const rules = getJournalRules(swarmDir);
 
       if (rules.length === 0) {
-        console.log(chalk.dim('No rules generated yet. Run "swarm journal analyze" after recording some decisions with outcomes.'));
+        console.log(chalk.dim('No rules generated yet. Run "hivemind journal analyze" after recording some decisions with outcomes.'));
         return;
       }
 

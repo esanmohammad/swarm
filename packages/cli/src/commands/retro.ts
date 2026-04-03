@@ -35,7 +35,7 @@ export function registerRetro(program: Command): void {
       try {
         swarmDir = requireSwarmDir();
       } catch {
-        console.error(chalk.red('No .swarm/ directory found. Run `swarm init` first.'));
+        console.error(chalk.red('No .swarm/ directory found. Run `hivemind init` first.'));
         process.exit(1);
       }
 
@@ -350,7 +350,7 @@ function analyzeRetro(input: AnalysisInput): RetroReport {
 
   if (successRate < 60 && totalRuns >= 3) {
     actionItems.push({
-      description: `Only ${successRate}% success rate — review failure patterns and consider running \`swarm learn\``,
+      description: `Only ${successRate}% success rate — review failure patterns and consider running \`hivemind learn\``,
       priority: 'high',
     });
   }

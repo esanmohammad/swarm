@@ -23,7 +23,7 @@ npm run build:cli        # Build CLI only (tsc)
 npm run build:dashboard  # Build dashboard only (tsc + vite build)
 ```
 
-CLI binary: `packages/cli/dist/bin/swarm.js`. Alias: `swarm` in `~/.zshrc`.
+CLI binary: `packages/cli/dist/bin/swarm.js`. Alias: `hivemind` in `~/.zshrc`.
 
 ## Architecture
 
@@ -50,7 +50,7 @@ Used for analyst, architect, lead via CLI.
 - **GuardrailsEngine** (`core/guardrails.ts`) — Validates artifacts. Check types: `section-exists`, `pattern-match`, `command`, `min-length`, `word-count`, `required-patterns`. Custom rules from `.swarm/guardrails.yaml`.
 - **PromptLoader** (`prompts/loader.ts`) — Resolves persona + stack to prompt file. Supports custom personas from `.swarm/personas/*.yaml`. Search: custom personas → bundled `prompts/` → `~/.claude/prompts/` → `~/.claude/prompt/`.
 - **WebhookManager** (`core/webhooks.ts`) — Fires HTTP POST on pipeline events. Supports Slack, Discord, generic formats. HMAC signing.
-- **AuditLog** (`core/audit.ts`) — Structured event log to `.swarm/audit.jsonl`. Queryable via `swarm audit` CLI.
+- **AuditLog** (`core/audit.ts`) — Structured event log to `.swarm/audit.jsonl`. Queryable via `hivemind audit` CLI.
 - **QualityScorer** (`core/quality.ts`) — Heuristic quality scoring for pipeline artifacts (0-100 per dimension).
 
 ### Shared Context
@@ -105,9 +105,9 @@ TASKS.md uses IDs like `FND-001`, `SVC-002` with parallel group markers. `Pipeli
 ```bash
 npm run build:cli                        # After CLI changes
 npm run build                            # After any changes
-swarm --help                             # Verify CLI
-swarm init && swarm status               # Smoke test
-swarm dashboard                          # Test dashboard
+hivemind --help                             # Verify CLI
+hivemind init && hivemind status               # Smoke test
+hivemind dashboard                          # Test dashboard
 ```
 
 ## Known Gotchas

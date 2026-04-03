@@ -39,7 +39,7 @@ function loadAutopilotState(swarmDir: string): AutopilotState {
   }
   return {
     running: false,
-    label: 'swarm',
+    label: 'hivemind',
     pollInterval: 10,
     maxConcurrent: 1,
     budgetPerIssue: 10,
@@ -64,7 +64,7 @@ export function registerAutopilot(program: Command): void {
   cmd
     .command('start')
     .description('Start the autopilot daemon')
-    .option('-l, --label <label>', 'GitHub label to watch', 'swarm')
+    .option('-l, --label <label>', 'GitHub label to watch', 'hivemind')
     .option('-i, --interval <minutes>', 'Poll interval in minutes', '10')
     .option('-c, --max-concurrent <n>', 'Max concurrent pipelines', '1')
     .option('-b, --budget <amount>', 'Max budget per issue in USD', '10')
@@ -156,7 +156,7 @@ export function registerAutopilot(program: Command): void {
       state.running = false;
       saveAutopilotState(swarmDir, state);
       console.log(chalk.yellow('Autopilot marked as stopped.'));
-      console.log(chalk.dim('To kill a running daemon: kill $(pgrep -f "swarm autopilot")'));
+      console.log(chalk.dim('To kill a running daemon: kill $(pgrep -f "hivemind autopilot")'));
     });
 
   cmd
@@ -213,7 +213,7 @@ export function registerAutopilot(program: Command): void {
       }
 
       if (state.processedIssues.length === 0 && state.queue.length === 0) {
-        console.log(chalk.dim('No issues processed yet. Run `swarm autopilot start` to begin.'));
+        console.log(chalk.dim('No issues processed yet. Run `hivemind autopilot start` to begin.'));
       }
     });
 }

@@ -81,13 +81,13 @@ export function registerSecure(program: Command): void {
       // --full: LLM semantic analysis (informational message for now)
       if (opts.full && report.findings.some(f => f.severity === 'critical' || f.severity === 'high')) {
         console.log(chalk.yellow('\n--full: LLM semantic analysis requires a running swarm context.'));
-        console.log(chalk.dim('Run `swarm dashboard` and trigger security scan from the dashboard for full analysis.'));
+        console.log(chalk.dim('Run `hivemind dashboard` and trigger security scan from the dashboard for full analysis.'));
       }
 
       // --fix: auto-fix (informational message for now)
       if (opts.fix && report.findings.some(f => f.severity === 'critical' || f.severity === 'high')) {
         console.log(chalk.yellow('\n--fix: Auto-fix requires a running swarm context.'));
-        console.log(chalk.dim('Run `swarm dashboard` and trigger security fix from the dashboard.'));
+        console.log(chalk.dim('Run `hivemind dashboard` and trigger security fix from the dashboard.'));
       }
 
       // --fail-on: exit with error if findings at or above severity

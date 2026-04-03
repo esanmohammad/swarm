@@ -30,6 +30,6 @@ export function registerRecover(program: Command): void {
       // Overwrite state.json with backup
       copyFileSync(backupPath, statePath);
       console.log(chalk.green('State restored from backup (state.json.bak → state.json).'));
-      console.log(chalk.dim('Run `swarm status` to verify.'));
+      console.log(chalk.dim('Run `hivemind status` to verify.'));
     });
 }

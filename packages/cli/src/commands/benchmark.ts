@@ -500,7 +500,7 @@ export function registerBenchmark(program: Command): void {
       try {
         swarmDir = requireSwarmDir();
       } catch {
-        console.error(chalk.red('No .swarm/ directory found. Run `swarm init` first.'));
+        console.error(chalk.red('No .swarm/ directory found. Run `hivemind init` first.'));
         process.exit(1);
       }
 
@@ -522,7 +522,7 @@ export function registerBenchmark(program: Command): void {
       try {
         swarmDir = requireSwarmDir();
       } catch {
-        console.error(chalk.red('No .swarm/ directory found. Run `swarm init` first.'));
+        console.error(chalk.red('No .swarm/ directory found. Run `hivemind init` first.'));
         process.exit(1);
       }
 
@@ -546,13 +546,13 @@ export function registerBenchmark(program: Command): void {
       try {
         swarmDir = requireSwarmDir();
       } catch {
-        console.error(chalk.red('No .swarm/ directory found. Run `swarm init` first.'));
+        console.error(chalk.red('No .swarm/ directory found. Run `hivemind init` first.'));
         process.exit(1);
       }
 
       const baseline = loadBaseline(swarmDir);
       if (!baseline) {
-        console.error(chalk.red('No baseline found. Run `swarm benchmark baseline` first.'));
+        console.error(chalk.red('No baseline found. Run `hivemind benchmark baseline` first.'));
         process.exit(1);
       }
 
@@ -574,7 +574,7 @@ export function registerBenchmark(program: Command): void {
       try {
         swarmDir = requireSwarmDir();
       } catch {
-        console.error(chalk.red('No .swarm/ directory found. Run `swarm init` first.'));
+        console.error(chalk.red('No .swarm/ directory found. Run `hivemind init` first.'));
         process.exit(1);
       }
 
@@ -598,7 +598,7 @@ export function registerBenchmark(program: Command): void {
         }
         console.log('');
       } else {
-        console.log(chalk.dim('  No baseline saved. Run `swarm benchmark baseline` to create one.\n'));
+        console.log(chalk.dim('  No baseline saved. Run `hivemind benchmark baseline` to create one.\n'));
       }
 
       console.log(chalk.bold('  History'));

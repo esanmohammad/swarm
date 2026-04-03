@@ -140,7 +140,7 @@ export function registerOnboard(program: Command): void {
       } catch (err) {
         console.error(chalk.red(err instanceof Error ? err.message : String(err)));
         saveProgress(progressPath, progress);
-        console.log(chalk.yellow('Progress saved. Run `swarm onboard` to resume.'));
+        console.log(chalk.yellow('Progress saved. Run `hivemind onboard` to resume.'));
         process.exit(1);
       } finally {
         cleanup();

@@ -435,7 +435,7 @@ export function registerDelegate(program: Command): void {
       const state = loadDelegateState(swarmDir);
 
       if (!state) {
-        console.log(chalk.yellow('  No delegate session found. Run `swarm delegate "<feature>"` first.'));
+        console.log(chalk.yellow('  No delegate session found. Run `hivemind delegate "<feature>"` first.'));
         return;
       }
 
@@ -498,7 +498,7 @@ export function registerDelegate(program: Command): void {
       const state = loadDelegateState(swarmDir);
 
       if (!state) {
-        console.log(chalk.yellow('  No delegate session found. Run `swarm delegate "<feature>"` first.'));
+        console.log(chalk.yellow('  No delegate session found. Run `hivemind delegate "<feature>"` first.'));
         ctx.cleanup();
         return;
       }

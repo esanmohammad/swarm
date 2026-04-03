@@ -65,7 +65,7 @@ function checkSwarmDir(): CheckResult {
   if (existsSync(swarmDir)) {
     return { name: '.swarm/ directory', status: 'pass', message: 'Found', critical: false };
   }
-  return { name: '.swarm/ directory', status: 'info', message: 'Not found — run `swarm init` to create', critical: false };
+  return { name: '.swarm/ directory', status: 'info', message: 'Not found — run `hivemind init` to create', critical: false };
 }
 
 function checkSwarmConfig(): CheckResult {
@@ -130,9 +130,9 @@ export function registerDoctor(program: Command): void {
 
       // Show next steps
       console.log(chalk.dim('\nQuick start:'));
-      console.log(chalk.dim(`  ${chalk.bold('swarm "describe your feature"')}     Build something`));
-      console.log(chalk.dim(`  ${chalk.bold('swarm dashboard')}                   Open web UI`));
-      console.log(chalk.dim(`  ${chalk.bold('swarm status')}                      Check pipeline state`));
+      console.log(chalk.dim(`  ${chalk.bold('hivemind "describe your feature"')}     Build something`));
+      console.log(chalk.dim(`  ${chalk.bold('hivemind dashboard')}                   Open web UI`));
+      console.log(chalk.dim(`  ${chalk.bold('hivemind status')}                      Check pipeline state`));
       console.log('');
     });
 }

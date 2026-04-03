@@ -44,7 +44,7 @@ export function registerFleet(program: Command): void {
       try {
         swarmDir = requireSwarmDir();
       } catch {
-        console.error(chalk.red('No .swarm/ directory found. Run `swarm init` first.'));
+        console.error(chalk.red('No .swarm/ directory found. Run `hivemind init` first.'));
         process.exit(1);
       }
       loadConfig();
@@ -54,7 +54,7 @@ export function registerFleet(program: Command): void {
       console.log(chalk.bold('\nFleet Overview\n'));
 
       if (state.instances.length === 0) {
-        console.log(chalk.dim('  No instances registered. Run `swarm fleet register` to add this instance.'));
+        console.log(chalk.dim('  No instances registered. Run `hivemind fleet register` to add this instance.'));
         console.log('');
         return;
       }
@@ -116,7 +116,7 @@ export function registerFleet(program: Command): void {
       try {
         swarmDir = requireSwarmDir();
       } catch {
-        console.error(chalk.red('No .swarm/ directory found. Run `swarm init` first.'));
+        console.error(chalk.red('No .swarm/ directory found. Run `hivemind init` first.'));
         process.exit(1);
       }
       const config = loadConfig();
@@ -164,7 +164,7 @@ export function registerFleet(program: Command): void {
       try {
         swarmDir = requireSwarmDir();
       } catch {
-        console.error(chalk.red('No .swarm/ directory found. Run `swarm init` first.'));
+        console.error(chalk.red('No .swarm/ directory found. Run `hivemind init` first.'));
         process.exit(1);
       }
       loadConfig();
@@ -235,7 +235,7 @@ export function registerFleet(program: Command): void {
       try {
         swarmDir = requireSwarmDir();
       } catch {
-        console.error(chalk.red('No .swarm/ directory found. Run `swarm init` first.'));
+        console.error(chalk.red('No .swarm/ directory found. Run `hivemind init` first.'));
         process.exit(1);
       }
       loadConfig();
@@ -265,7 +265,7 @@ export function registerFleet(program: Command): void {
       ]);
 
       if (allTeams.size === 0) {
-        console.log(chalk.dim('  No budget allocations. Use `swarm fleet budget --team <name> --amount <n>` to set.'));
+        console.log(chalk.dim('  No budget allocations. Use `hivemind fleet budget --team <name> --amount <n>` to set.'));
         console.log('');
         return;
       }
@@ -293,7 +293,7 @@ export function registerFleet(program: Command): void {
       try {
         swarmDir = requireSwarmDir();
       } catch {
-        console.error(chalk.red('No .swarm/ directory found. Run `swarm init` first.'));
+        console.error(chalk.red('No .swarm/ directory found. Run `hivemind init` first.'));
         process.exit(1);
       }
       loadConfig();
@@ -352,7 +352,7 @@ export function registerFleet(program: Command): void {
       if (state.instances.length > 1) {
         console.log(chalk.dim(`  ${state.instances.length} instances will receive updates on next heartbeat.`));
       } else {
-        console.log(chalk.dim('  Register more instances with `swarm fleet register` for cross-team sharing.'));
+        console.log(chalk.dim('  Register more instances with `hivemind fleet register` for cross-team sharing.'));
       }
       console.log('');
     });

@@ -413,7 +413,7 @@ export class StakeholderEngine {
           `| Tasks completed | ${metrics.tasksCompleted} |`,
           '',
           metrics.successRate < 80
-            ? `> Warning: Success rate below 80%. Check recent failures with \`swarm stats\`.`
+            ? `> Warning: Success rate below 80%. Check recent failures with \`hivemind stats\`.`
             : `> Healthy velocity. Consider increasing parallelism if throughput is needed.`,
         ].join('\n');
     }

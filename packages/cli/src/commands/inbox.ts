@@ -52,7 +52,7 @@ export function loadInboxState(swarmDir: string): InboxState {
   return {
     running: false,
     paused: false,
-    label: 'swarm',
+    label: 'hivemind',
     pollInterval: 10,
     maxConcurrent: 1,
     queue: [],
@@ -279,7 +279,7 @@ function printQueue(state: InboxState): void {
   console.log(chalk.dim(`Budget: $${stats.dailySpent.toFixed(2)} / $${stats.dailyBudget.toFixed(2)} today\n`));
 
   if (queue.length === 0 && processed.length === 0) {
-    console.log(chalk.dim('  Queue is empty. Use `swarm inbox start` to begin polling or `swarm inbox add <task>` to add items.\n'));
+    console.log(chalk.dim('  Queue is empty. Use `hivemind inbox start` to begin polling or `hivemind inbox add <task>` to add items.\n'));
     return;
   }
 
@@ -320,7 +320,7 @@ export function registerInbox(program: Command): void {
       try {
         swarmDir = requireSwarmDir();
       } catch {
-        console.error(chalk.red('No .swarm/ directory found. Run `swarm init` first.'));
+        console.error(chalk.red('No .swarm/ directory found. Run `hivemind init` first.'));
         process.exit(1);
       }
       const state = loadInboxState(swarmDir);
@@ -331,7 +331,7 @@ export function registerInbox(program: Command): void {
   cmd
     .command('start')
     .description('Start the inbox daemon')
-    .option('-l, --label <label>', 'GitHub label to watch', 'swarm')
+    .option('-l, --label <label>', 'GitHub label to watch', 'hivemind')
     .option('-i, --interval <minutes>', 'Poll interval in minutes', '10')
     .option('-b, --budget <amount>', 'Daily budget in USD', '25')
     .option('--max-concurrent <n>', 'Max concurrent work items', '1')
@@ -503,7 +503,7 @@ export function registerInbox(program: Command): void {
       state.running = false;
       saveInboxState(swarmDir, state);
       console.log(chalk.yellow('Inbox daemon marked as stopped.'));
-      console.log(chalk.dim('If the daemon is running in another terminal, press Ctrl+C or: kill $(pgrep -f "swarm inbox")'));
+      console.log(chalk.dim('If the daemon is running in another terminal, press Ctrl+C or: kill $(pgrep -f "hivemind inbox")'));
     });
 
   // ----- pause -----

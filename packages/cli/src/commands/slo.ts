@@ -57,7 +57,7 @@ function formatBudget(budget: SloEntry['errorBudget']): string {
 
 function printSloTable(data: SloData): void {
   if (data.slos.length === 0) {
-    console.log(chalk.dim('No SLOs configured. Use `swarm slo add <name>` to add one.'));
+    console.log(chalk.dim('No SLOs configured. Use `hivemind slo add <name>` to add one.'));
     return;
   }
 
@@ -229,7 +229,7 @@ export function registerSlo(program: Command): void {
       try {
         swarmDir = requireSwarmDir();
       } catch {
-        console.error(chalk.red('No .swarm/ directory found. Run `swarm init` first.'));
+        console.error(chalk.red('No .swarm/ directory found. Run `hivemind init` first.'));
         process.exit(1);
       }
 
@@ -248,7 +248,7 @@ export function registerSlo(program: Command): void {
       try {
         swarmDir = requireSwarmDir();
       } catch {
-        console.error(chalk.red('No .swarm/ directory found. Run `swarm init` first.'));
+        console.error(chalk.red('No .swarm/ directory found. Run `hivemind init` first.'));
         process.exit(1);
       }
 
@@ -287,7 +287,7 @@ export function registerSlo(program: Command): void {
       try {
         swarmDir = requireSwarmDir();
       } catch {
-        console.error(chalk.red('No .swarm/ directory found. Run `swarm init` first.'));
+        console.error(chalk.red('No .swarm/ directory found. Run `hivemind init` first.'));
         process.exit(1);
       }
 
@@ -295,7 +295,7 @@ export function registerSlo(program: Command): void {
       const data = readSloData(swarmDir);
 
       if (data.slos.length === 0) {
-        console.log(chalk.dim('No SLOs configured. Use `swarm slo add <name>` to add one.'));
+        console.log(chalk.dim('No SLOs configured. Use `hivemind slo add <name>` to add one.'));
         return;
       }
 
@@ -362,7 +362,7 @@ export function registerSlo(program: Command): void {
       try {
         swarmDir = requireSwarmDir();
       } catch {
-        console.error(chalk.red('No .swarm/ directory found. Run `swarm init` first.'));
+        console.error(chalk.red('No .swarm/ directory found. Run `hivemind init` first.'));
         process.exit(1);
       }
 

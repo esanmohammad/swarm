@@ -114,7 +114,7 @@ export function registerBabysitPrs(program: Command): void {
 
       const reviews = loadReviewHistory(swarmDir);
       if (reviews.length === 0) {
-        console.log(chalk.dim('No PRs reviewed yet. Run `swarm babysit-prs start` to begin.'));
+        console.log(chalk.dim('No PRs reviewed yet. Run `hivemind babysit-prs start` to begin.'));
         return;
       }
 
@@ -136,7 +136,7 @@ export function registerBabysitPrs(program: Command): void {
     .description('Stop the babysitter daemon (sends SIGINT)')
     .action(() => {
       console.log(chalk.yellow('To stop the babysitter, press Ctrl+C in the terminal where it is running.'));
-      console.log(chalk.dim('Or use: kill $(pgrep -f "swarm babysit-prs")'));
+      console.log(chalk.dim('Or use: kill $(pgrep -f "hivemind babysit-prs")'));
     });
 }
 

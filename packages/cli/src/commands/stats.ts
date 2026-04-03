@@ -177,7 +177,7 @@ function computeStats(entries: HistoryEntry[]): Stats {
 
   if (avgFixIterations > 2) {
     recommendations.push(
-      `Average ${avgFixIterations.toFixed(1)} fix iterations per run — run \`swarm learn\` to improve code quality and reduce retries.`
+      `Average ${avgFixIterations.toFixed(1)} fix iterations per run — run \`hivemind learn\` to improve code quality and reduce retries.`
     );
   }
 

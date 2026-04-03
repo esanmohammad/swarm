@@ -19,7 +19,7 @@ export function registerTelemetry(program: Command): void {
 
       if (action === 'off') {
         telemetry.setEnabled(false);
-        console.log(chalk.yellow('Telemetry disabled.') + chalk.dim(' Existing data preserved — use "swarm telemetry reset" to clear.'));
+        console.log(chalk.yellow('Telemetry disabled.') + chalk.dim(' Existing data preserved — use "hivemind telemetry reset" to clear.'));
         return;
       }
 
@@ -61,7 +61,7 @@ export function registerTelemetry(program: Command): void {
 
       if (!enabled) {
         console.log('');
-        console.log(chalk.dim('  Telemetry is disabled. Enable with: ') + chalk.cyan('swarm telemetry on'));
+        console.log(chalk.dim('  Telemetry is disabled. Enable with: ') + chalk.cyan('hivemind telemetry on'));
         console.log(chalk.dim('  All data is stored locally at ~/.swarm/telemetry.json — nothing is sent remotely.'));
         console.log('');
       }

@@ -675,7 +675,7 @@ export function registerEvolve(program: Command): void {
 
       const autoFixable = items.filter((it) => it.autoFixable).length;
       if (autoFixable > 0) {
-        console.log(chalk.green(`  ${autoFixable} items are auto-fixable. Run ${chalk.bold('swarm evolve work')} to fix them.\n`));
+        console.log(chalk.green(`  ${autoFixable} items are auto-fixable. Run ${chalk.bold('hivemind evolve work')} to fix them.\n`));
       }
     });
 
@@ -690,7 +690,7 @@ export function registerEvolve(program: Command): void {
       const debt = loadDebt(swarmDir);
 
       if (!debt) {
-        console.log(chalk.yellow('No debt data found. Run `swarm evolve scan` first.'));
+        console.log(chalk.yellow('No debt data found. Run `hivemind evolve scan` first.'));
         return;
       }
 
@@ -743,7 +743,7 @@ export function registerEvolve(program: Command): void {
         phaseNum++;
       }
 
-      console.log(chalk.dim(`  Tip: Run ${chalk.bold('swarm evolve work')} to start fixing auto-fixable items.\n`));
+      console.log(chalk.dim(`  Tip: Run ${chalk.bold('hivemind evolve work')} to start fixing auto-fixable items.\n`));
     });
 
   // ── swarm evolve work ────────────────────────────────────────────────────
@@ -764,7 +764,7 @@ export function registerEvolve(program: Command): void {
 
       const debt = loadDebt(swarmDir);
       if (!debt) {
-        console.log(chalk.yellow('No debt data found. Run `swarm evolve scan` first.'));
+        console.log(chalk.yellow('No debt data found. Run `hivemind evolve scan` first.'));
         return;
       }
 
@@ -837,7 +837,7 @@ After fixing, briefly summarize what you changed.`;
           }
         }
 
-        console.log(chalk.dim(`\n  Run ${chalk.bold('swarm evolve scan')} to measure improvement.\n`));
+        console.log(chalk.dim(`\n  Run ${chalk.bold('hivemind evolve scan')} to measure improvement.\n`));
       } finally {
         cleanup();
       }
@@ -855,7 +855,7 @@ After fixing, briefly summarize what you changed.`;
       const history = loadHistory(swarmDir);
 
       if (!debt) {
-        console.log(chalk.yellow('No debt data found. Run `swarm evolve scan` first.'));
+        console.log(chalk.yellow('No debt data found. Run `hivemind evolve scan` first.'));
         return;
       }
 

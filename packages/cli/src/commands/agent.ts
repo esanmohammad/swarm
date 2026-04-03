@@ -102,7 +102,7 @@ export function registerAgent(program: Command): void {
       const agent = agentManager.getByName(nameOrId) || agentManager.get(nameOrId);
       if (!agent) {
         console.error(chalk.red(`Agent "${nameOrId}" not found.`));
-        console.error(chalk.dim(`Run ${chalk.bold('swarm agent list')} to see active agents, or ${chalk.bold('swarm status')} for full pipeline state.`));
+        console.error(chalk.dim(`Run ${chalk.bold('hivemind agent list')} to see active agents, or ${chalk.bold('hivemind status')} for full pipeline state.`));
         process.exit(1);
       }
 

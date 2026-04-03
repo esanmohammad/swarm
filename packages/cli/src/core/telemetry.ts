@@ -2,7 +2,7 @@
  * Telemetry module — opt-in, local-only anonymous usage statistics.
  *
  * All data is stored at ~/.swarm/telemetry.json. Nothing is sent remotely.
- * Telemetry is OFF by default; users must explicitly enable it via `swarm telemetry on`.
+ * Telemetry is OFF by default; users must explicitly enable it via `hivemind telemetry on`.
  *
  * ── Pipeline integration point ──
  * To wire telemetry into the pipeline, add calls in `packages/cli/src/core/pipeline.ts`:

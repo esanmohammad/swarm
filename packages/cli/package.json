@@ -1,5 +1,5 @@
 {
-  "name": "swarm-pipeline",
+  "name": "hivemind-pipeline",
   "version": "0.1.0",
   "description": "AI builds your feature while you watch — orchestrate Claude Code agents through a structured 5-stage pipeline",
   "type": "module",
@@ -22,7 +22,7 @@
     "anthropic"
   ],
   "bin": {
-    "swarm": "./dist/bin/swarm.js"
+    "hivemind": "./dist/bin/swarm.js"
   },
   "files": [
     "dist/",

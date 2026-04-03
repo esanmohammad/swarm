@@ -184,7 +184,7 @@ function runSoc2Checks(swarmDir: string, cwd: string): ComplianceCheck[] {
     category: 'Incident Response',
     status: existsSync(auditPath) && hasIncidentCmd ? 'pass' : 'partial',
     evidence: 'Swarm CLI provides mayday pipeline and audit trail for incident tracking',
-    remediation: 'Use `swarm mayday` for automated incident response',
+    remediation: 'Use `hivemind mayday` for automated incident response',
   });
 
   // SOC2-006: Monitoring and alerting

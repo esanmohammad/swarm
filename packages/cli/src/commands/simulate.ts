@@ -95,7 +95,7 @@ export function registerSimulate(program: Command): void {
       try {
         swarmDir = requireSwarmDir();
       } catch {
-        console.error(chalk.red('No .swarm/ directory found. Run `swarm init` first.'));
+        console.error(chalk.red('No .swarm/ directory found. Run `hivemind init` first.'));
         process.exit(1);
       }
       loadConfig();
@@ -104,7 +104,7 @@ export function registerSimulate(program: Command): void {
       if (opts.report) {
         const reports = loadSimulationReports(swarmDir);
         if (reports.length === 0) {
-          console.log(chalk.dim('No simulation reports yet. Run `swarm simulate` to generate one.'));
+          console.log(chalk.dim('No simulation reports yet. Run `hivemind simulate` to generate one.'));
           return;
         }
         const latest = reports[reports.length - 1];
@@ -134,7 +134,7 @@ export function registerSimulate(program: Command): void {
 
       if (!result.passed) {
         report.recommendations.push('Review failing metrics before merging.');
-        report.recommendations.push('Consider running `swarm simulate scale 2x` to test at higher load.');
+        report.recommendations.push('Consider running `hivemind simulate scale 2x` to test at higher load.');
       } else {
         report.recommendations.push('All checks passed. Safe to merge.');
       }
@@ -157,7 +157,7 @@ export function registerSimulate(program: Command): void {
       try {
         swarmDir = requireSwarmDir();
       } catch {
-        console.error(chalk.red('No .swarm/ directory found. Run `swarm init` first.'));
+        console.error(chalk.red('No .swarm/ directory found. Run `hivemind init` first.'));
         process.exit(1);
       }
       loadConfig();
@@ -218,7 +218,7 @@ export function registerSimulate(program: Command): void {
       try {
         swarmDir = requireSwarmDir();
       } catch {
-        console.error(chalk.red('No .swarm/ directory found. Run `swarm init` first.'));
+        console.error(chalk.red('No .swarm/ directory found. Run `hivemind init` first.'));
         process.exit(1);
       }
       loadConfig();

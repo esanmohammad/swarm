@@ -533,7 +533,7 @@ export class ClaudeCLIBackend extends EventEmitter implements AgentBackend {
       this._timedOut = true;
       this.emit('error', new Error(
         `Agent timed out after ${Math.round(baseTimeout / 60000)}m of inactivity. ` +
-        `Use 'swarm mayday --resume' to continue, or increase timeout in .swarm/config.yaml.`
+        `Use 'hivemind mayday --resume' to continue, or increase timeout in .swarm/config.yaml.`
       ));
       this.kill();
     }, baseTimeout);
@@ -547,7 +547,7 @@ export class ClaudeCLIBackend extends EventEmitter implements AgentBackend {
       this._timedOut = true;
       this.emit('error', new Error(
         `Agent timed out after ${Math.round(durationMs / 60000)}m. ` +
-        `Use 'swarm mayday --resume' to continue.`
+        `Use 'hivemind mayday --resume' to continue.`
       ));
       this.kill();
     }, durationMs);

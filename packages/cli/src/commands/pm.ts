@@ -111,7 +111,7 @@ async function syncGitHub(project: string | null, pipelineState: PipelineState, 
 
     // Update labels on issues that match the pipeline project
     const labelName = `swarm:${pmStatus.toLowerCase().replace(/\s+/g, '-')}`;
-    const staleLabels = ['swarm:in-progress', 'swarm:in-review', 'swarm:in-development', 'swarm:testing', 'swarm:done', 'swarm:blocked']
+    const staleLabels = ['hivemind:in-progress', 'hivemind:in-review', 'hivemind:in-development', 'hivemind:testing', 'hivemind:done', 'hivemind:blocked']
       .filter(l => l !== `swarm:${pmStatus.toLowerCase().replace(/\s+/g, '-')}`);
 
     // Check if project label exists, create if not
@@ -189,7 +189,7 @@ async function syncLinear(project: string | null, pipelineState: PipelineState, 
     const teamKey = project || 'default';
 
     const query = `{
-      issues(filter: { labels: { name: { eq: "swarm" } } }, first: 50) {
+      issues(filter: { labels: { name: { eq: "hivemind" } } }, first: 50) {
         nodes {
           id
           identifier
@@ -281,7 +281,7 @@ async function syncJira(project: string | null, pipelineState: PipelineState, sy
 
   try {
     const projectKey = project || 'SWARM';
-    const jql = `project = "${projectKey}" AND labels = "swarm" ORDER BY updated DESC`;
+    const jql = `project = "${projectKey}" AND labels = "hivemind" ORDER BY updated DESC`;
     const searchUrl = `${jiraUrl}/rest/api/3/search?jql=${encodeURIComponent(jql)}&maxResults=50`;
 
     const response = await fetch(searchUrl, {
@@ -544,7 +544,7 @@ export function registerPm(program: Command): void {
       try {
         swarmDir = requireSwarmDir();
       } catch {
-        console.error(chalk.red('No .swarm/ directory found. Run `swarm init` first.'));
+        console.error(chalk.red('No .swarm/ directory found. Run `hivemind init` first.'));
         process.exit(1);
       }
 
@@ -590,7 +590,7 @@ export function registerPm(program: Command): void {
       try {
         swarmDir = requireSwarmDir();
       } catch {
-        console.error(chalk.red('No .swarm/ directory found. Run `swarm init` first.'));
+        console.error(chalk.red('No .swarm/ directory found. Run `hivemind init` first.'));
         process.exit(1);
       }
 
@@ -651,7 +651,7 @@ export function registerPm(program: Command): void {
       } else {
         console.log(chalk.dim('\nFeature request:'));
         console.log(chalk.white(featureRequest));
-        console.log(chalk.dim('\nRun with --run flag to start the MayDay pipeline, or copy the above into `swarm mayday`.'));
+        console.log(chalk.dim('\nRun with --run flag to start the MayDay pipeline, or copy the above into `hivemind mayday`.'));
       }
 
       // Track the import in sync state
@@ -679,7 +679,7 @@ export function registerPm(program: Command): void {
       try {
         swarmDir = requireSwarmDir();
       } catch {
-        console.error(chalk.red('No .swarm/ directory found. Run `swarm init` first.'));
+        console.error(chalk.red('No .swarm/ directory found. Run `hivemind init` first.'));
         process.exit(1);
       }
 
@@ -696,7 +696,7 @@ export function registerPm(program: Command): void {
         console.log(chalk.dim(`Provider:  ${syncState.provider}`));
         if (syncState.project) console.log(chalk.dim(`Project:   ${syncState.project}`));
       } else {
-        console.log(chalk.yellow('Never synced. Run `swarm pm sync` to sync pipeline state.'));
+        console.log(chalk.yellow('Never synced. Run `hivemind pm sync` to sync pipeline state.'));
       }
 
       // Current pipeline status

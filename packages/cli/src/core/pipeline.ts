@@ -476,7 +476,7 @@ export class Pipeline {
     const reqPath = join(this.projectCwd, 'REQUIREMENTS.md');
 
     if (!existsSync(reqPath)) {
-      throw new Error('REQUIREMENTS.md not found. Run `swarm analyze` first.');
+      throw new Error('REQUIREMENTS.md not found. Run `hivemind analyze` first.');
     }
 
     const requirements = readFileSync(reqPath, 'utf-8');
@@ -537,7 +537,7 @@ export class Pipeline {
     const specPath = join(this.projectCwd, 'SPEC.md');
 
     if (!existsSync(specPath)) {
-      throw new Error('SPEC.md not found. Run `swarm architect` first.');
+      throw new Error('SPEC.md not found. Run `hivemind architect` first.');
     }
 
     const spec = readFileSync(specPath, 'utf-8');
@@ -599,7 +599,7 @@ export class Pipeline {
     const tasksPath = join(this.projectCwd, 'TASKS.md');
 
     if (!existsSync(tasksPath)) {
-      throw new Error('TASKS.md not found. Run `swarm plan` first.');
+      throw new Error('TASKS.md not found. Run `hivemind plan` first.');
     }
 
     const tasks = readFileSync(tasksPath, 'utf-8');
@@ -856,7 +856,7 @@ export class Pipeline {
       }
 
       if (contextParts.length === 0) {
-        throw new Error('No pipeline artifacts found. Run at least `swarm analyze` first.');
+        throw new Error('No pipeline artifacts found. Run at least `hivemind analyze` first.');
       }
 
       const testerPromptParts = this.buildTesterPrompt(s, frameworks, pwConfig, opts.figmaUrl);
@@ -1499,12 +1499,12 @@ export class Pipeline {
         '## Suggested Next Steps',
         '',
         mayday.error?.includes('Stuck')
-          ? '1. Review the failing tests manually — the fix loop tried the same approach repeatedly.\n2. Consider a different implementation approach.\n3. Run `swarm mayday --resume --from build` after making manual fixes.'
+          ? '1. Review the failing tests manually — the fix loop tried the same approach repeatedly.\n2. Consider a different implementation approach.\n3. Run `hivemind mayday --resume --from build` after making manual fixes.'
           : mayday.error?.includes('Budget')
-            ? '1. Increase budget: `swarm mayday --resume --budget 50`\n2. Or use lean mode: `swarm mayday --lean --resume`'
+            ? '1. Increase budget: `hivemind mayday --resume --budget 50`\n2. Or use lean mode: `hivemind mayday --lean --resume`'
             : mayday.error?.includes('Max fix iterations')
-              ? '1. Review test failures and fix manually.\n2. Resume with more iterations: `swarm mayday --resume --max-iterations 10`'
-              : '1. Check the error above and the stage that failed.\n2. Fix the issue manually, then `swarm mayday --resume`.',
+              ? '1. Review test failures and fix manually.\n2. Resume with more iterations: `hivemind mayday --resume --max-iterations 10`'
+              : '1. Check the error above and the stage that failed.\n2. Fix the issue manually, then `hivemind mayday --resume`.',
         '',
       ].join('\n');
 
@@ -1793,7 +1793,7 @@ export class Pipeline {
       console.log(`  Quality: ${color(`${avgScore}/100`)}` + chalk.dim(` (${scores.map(s => `${s.artifact}: ${s.overall}`).join(', ')})`));
     }
 
-    console.log(chalk.dim(`  Run ${chalk.bold('swarm status')} to see details or ${chalk.bold('swarm dashboard')} to view in browser\n`));
+    console.log(chalk.dim(`  Run ${chalk.bold('hivemind status')} to see details or ${chalk.bold('hivemind dashboard')} to view in browser\n`));
   }
 
   async resumeMayday(opts: { parallel?: number; headless?: boolean } = {}): Promise<void> {

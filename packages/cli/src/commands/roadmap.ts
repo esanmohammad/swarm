@@ -335,7 +335,7 @@ export function registerRoadmap(program: Command): void {
       const roadmap = loadRoadmap(swarmDir);
 
       if (!roadmap) {
-        console.error(chalk.red('No roadmap found. Run `swarm roadmap "<goal>"` first.'));
+        console.error(chalk.red('No roadmap found. Run `hivemind roadmap "<goal>"` first.'));
         process.exit(1);
       }
 
@@ -403,7 +403,7 @@ export function registerRoadmap(program: Command): void {
 
       const roadmap = loadRoadmap(swarmDir);
       if (!roadmap) {
-        console.error(chalk.red('No roadmap found. Run `swarm roadmap "<goal>"` first.'));
+        console.error(chalk.red('No roadmap found. Run `hivemind roadmap "<goal>"` first.'));
         process.exit(1);
       }
 
@@ -496,7 +496,7 @@ export function registerRoadmap(program: Command): void {
       const roadmap = loadRoadmap(swarmDir);
 
       if (!roadmap) {
-        console.error(chalk.red('No roadmap found. Run `swarm roadmap "<goal>"` first.'));
+        console.error(chalk.red('No roadmap found. Run `hivemind roadmap "<goal>"` first.'));
         process.exit(1);
       }
 
@@ -514,7 +514,7 @@ export function registerRoadmap(program: Command): void {
 
       if (unmetDeps.length > 0) {
         console.error(chalk.red(`Cannot start ${phaseId} — unmet dependencies: ${unmetDeps.join(', ')}`));
-        console.error(chalk.dim('Complete those phases first, or use `swarm roadmap adjust` to re-plan.'));
+        console.error(chalk.dim('Complete those phases first, or use `hivemind roadmap adjust` to re-plan.'));
         process.exit(1);
       }
 

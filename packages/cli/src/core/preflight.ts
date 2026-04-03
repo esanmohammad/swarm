@@ -17,7 +17,7 @@ export function requireClaudeCli(): void {
     console.error(chalk.cyan('  npm install -g @anthropic-ai/claude-code\n'));
     console.error('Then authenticate:\n');
     console.error(chalk.cyan('  claude\n'));
-    console.error(`Run ${chalk.bold('swarm doctor')} to verify your setup.`);
+    console.error(`Run ${chalk.bold('hivemind doctor')} to verify your setup.`);
     process.exit(1);
   }
 
@@ -28,7 +28,7 @@ export function requireClaudeCli(): void {
     console.error(chalk.red('\nClaude CLI found but not working.\n'));
     console.error('Try re-authenticating:\n');
     console.error(chalk.cyan('  claude\n'));
-    console.error(`Run ${chalk.bold('swarm doctor')} for more details.`);
+    console.error(`Run ${chalk.bold('hivemind doctor')} for more details.`);
     process.exit(1);
   }
 }

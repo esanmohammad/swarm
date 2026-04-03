@@ -42,7 +42,7 @@ function printOverview(mgr: ObservabilityManager, detector: AnomalyDetector): vo
 
   // Sources summary
   if (state.sources.length === 0) {
-    console.log(chalk.dim('  No data sources configured. Run `swarm observe setup` to add one.\n'));
+    console.log(chalk.dim('  No data sources configured. Run `hivemind observe setup` to add one.\n'));
   } else {
     console.log(chalk.bold('  Data Sources'));
     for (const src of state.sources) {
@@ -96,7 +96,7 @@ export function registerObserve(program: Command): void {
       try {
         swarmDir = requireSwarmDir();
       } catch {
-        console.error(chalk.red('No .swarm/ directory found. Run `swarm init` first.'));
+        console.error(chalk.red('No .swarm/ directory found. Run `hivemind init` first.'));
         process.exit(1);
       }
 
@@ -121,7 +121,7 @@ export function registerObserve(program: Command): void {
       try {
         swarmDir = requireSwarmDir();
       } catch {
-        console.error(chalk.red('No .swarm/ directory found. Run `swarm init` first.'));
+        console.error(chalk.red('No .swarm/ directory found. Run `hivemind init` first.'));
         process.exit(1);
       }
 
@@ -183,7 +183,7 @@ export function registerObserve(program: Command): void {
       try {
         swarmDir = requireSwarmDir();
       } catch {
-        console.error(chalk.red('No .swarm/ directory found. Run `swarm init` first.'));
+        console.error(chalk.red('No .swarm/ directory found. Run `hivemind init` first.'));
         process.exit(1);
       }
 
@@ -194,7 +194,7 @@ export function registerObserve(program: Command): void {
       console.log(chalk.bold('\n  Data Source Status\n'));
 
       if (state.sources.length === 0) {
-        console.log(chalk.dim('  No data sources configured. Run `swarm observe setup` to add one.\n'));
+        console.log(chalk.dim('  No data sources configured. Run `hivemind observe setup` to add one.\n'));
         return;
       }
 
@@ -226,7 +226,7 @@ export function registerObserve(program: Command): void {
       try {
         swarmDir = requireSwarmDir();
       } catch {
-        console.error(chalk.red('No .swarm/ directory found. Run `swarm init` first.'));
+        console.error(chalk.red('No .swarm/ directory found. Run `hivemind init` first.'));
         process.exit(1);
       }
 
@@ -272,7 +272,7 @@ export function registerObserve(program: Command): void {
       try {
         swarmDir = requireSwarmDir();
       } catch {
-        console.error(chalk.red('No .swarm/ directory found. Run `swarm init` first.'));
+        console.error(chalk.red('No .swarm/ directory found. Run `hivemind init` first.'));
         process.exit(1);
       }
 
@@ -338,7 +338,7 @@ export function registerObserve(program: Command): void {
       try {
         swarmDir = requireSwarmDir();
       } catch {
-        console.error(chalk.red('No .swarm/ directory found. Run `swarm init` first.'));
+        console.error(chalk.red('No .swarm/ directory found. Run `hivemind init` first.'));
         process.exit(1);
       }
 
@@ -398,7 +398,7 @@ export function registerObserve(program: Command): void {
       try {
         swarmDir = requireSwarmDir();
       } catch {
-        console.error(chalk.red('No .swarm/ directory found. Run `swarm init` first.'));
+        console.error(chalk.red('No .swarm/ directory found. Run `hivemind init` first.'));
         process.exit(1);
       }
 
@@ -438,7 +438,7 @@ export function registerObserve(program: Command): void {
       try {
         swarmDir = requireSwarmDir();
       } catch {
-        console.error(chalk.red('No .swarm/ directory found. Run `swarm init` first.'));
+        console.error(chalk.red('No .swarm/ directory found. Run `hivemind init` first.'));
         process.exit(1);
       }
 

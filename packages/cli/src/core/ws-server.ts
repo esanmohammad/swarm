@@ -2085,7 +2085,7 @@ export class SwarmWsServer {
         const swarmDir = join(this.state.getFilePath(), '..');
         const apState = loadAP(swarmDir);
         apState.running = true;
-        apState.label = cmd.label || apState.label || 'swarm';
+        apState.label = cmd.label || apState.label || 'hivemind';
         apState.pollInterval = cmd.interval || apState.pollInterval || 10;
         apState.maxConcurrent = cmd.maxConcurrent || apState.maxConcurrent || 1;
         apState.budgetPerIssue = cmd.budget || apState.budgetPerIssue || 10;
@@ -2127,7 +2127,7 @@ export class SwarmWsServer {
           const inbox = loadInboxState(sd);
           inbox.running = true;
           inbox.paused = false;
-          inbox.label = cmd.label || inbox.label || 'swarm';
+          inbox.label = cmd.label || inbox.label || 'hivemind';
           inbox.pollInterval = cmd.interval || inbox.pollInterval || 10;
           inbox.maxConcurrent = cmd.maxConcurrent || inbox.maxConcurrent || 1;
           if (cmd.budget) inbox.stats.dailyBudget = cmd.budget;

@@ -137,7 +137,7 @@ export function registerPair(program: Command): void {
     .command('stop')
     .description('Stop the current pairing session')
     .action(() => {
-      console.log(chalk.yellow('Pair session can be stopped with Ctrl+C in the terminal running "swarm pair".'));
+      console.log(chalk.yellow('Pair session can be stopped with Ctrl+C in the terminal running "hivemind pair".'));
     });
 
   cmd
@@ -149,7 +149,7 @@ export function registerPair(program: Command): void {
       try {
         swarmDir = requireSwarmDir();
       } catch {
-        console.log(chalk.red('No .swarm/ directory found. Run "swarm init" first.'));
+        console.log(chalk.red('No .swarm/ directory found. Run "hivemind init" first.'));
         process.exit(1);
       }
 
@@ -195,7 +195,7 @@ export function registerPair(program: Command): void {
       try {
         swarmDir = requireSwarmDir();
       } catch {
-        console.log(chalk.red('No .swarm/ directory found. Run "swarm init" first.'));
+        console.log(chalk.red('No .swarm/ directory found. Run "hivemind init" first.'));
         process.exit(1);
       }
 

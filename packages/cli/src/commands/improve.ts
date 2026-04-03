@@ -13,7 +13,7 @@ export function registerImprove(program: Command): void {
       try {
         swarmDir = requireSwarmDir();
       } catch {
-        console.error(chalk.red('No .swarm/ directory found. Run `swarm init` first.'));
+        console.error(chalk.red('No .swarm/ directory found. Run `hivemind init` first.'));
         process.exit(1);
       }
 
@@ -42,7 +42,7 @@ export function registerImprove(program: Command): void {
           console.log(`    ${chalk.cyan(strat.strategy)} (${strat.taskType}): ${rateColor(strat.successRate + '%')} success | $${strat.avgCost.toFixed(2)} avg cost | ${strat.sampleSize} runs`);
         }
       } else {
-        console.log(chalk.dim('    No strategies analyzed yet. Run `swarm improve analyze` to generate.'));
+        console.log(chalk.dim('    No strategies analyzed yet. Run `hivemind improve analyze` to generate.'));
       }
       console.log('');
 
@@ -51,7 +51,7 @@ export function registerImprove(program: Command): void {
       const modelKeys = Object.keys(state.tuning.modelOverrides);
       const stratKeys = Object.keys(state.tuning.strategyOverrides);
       if (modelKeys.length === 0 && stratKeys.length === 0 && state.tuning.promptVariants.length === 0) {
-        console.log(chalk.dim('    No tuning applied. Run `swarm improve apply` to auto-tune.'));
+        console.log(chalk.dim('    No tuning applied. Run `hivemind improve apply` to auto-tune.'));
       } else {
         if (modelKeys.length > 0) {
           console.log('    Model overrides:');
@@ -81,7 +81,7 @@ export function registerImprove(program: Command): void {
         console.log(`    Period: ${state.report.period}`);
         console.log(`    Recommendations: ${state.report.recommendations.length}`);
       } else {
-        console.log(chalk.dim('  No report generated yet. Run `swarm improve report` to generate.'));
+        console.log(chalk.dim('  No report generated yet. Run `hivemind improve report` to generate.'));
       }
       console.log('');
     });
@@ -98,7 +98,7 @@ export function registerImprove(program: Command): void {
       try {
         swarmDir = requireSwarmDir();
       } catch {
-        console.error(chalk.red('No .swarm/ directory found. Run `swarm init` first.'));
+        console.error(chalk.red('No .swarm/ directory found. Run `hivemind init` first.'));
         process.exit(1);
       }
 
@@ -151,7 +151,7 @@ export function registerImprove(program: Command): void {
       try {
         swarmDir = requireSwarmDir();
       } catch {
-        console.error(chalk.red('No .swarm/ directory found. Run `swarm init` first.'));
+        console.error(chalk.red('No .swarm/ directory found. Run `hivemind init` first.'));
         process.exit(1);
       }
 
@@ -208,7 +208,7 @@ export function registerImprove(program: Command): void {
       try {
         swarmDir = requireSwarmDir();
       } catch {
-        console.error(chalk.red('No .swarm/ directory found. Run `swarm init` first.'));
+        console.error(chalk.red('No .swarm/ directory found. Run `hivemind init` first.'));
         process.exit(1);
       }
 
@@ -231,7 +231,7 @@ export function registerImprove(program: Command): void {
       }
       console.log('');
       console.log(chalk.dim('Tuning is stored in .swarm/self-improvement.json'));
-      console.log(chalk.dim('Run `swarm improve reset` to revert to defaults.'));
+      console.log(chalk.dim('Run `hivemind improve reset` to revert to defaults.'));
       console.log('');
     });
 
@@ -245,7 +245,7 @@ export function registerImprove(program: Command): void {
       try {
         swarmDir = requireSwarmDir();
       } catch {
-        console.error(chalk.red('No .swarm/ directory found. Run `swarm init` first.'));
+        console.error(chalk.red('No .swarm/ directory found. Run `hivemind init` first.'));
         process.exit(1);
       }
 
@@ -254,7 +254,7 @@ export function registerImprove(program: Command): void {
 
       console.log(chalk.green('\nTuning reset to defaults.'));
       console.log(chalk.dim('All model overrides, strategy overrides, and prompt variant scores cleared.'));
-      console.log(chalk.dim('Performance records are preserved. Run `swarm improve analyze` to re-analyze.'));
+      console.log(chalk.dim('Performance records are preserved. Run `hivemind improve analyze` to re-analyze.'));
       console.log('');
     });
 }

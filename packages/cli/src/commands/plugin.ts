@@ -57,7 +57,7 @@ export function registerPlugin(program: Command): void {
         console.log(chalk.dim('No plugins installed.'));
         console.log(
           chalk.dim('  Run ') +
-            chalk.cyan('swarm plugin init') +
+            chalk.cyan('hivemind plugin init') +
             chalk.dim(' to create one, or add npm packages to config.plugins[]'),
         );
         return;
@@ -132,6 +132,6 @@ export function registerPlugin(program: Command): void {
       console.log();
       console.log(chalk.dim('Next steps:'));
       console.log(chalk.dim('  1. Edit the plugin file to add custom stages or personas'));
-      console.log(chalk.dim('  2. Run ') + chalk.cyan('swarm plugin list') + chalk.dim(' to verify'));
+      console.log(chalk.dim('  2. Run ') + chalk.cyan('hivemind plugin list') + chalk.dim(' to verify'));
     });
 }

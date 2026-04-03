@@ -30,7 +30,7 @@ export function loadConfig(cwd: string = process.cwd()): SwarmConfig {
 export function requireSwarmDir(cwd: string = process.cwd()): string {
   const dir = findSwarmDir(cwd);
   if (!existsSync(dir)) {
-    throw new Error('No .swarm/ directory found. Run `swarm init` first.');
+    throw new Error('No .swarm/ directory found. Run `hivemind init` first.');
   }
   return dir;
 }
