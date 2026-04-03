@@ -860,15 +860,35 @@ export class SwarmWsServer {
               permissionMode: 'auto',
             });
             await this.agentManager.waitForAgent(agent.id);
+            const fixStatus = agent.status === 'done' ? 'success' : 'error';
             this.state.saveActivity({
               activityType: 'fix',
               summary: bugDescription.slice(0, 200),
               cost: agent.cost,
               durationMs: Date.now() - startedAt,
-              status: agent.status === 'done' ? 'success' : 'error',
+              status: fixStatus,
               model: fixModel,
               agentIds: [agent.id],
             });
+            // Record memory — only for failures (learn what didn't work)
+            try {
+              if (fixStatus === 'error') {
+                const { MemoryStore } = await import('./memory-store.js');
+                const store = new MemoryStore(join(this.state.getFilePath(), '..'));
+                // Only record if we don't already have a similar memory
+                const existing = store.query([bugDescription.slice(0, 50)], ['fix-pattern']);
+                if (existing.length === 0) {
+                  store.add({
+                    kind: 'fix-pattern',
+                    content: `Fix attempt failed for: "${bugDescription.slice(0, 150)}". Try a different approach next time.`,
+                    confidence: 65,
+                    source: 'fix-auto',
+                    tags: ['fix', 'failed'],
+                    ttlDays: 14,
+                  });
+                }
+              }
+            } catch { /* non-critical */ }
             console.log(`[ws] Fix complete`);
           } catch (err) {
             console.error(`[ws] Fix failed: ${err instanceof Error ? err.message : err}`);
@@ -921,6 +941,25 @@ export class SwarmWsServer {
               model: spikeModel,
               agentIds: [spikeAgent.id],
             });
+            // Record memory from research — extract key finding from output
+            try {
+              if (spikeAgent.status === 'done' && spikeAgent.output) {
+                const { MemoryStore } = await import('./memory-store.js');
+                const store = new MemoryStore(join(this.state.getFilePath(), '..'));
+                // Extract the last paragraph as the finding summary
+                const lines = spikeAgent.output.trim().split('\n').filter(l => l.trim());
+                const lastLines = lines.slice(-5).join(' ').slice(0, 300);
+                if (lastLines.length > 50) { // Only record if there's meaningful content
+                  store.add({
+                    kind: 'approach',
+                    content: `Research on "${(cmd.prompt || '').slice(0, 80)}": ${lastLines}`,
+                    confidence: 70,
+                    source: 'spike-auto',
+                    tags: ['research'],
+                  });
+                }
+              }
+            } catch { /* non-critical */ }
             console.log(`[ws] Spike complete`);
           } catch (err) {
             console.error(`[ws] Spike failed: ${err instanceof Error ? err.message : err}`);
@@ -940,14 +979,32 @@ export class SwarmWsServer {
             let diff = '';
             let reviewContext = '';
 
-            if (cmd.target && /^\d+$/.test(cmd.target)) {
+            // Parse target: PR number, GitHub URL, or empty (local diff)
+            let prTarget: string | null = null;
+            if (cmd.target) {
+              const trimmedTarget = cmd.target.trim();
+              if (/^\d+$/.test(trimmedTarget)) {
+                prTarget = trimmedTarget;
+              } else {
+                // Try to extract PR number from GitHub URL
+                // Formats: https://github.com/owner/repo/pull/123, github.com/owner/repo/pull/123/files
+                const urlMatch = trimmedTarget.match(/(?:github\.com\/[^/]+\/[^/]+\/pull\/)(\d+)/);
+                if (urlMatch) {
+                  prTarget = urlMatch[1];
+                } else if (/^#?\d+$/.test(trimmedTarget)) {
+                  prTarget = trimmedTarget.replace('#', '');
+                }
+              }
+            }
+
+            if (prTarget) {
               try {
-                const prInfo = execSync(`gh pr view ${cmd.target} --json title,body`, { encoding: 'utf-8', cwd }).trim();
-                const prDiff = execSync(`gh pr diff ${cmd.target}`, { encoding: 'utf-8', cwd }).trim();
-                reviewContext = `Pull Request #${cmd.target}:\n${prInfo}`;
+                const prInfo = execSync(`gh pr view ${prTarget} --json title,body`, { encoding: 'utf-8', cwd }).trim();
+                const prDiff = execSync(`gh pr diff ${prTarget}`, { encoding: 'utf-8', cwd }).trim();
+                reviewContext = `Pull Request #${prTarget}:\n${prInfo}`;
                 diff = prDiff;
               } catch {
-                console.error(`[ws] Could not fetch PR #${cmd.target}`);
+                console.error(`[ws] Could not fetch PR #${prTarget}`);
                 return;
               }
             } else {
@@ -1011,6 +1068,7 @@ export class SwarmWsServer {
               model: reviewModel,
               agentIds: [reviewAgent.id],
             });
+            // Reviews don't create memories — each review is unique, low reuse value
             console.log(`[ws] Review complete`);
           } catch (err) {
             console.error(`[ws] Review failed: ${err instanceof Error ? err.message : err}`);
@@ -1069,15 +1127,31 @@ export class SwarmWsServer {
             });
             await this.agentManager.waitForAgent(refactorAgent.id);
             const totalRefactorCost = (analyst.cost?.totalUsd || 0) + (refactorAgent.cost?.totalUsd || 0);
+            const refactorStatus = refactorAgent.status === 'done' ? 'success' : 'error';
             this.state.saveActivity({
               activityType: 'refactor',
               summary: (cmd.prompt || '').slice(0, 200),
               cost: { ...refactorAgent.cost, totalUsd: totalRefactorCost },
               durationMs: Date.now() - refactorStart,
-              status: refactorAgent.status === 'done' ? 'success' : 'error',
+              status: refactorStatus,
               model: refactorModel,
               agentIds: [analyst.id, refactorAgent.id],
             });
+            // Record memory — only for failures (learn what didn't work)
+            try {
+              if (refactorStatus === 'error') {
+                const { MemoryStore } = await import('./memory-store.js');
+                const store = new MemoryStore(join(this.state.getFilePath(), '..'));
+                store.add({
+                  kind: 'approach',
+                  content: `Refactor failed: "${(cmd.prompt || '').slice(0, 150)}". Consider breaking into smaller changes.`,
+                  confidence: 60,
+                  source: 'refactor-auto',
+                  tags: ['refactor', 'failed'],
+                  ttlDays: 14,
+                });
+              }
+            } catch { /* non-critical */ }
             console.log(`[ws] Refactor complete`);
           } catch (err) {
             console.error(`[ws] Refactor failed: ${err instanceof Error ? err.message : err}`);
@@ -1655,7 +1729,8 @@ export class SwarmWsServer {
 
             // Step 2: Apply
             const analysisOutput = analyst.output.slice(-10000);
-            await this.agentManager.spawn({
+            const simplifyStart = Date.now();
+            const fixer = await this.agentManager.spawn({
               name: `simplify-fixer-${simplifyStack}`,
               persona: 'engineer',
               stack: simplifyStack,
@@ -1669,6 +1744,40 @@ export class SwarmWsServer {
               interactive: false,
               permissionMode: 'auto',
             });
+            await this.agentManager.waitForAgent(fixer.id);
+            const simplifyStatus = fixer.status === 'done' ? 'success' : 'error';
+            const totalSimplifyCost = (analyst.cost?.totalUsd || 0) + (fixer.cost?.totalUsd || 0);
+            this.state.saveActivity({
+              activityType: 'simplify',
+              summary: 'Code cleanup & simplification',
+              cost: { ...fixer.cost, totalUsd: totalSimplifyCost },
+              durationMs: Date.now() - simplifyStart,
+              status: simplifyStatus,
+              model: simplifyModel,
+              agentIds: [analyst.id, fixer.id],
+            });
+            // Only record memory if cleanup found real issues (extract from analyst output)
+            try {
+              if (simplifyStatus === 'success' && analyst.output) {
+                const { MemoryStore } = await import('./memory-store.js');
+                const store = new MemoryStore(join(this.state.getFilePath(), '..'));
+                // Only record if this is the first simplify or if significant time has passed
+                const existing = store.query(['simplify', 'cleanup']);
+                if (existing.length < 3) { // Don't pollute with repeated cleanup records
+                  const summary = analyst.output.trim().split('\n').filter(l => l.trim()).slice(-3).join(' ').slice(0, 200);
+                  if (summary.length > 30) {
+                    store.add({
+                      kind: 'approach',
+                      content: `Cleanup findings: ${summary}`,
+                      confidence: 55,
+                      source: 'simplify-auto',
+                      tags: ['simplify'],
+                      ttlDays: 7, // Short TTL — cleanup findings age quickly
+                    });
+                  }
+                }
+              }
+            } catch { /* non-critical */ }
             console.log(`[ws] Simplify complete`);
           } catch (err) {
             console.error(`[ws] Simplify failed: ${err instanceof Error ? err.message : err}`);

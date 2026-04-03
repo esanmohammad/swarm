@@ -1,0 +1,71 @@
+/* Design Tokens — Single Dark Theme
+   Inspired by GitHub Dark, Linear, Raycast */
+
+:root {
+  /* Backgrounds */
+  --bg-base:        #0d1117;
+  --bg-surface:     #161b22;
+  --bg-raised:      #1c2128;
+  --bg-overlay:     #21262d;
+  --bg-inset:       #090c10;
+  --bg-subtle:      rgba(110,118,129,0.08);
+  --bg-emphasis:    rgba(110,118,129,0.16);
+
+  /* Borders */
+  --border-default: rgba(110,118,129,0.25);
+  --border-muted:   rgba(110,118,129,0.15);
+  --border-active:  rgba(136,182,255,0.35);
+
+  /* Text */
+  --text-primary:   #e6edf3;
+  --text-secondary: #8b949e;
+  --text-tertiary:  #6e7681;
+  --text-disabled:  #484f58;
+  --text-link:      #58a6ff;
+
+  /* Accent */
+  --accent:         #58a6ff;
+  --accent-muted:   rgba(56,139,253,0.15);
+  --accent-emphasis:#1f6feb;
+
+  /* Status */
+  --status-running:    #58a6ff;
+  --status-running-bg: rgba(56,139,253,0.12);
+  --status-success:    #3fb950;
+  --status-success-bg: rgba(46,160,67,0.12);
+  --status-error:      #f85149;
+  --status-error-bg:   rgba(248,81,73,0.12);
+  --status-warning:    #d29922;
+  --status-warning-bg: rgba(187,128,9,0.12);
+  --status-pending:    #6e7681;
+
+  /* Activity type badges */
+  --activity-pipeline:  #bc8cff;
+  --activity-fix:       #f78166;
+  --activity-review:    #58a6ff;
+  --activity-spike:     #7ee787;
+  --activity-refactor:  #d2a8ff;
+  --activity-simplify:  #79c0ff;
+
+  /* Diff */
+  --diff-add-bg:     rgba(46,160,67,0.15);
+  --diff-add-text:   #7ee787;
+  --diff-add-gutter: rgba(46,160,67,0.25);
+  --diff-del-bg:     rgba(248,81,73,0.15);
+  --diff-del-text:   #ffa198;
+  --diff-del-gutter: rgba(248,81,73,0.25);
+  --diff-hunk-bg:    rgba(56,139,253,0.08);
+  --diff-line-num:   #6e7681;
+
+  /* Scrollbar */
+  --scrollbar-thumb: rgba(110,118,129,0.3);
+  --scrollbar-hover: rgba(110,118,129,0.5);
+
+  /* Selection */
+  --selection-bg: rgba(56,139,253,0.3);
+  --selection-color: #e6edf3;
+
+  /* Fonts */
+  --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-code: 'JetBrains Mono', 'IBM Plex Mono', monospace;
+}

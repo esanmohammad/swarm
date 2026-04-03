@@ -64,7 +64,7 @@ export function EmptyState({ sendCommand }: EmptyStateProps) {
         {/* Header */}
         <div className="text-center space-y-3">
           <h2 className="text-lg font-semibold tracking-[0.15em] text-stone-300 uppercase">
-            swarm pipeline
+            hivemind
           </h2>
           <p className="text-sm text-stone-400 leading-relaxed max-w-md mx-auto">
             Orchestrate Claude Code sub-agents through a structured development pipeline.

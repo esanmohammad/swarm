@@ -1,5 +1,10 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
-import type { ActionState } from '../hooks/useAction';
+
+interface ActionState {
+  status: 'pending' | 'running' | 'success' | 'error';
+  error?: string;
+  result?: unknown;
+}
 
 interface ActiveAction {
   id: string;
