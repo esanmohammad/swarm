@@ -4,6 +4,8 @@ import { createHash } from 'node:crypto';
 import { parse as parseYaml, stringify as toYaml } from 'yaml';
 import type { SwarmConfig, TechStack } from '../types.js';
 import { DEFAULT_CONFIG, createEmptyPipeline } from '../types.js';
+import { initRegistry } from './providers/registry.js';
+import { initModelCatalog } from './providers/model-catalog.js';
 
 export function findSwarmDir(cwd: string = process.cwd()): string {
   return join(cwd, '.swarm');
@@ -38,6 +40,15 @@ function derivePort(projectName: string, offset: number): number {
   const hash = createHash('md5').update(projectName).digest();
   const raw = hash.readUInt16BE(offset % (hash.length - 1));
   return 10000 + (raw % 50000);
+}
+
+/**
+ * Initialize the multi-LLM provider registry and model catalog from config.
+ * Call this after loadConfig() to set up provider infrastructure.
+ */
+export function initProviders(config: SwarmConfig): void {
+  initRegistry(config.providers, config.aliases);
+  initModelCatalog(config.model, config.aliases);
 }
 
 /** Auto-detect tech stack from files in the current working directory. */

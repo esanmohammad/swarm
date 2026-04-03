@@ -40,7 +40,7 @@ export function registerMentor(program: Command): void {
     .description('AI mentor — ask questions, get educational code reviews, or deep-dive into areas')
     .argument('[question...]', 'Ask a contextual question about the codebase')
     .option('-s, --stack <stack>', 'Tech stack override')
-    .option('-m, --model <model>', 'Model override (default: sonnet)')
+    .option('-m, --model <model>', 'Model override (e.g., sonnet, openai/gpt-4o, ollama/llama3)')
     .option('-b, --budget <amount>', 'Max budget in USD', '3')
     .option('-i, --interactive', 'Interactive mode — follow-up Q&A in terminal')
     .action(async (questionParts: string[], opts) => {
@@ -61,7 +61,7 @@ export function registerMentor(program: Command): void {
     .command('review')
     .description('Educational code review of staged or recent changes')
     .option('-s, --stack <stack>', 'Tech stack override')
-    .option('-m, --model <model>', 'Model override (default: sonnet)')
+    .option('-m, --model <model>', 'Model override (e.g., sonnet, openai/gpt-4o, ollama/llama3)')
     .option('-b, --budget <amount>', 'Max budget in USD', '3')
     .option('--file <path>', 'Review a specific file instead of staged changes')
     .option('--commit <sha>', 'Review a specific commit')
@@ -74,7 +74,7 @@ export function registerMentor(program: Command): void {
     .command('explain <path>')
     .description('Deep educational dive into a file or directory')
     .option('-s, --stack <stack>', 'Tech stack override')
-    .option('-m, --model <model>', 'Model override (default: sonnet)')
+    .option('-m, --model <model>', 'Model override (e.g., sonnet, openai/gpt-4o, ollama/llama3)')
     .option('-b, --budget <amount>', 'Max budget in USD', '3')
     .option('-i, --interactive', 'Interactive mode — follow-up Q&A in terminal')
     .action(async (path: string, opts) => {
@@ -99,7 +99,7 @@ async function runMentor(
   }
 
   const config = loadConfig();
-  config.model = (opts.model as string) || 'sonnet';
+  config.model = (opts.model as string) || config.model;
   const budgetStr = (opts.budget as string) || '3';
   config.maxBudgetUsd = budgetStr === 'none' ? null : (parseFloat(budgetStr) || 3);
 

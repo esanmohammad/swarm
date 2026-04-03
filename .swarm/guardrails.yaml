@@ -1,0 +1,8 @@
+rules:
+  - name: "Custom: example rule"
+    target: REQUIREMENTS.md
+    checks:
+      - type: section-exists
+        value: Summary
+        message: REQUIREMENTS.md should have a Summary section
+        severity: warning

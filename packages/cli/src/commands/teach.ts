@@ -263,7 +263,7 @@ export function registerTeach(program: Command): void {
   teach
     .command('train')
     .description('Submit a fine-tuning job using collected training data')
-    .option('--model <base>', 'Base model to fine-tune', 'haiku')
+    .option('--model <base>', 'Base model to fine-tune (default: haiku)', 'haiku')
     .option('--epochs <n>', 'Number of training epochs', '3')
     .action((opts) => {
       let swarmDir: string;

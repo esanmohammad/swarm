@@ -49,6 +49,7 @@ import { DebtView } from './DebtView';
 import { ForecastView } from './ForecastView';
 import { ComplianceView } from './ComplianceView';
 import { PluginsView } from './PluginsView';
+import { ModelSettingsView } from './ModelSettingsView';
 import { SpawnDialog } from '../components/SpawnDialog';
 
 // --- Home ---
@@ -350,4 +351,17 @@ export function RoutedCompliance() {
 export function RoutedPlugins() {
   const { sendCommand, pluginRegistry } = useWs();
   return <PluginsView sendCommand={sendCommand} pluginRegistry={pluginRegistry} />;
+}
+
+// --- Model Settings ---
+export function RoutedModelSettings() {
+  const { sendCommand, modelConfig, availableModels, providerStatus } = useWs();
+  return (
+    <ModelSettingsView
+      sendCommand={sendCommand}
+      modelConfig={modelConfig ?? null}
+      availableModels={availableModels ?? null}
+      providerStatus={providerStatus ?? null}
+    />
+  );
 }

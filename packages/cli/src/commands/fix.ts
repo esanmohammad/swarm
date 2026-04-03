@@ -14,7 +14,7 @@ export function registerFix(program: Command): void {
     .description('Fix a bug: skip analysis/architecture, go straight to engineer → test → fix loop')
     .argument('[description]', 'Bug description (text or file path)')
     .option('-s, --stack <stack>', 'Tech stack override (react, node, go, python, rust, swift)')
-    .option('-m, --model <model>', 'Model override (sonnet, opus, haiku)')
+    .option('-m, --model <model>', 'Model override (e.g., sonnet, openai/gpt-4o, ollama/llama3)')
     .option('-f, --file', 'Treat argument as a file path to read')
     .option('-i, --issue <number>', 'GitHub issue number to fix (fetches via gh CLI)')
     .option('-b, --budget <amount>', 'Max budget in USD (default: from config)')

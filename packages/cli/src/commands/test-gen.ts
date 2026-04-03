@@ -72,7 +72,7 @@ export function registerTestGen(program: Command): void {
   program
     .command('test-gen [scope]')
     .description('Generate tests for source files — targets untested code by default')
-    .option('-m, --model <model>', 'Model for test generation', 'sonnet')
+    .option('-m, --model <model>', 'Model for test generation (e.g., sonnet, openai/gpt-4o)', 'sonnet')
     .option('-f, --framework <framework>', 'Test framework (vitest/jest/pytest/go-test/cargo-test/swift-test)')
     .option('--coverage', 'Analyze coverage first, target untested files')
     .option('--verify', 'Run generated tests and fix failures')
@@ -93,7 +93,7 @@ export function registerTestGen(program: Command): void {
       }
 
       const config = loadConfig();
-      config.model = opts.model || 'sonnet';
+      config.model = opts.model || config.model;
       config.maxBudgetUsd = opts.budget === 'none' ? null : (parseFloat(opts.budget) || 5);
 
       const cwd = process.cwd();

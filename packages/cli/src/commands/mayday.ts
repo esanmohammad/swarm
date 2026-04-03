@@ -27,7 +27,7 @@ export function registerMayday(program: Command): void {
     .description('Autonomous end-to-end pipeline: analyze → build → test → fix loop until all tests pass')
     .argument('[feature-request]', 'Feature request description (text or file path)')
     .option('-s, --stack <stack>', 'Tech stack override (react, node, go)')
-    .option('-m, --model <model>', 'Model override (sonnet, opus, haiku)')
+    .option('-m, --model <model>', 'Model override (e.g., sonnet, openai/gpt-4o, ollama/llama3)')
     .option('-p, --parallel <n>', 'Max parallel agents', '3')
     .option('-n, --max-iterations <n>', 'Max fix-retest iterations', '5')
     .option('--figma <url>', 'Figma design URL')
@@ -62,6 +62,7 @@ export function registerMayday(program: Command): void {
       }
 
       // Lean mode: haiku for docs stages, keep engineer on default model
+      // TODO: Use ModelCatalog.suggestForTier('lean') when available
       if (opts.lean) {
         const engineerModel = config.models?.engineer ?? config.model;
         config.models = {
@@ -76,6 +77,7 @@ export function registerMayday(program: Command): void {
       }
 
       // Smart mode: sonnet for docs stages, opus for engineer (best quality/cost balance)
+      // TODO: Use ModelCatalog.suggestForTier('smart') when available
       if (opts.smart && !opts.lean) {
         config.models = {
           ...config.models,

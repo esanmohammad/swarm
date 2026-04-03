@@ -7,7 +7,7 @@ import {
   Layers, HelpCircle, BookOpen, Brain, Network,
   Map, Search, Target, Zap, Bug, Shield, ClipboardCheck, Building2,
   Upload, Database, Package, AlertTriangle,
-  RefreshCw, Puzzle,
+  RefreshCw, Puzzle, Cpu,
   ChevronRight, ChevronDown, PanelLeftClose, PanelLeft,
   Sparkles, Settings
 } from 'lucide-react';
@@ -115,6 +115,13 @@ const NAV_GROUPS: NavGroup[] = [
       { path: '/advanced', label: 'Overview', icon: Settings },
       { path: '/advanced/plugins', label: 'Plugins', icon: Puzzle },
       { path: '/advanced/surfaces', label: 'Surfaces', icon: Target },
+    ],
+  },
+  {
+    label: 'Settings',
+    defaultOpen: false,
+    items: [
+      { path: '/settings/models', label: 'Models & Providers', icon: Cpu },
     ],
   },
 ];

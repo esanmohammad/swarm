@@ -24,7 +24,7 @@ export function registerMigrate(program: Command): void {
     .description('Generate and test database migrations with AI assistance')
     .argument('<description>', 'What migration to create (e.g., "add user preferences table")')
     .option('-s, --stack <stack>', 'Tech stack override')
-    .option('-m, --model <model>', 'Model override (default: sonnet)')
+    .option('-m, --model <model>', 'Model override (e.g., sonnet, openai/gpt-4o, ollama/llama3)')
     .option('--dry-run', 'Generate migration plan without creating files')
     .option('--review', 'Show plan for approval before generating')
     .option('-b, --budget <amount>', 'Max budget in USD', '5')
@@ -41,7 +41,7 @@ export function registerMigrate(program: Command): void {
       }
 
       const config = loadConfig();
-      config.model = opts.model || 'sonnet';
+      config.model = opts.model || config.model;
       config.maxBudgetUsd = opts.budget === 'none' ? null : (parseFloat(opts.budget) || 5);
 
       const cwd = process.cwd();

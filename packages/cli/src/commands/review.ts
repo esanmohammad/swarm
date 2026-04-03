@@ -12,7 +12,7 @@ export function registerReview(program: Command): void {
     .description('Code review: review staged/unstaged changes or a GitHub PR')
     .argument('[target]', 'PR number, branch name, or omit for current changes')
     .option('-s, --stack <stack>', 'Tech stack override')
-    .option('-m, --model <model>', 'Model override (default: sonnet)')
+    .option('-m, --model <model>', 'Model override (e.g., sonnet, openai/gpt-4o, ollama/llama3)')
     .option('--post', 'Post review as PR comment (requires gh CLI)')
     .option('-b, --budget <amount>', 'Max budget in USD', '3')
     .action(async (target: string | undefined, opts) => {
@@ -28,7 +28,7 @@ export function registerReview(program: Command): void {
       }
 
       const config = loadConfig();
-      config.model = opts.model || 'sonnet';
+      config.model = opts.model || config.model;
       if (opts.budget) {
         config.maxBudgetUsd = opts.budget === 'none' ? null : (parseFloat(opts.budget) || 3);
       }

@@ -10,7 +10,7 @@ export function registerArchitect(program: Command): void {
     .command('architect')
     .description('Run the Architect persona to produce SPEC.md from REQUIREMENTS.md')
     .option('-s, --stack <stack>', 'Tech stack override (react, node, go)')
-    .option('-m, --model <model>', 'Model override (sonnet, opus, haiku)')
+    .option('-m, --model <model>', 'Model override (e.g., sonnet, openai/gpt-4o, ollama/llama3)')
     .option('--no-interactive', 'Run in single-shot mode (no conversation)')
     .action(async (opts) => {
       const swarmDir = requireSwarmDir();

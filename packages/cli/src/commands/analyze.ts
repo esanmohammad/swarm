@@ -12,7 +12,7 @@ export function registerAnalyze(program: Command): void {
     .description('Run the Analyst persona to produce REQUIREMENTS.md')
     .argument('<feature-request>', 'Feature request description (text or file path)')
     .option('-s, --stack <stack>', 'Tech stack override (react, node, go)')
-    .option('-m, --model <model>', 'Model override (sonnet, opus, haiku)')
+    .option('-m, --model <model>', 'Model override (e.g., sonnet, openai/gpt-4o, ollama/llama3)')
     .option('-f, --file', 'Treat argument as a file path to read')
     .option('--figma <url>', 'Figma design URL to pass to the analyst')
     .option('--no-interactive', 'Run in single-shot mode (no conversation)')

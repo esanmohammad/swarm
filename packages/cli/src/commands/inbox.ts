@@ -335,7 +335,7 @@ export function registerInbox(program: Command): void {
     .option('-i, --interval <minutes>', 'Poll interval in minutes', '10')
     .option('-b, --budget <amount>', 'Daily budget in USD', '25')
     .option('--max-concurrent <n>', 'Max concurrent work items', '1')
-    .option('-m, --model <model>', 'Model for agents', 'sonnet')
+    .option('-m, --model <model>', 'Model for agents (e.g., sonnet, openai/gpt-4o, ollama/llama3)', 'sonnet')
     .option('--once', 'Run one cycle and exit')
     .action(async (opts) => {
       if (!isGhInstalled()) {
@@ -355,7 +355,7 @@ export function registerInbox(program: Command): void {
       }
 
       const config = loadConfig();
-      config.model = opts.model || 'sonnet';
+      config.model = opts.model || config.model;
       const label = opts.label as string;
       const interval = (parseInt(opts.interval) || 10) * 60000;
       const dailyBudget = parseFloat(opts.budget) || 25;

@@ -721,6 +721,9 @@ export type WsMessage =
   | { type: 'compete-state'; payload: CompeteState }
   | { type: 'spawn-state'; payload: SpawnState }
   | { type: 'federate-state'; payload: FederateState }
+  | { type: 'model-config'; payload: ModelConfig }
+  | { type: 'models-list'; payload: ModelInfo[] }
+  | { type: 'providers-list'; payload: ProviderStatus[] }
   | { type: 'error'; payload: { message: string } };
 
 export type WsCommand =
@@ -921,4 +924,45 @@ export type WsCommand =
   | { action: 'federate-opt-out' }
   | { action: 'federate-share' }
   | { action: 'federate-benchmarks' }
-  | { action: 'get-federate-state' };
+  | { action: 'get-federate-state' }
+  // Wave 8 — Multi-LLM
+  | { action: 'list-models' }
+  | { action: 'test-model'; model: string }
+  | { action: 'get-model-config' }
+  | { action: 'set-model-config'; stage: string; model: string }
+  | { action: 'save-provider-key'; provider: string; apiKey: string }
+  | { action: 'save-provider-url'; provider: string; baseUrl: string }
+  | { action: 'test-provider'; provider: string }
+  | { action: 'list-providers' };
+
+// --- Wave 8: Multi-LLM types ---
+
+export interface ModelInfo {
+  id: string;
+  provider: string;
+  fullId: string;
+  name: string;
+  contextWindow: number;
+  supportsTools: boolean;
+  supportsStreaming: boolean;
+  costPer1MInput: number;
+  costPer1MOutput: number;
+  tier: 1 | 2 | 3;
+  tags: string[];
+}
+
+export interface ProviderStatus {
+  name: string;
+  configured: boolean;
+  connected: boolean;
+  modelsAvailable: number;
+  error?: string;
+  latencyMs?: number;
+}
+
+export interface ModelConfig {
+  defaultModel: string;
+  stageModels: Record<string, string>;
+  providers: Record<string, { configured: boolean; mode?: string }>;
+  aliases: Record<string, string>;
+}

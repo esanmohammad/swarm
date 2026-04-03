@@ -484,7 +484,17 @@ export type WsCommand =
   | { action: 'federate-opt-out' }
   | { action: 'federate-share' }
   | { action: 'federate-benchmarks' }
-  | { action: 'get-federate-state' };
+  | { action: 'get-federate-state' }
+  // Wave 8 — Multi-LLM model management
+  | { action: 'list-models' }
+  | { action: 'test-model'; model: string }
+  | { action: 'get-model-config' }
+  | { action: 'set-model-config'; stage: string; model: string }
+  | { action: 'add-provider'; provider: string; config: Record<string, string> }
+  | { action: 'list-providers' }
+  | { action: 'test-provider'; provider: string }
+  | { action: 'save-provider-key'; provider: string; apiKey: string }
+  | { action: 'save-provider-url'; provider: string; baseUrl: string };
 
 // Guardrail types
 export interface GuardrailRule {
@@ -588,6 +598,20 @@ export interface SwarmConfig {
     events?: string[];
     secret?: string;
     format?: 'slack' | 'discord' | 'generic';
+  }>;
+  /** Multi-LLM provider configurations (Wave 8) */
+  providers?: Record<string, import('./core/providers/types.js').ProviderConfig>;
+  /** Custom model aliases, e.g. { 'fast': 'openai/gpt-4o-mini' } */
+  aliases?: Record<string, string>;
+  /** Custom model registry entries for models not auto-discovered */
+  modelRegistry?: Record<string, {
+    provider: string;
+    modelId: string;
+    contextWindow?: number;
+    supportsTools?: boolean;
+    supportsStreaming?: boolean;
+    costPer1kInput?: number;
+    costPer1kOutput?: number;
   }>;
 }
 

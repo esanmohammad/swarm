@@ -11,7 +11,7 @@ export function registerTest(program: Command): void {
     .command('test')
     .description('Generate test plan (TESTPLAN.md) and run Playwright E2E tests')
     .option('-s, --stack <stack>', 'Tech stack override (react, node, go)')
-    .option('-m, --model <model>', 'Model override (sonnet, opus, haiku)')
+    .option('-m, --model <model>', 'Model override (e.g., sonnet, openai/gpt-4o, ollama/llama3)')
     .option('-p, --parallel <n>', 'Max parallel agents', '2')
     .option('--figma <url>', 'Figma design URL for visual test cases')
     .option('-i, --interactive', 'Run tester in interactive mode (stdio inherited)')

@@ -538,7 +538,7 @@ export function registerPm(program: Command): void {
     .description('Sync current pipeline state to PM tool')
     .option('--provider <provider>', 'PM provider: github, linear, jira', 'github')
     .option('--project <project>', 'Project identifier (e.g., owner/repo for GitHub, project key for Jira)')
-    .option('--model <model>', 'Model for AI-powered summaries', 'sonnet')
+    .option('--model <model>', 'Model for AI-powered summaries (e.g., sonnet, openai/gpt-4o)', 'sonnet')
     .action(async (opts) => {
       let swarmDir: string;
       try {
@@ -583,7 +583,7 @@ export function registerPm(program: Command): void {
     .argument('<ticket-id>', 'Ticket ID to import (e.g., 123 for GitHub, PROJ-123 for Jira)')
     .option('--provider <provider>', 'PM provider: github, linear, jira', 'github')
     .option('--project <project>', 'Project identifier')
-    .option('--model <model>', 'Model for pipeline', 'sonnet')
+    .option('--model <model>', 'Model for pipeline (e.g., sonnet, openai/gpt-4o)', 'sonnet')
     .option('--run', 'Immediately run MayDay pipeline with imported ticket')
     .action(async (ticketId: string, opts) => {
       let swarmDir: string;

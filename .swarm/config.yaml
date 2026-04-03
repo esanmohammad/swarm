@@ -1,0 +1,9 @@
+projectName: swarm
+stack: node
+model: sonnet
+maxBudgetUsd: 5
+promptsDir: bundled
+wsPort: 37453
+dashboardPort: 27176
+permissions:
+  permissionMode: default

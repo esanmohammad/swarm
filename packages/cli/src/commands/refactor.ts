@@ -12,7 +12,7 @@ export function registerRefactor(program: Command): void {
     .description('Refactor code: analyze scope → engineer changes → run tests')
     .argument('<description>', 'What to refactor and why')
     .option('-s, --stack <stack>', 'Tech stack override')
-    .option('-m, --model <model>', 'Model override (sonnet, opus, haiku)')
+    .option('-m, --model <model>', 'Model override (e.g., sonnet, openai/gpt-4o, ollama/llama3)')
     .option('-f, --file', 'Treat argument as a file path to read')
     .option('-b, --budget <amount>', 'Max budget in USD (default: from config)')
     .option('--scope <path>', 'Limit refactoring to a specific directory or file')

@@ -31,7 +31,7 @@ export function registerOnboard(program: Command): void {
     .command('onboard')
     .description('Start guided onboarding tour of the codebase')
     .option('-s, --stack <stack>', 'Tech stack override')
-    .option('-m, --model <model>', 'Model override (default: sonnet)')
+    .option('-m, --model <model>', 'Model override (e.g., sonnet, openai/gpt-4o, ollama/llama3)')
     .option('-r, --role <role>', 'Role-specific onboarding: frontend, backend, fullstack')
     .option('-a, --area <name>', 'Area-specific deep dive (e.g. api, auth, database)')
     .option('--reset', 'Reset onboarding progress and start fresh')
@@ -50,7 +50,7 @@ export function registerOnboard(program: Command): void {
       }
 
       const config = loadConfig();
-      config.model = opts.model || 'sonnet';
+      config.model = opts.model || config.model;
       config.maxBudgetUsd = opts.budget === 'none' ? null : (parseFloat(opts.budget) || 5);
 
       const cwd = process.cwd();

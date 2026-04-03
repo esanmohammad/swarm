@@ -37,7 +37,7 @@ export function registerBabysitPrs(program: Command): void {
     .command('start')
     .description('Start watching PRs for review')
     .option('-i, --interval <minutes>', 'Poll interval in minutes', '5')
-    .option('-m, --model <model>', 'Model for reviews (default: sonnet)')
+    .option('-m, --model <model>', 'Model for reviews (e.g., sonnet, openai/gpt-4o, ollama/llama3)')
     .option('-l, --label <label>', 'Only review PRs with this label')
     .option('--auto-approve', 'Auto-approve PRs that pass review')
     .option('--post', 'Post review as PR comment (default: true)', true)
@@ -61,7 +61,7 @@ export function registerBabysitPrs(program: Command): void {
       }
 
       const config = loadConfig();
-      config.model = opts.model || 'sonnet';
+      config.model = opts.model || config.model;
       config.maxBudgetUsd = opts.budget === 'none' ? null : (parseFloat(opts.budget) || 3);
       const interval = (parseInt(opts.interval) || 5) * 60000;
       const label = opts.label as string | undefined;

@@ -91,6 +91,7 @@ import { registerAllocate } from '../src/commands/allocate.js';
 import { registerCompete } from '../src/commands/compete.js';
 import { registerSpawnCapability } from '../src/commands/spawn-capability.js';
 import { registerFederate } from '../src/commands/federate.js';
+import { registerModels } from '../src/commands/models.js';
 import { autoDetectStack, autoInit, loadConfig } from '../src/core/config.js';
 import { createContext } from '../src/commands/shared.js';
 
@@ -281,6 +282,9 @@ registerAllocate(program);
 registerCompete(program);
 registerSpawnCapability(program);
 registerFederate(program);
+
+// --- Wave 8: Multi-LLM Architecture ---
+registerModels(program);
 
 // --- Pipeline management ---
 registerPipeline(program);

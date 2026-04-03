@@ -135,7 +135,7 @@ export function registerMultiRepo(program: Command): void {
     .description('Run a feature across multiple repos')
     .argument('<feature>', 'Feature request to implement across repos')
     .option('--repos <repos>', 'Comma-separated repo labels (from config) or paths')
-    .option('-m, --model <model>', 'Model to use', 'sonnet')
+    .option('-m, --model <model>', 'Model to use (e.g., sonnet, openai/gpt-4o)', 'sonnet')
     .option('-b, --budget <amount>', 'Max budget per repo in USD', '20')
     .option('--parallel', 'Run repos in parallel (default: sequential)', false)
     .option('--dry-run', 'Plan only, don\'t execute', false)
@@ -168,7 +168,7 @@ export function registerMultiRepo(program: Command): void {
       }
 
       const budget = parseFloat(opts.budget) || 20;
-      const model = opts.model || 'sonnet';
+      const model = opts.model || config.model;
       const parallel = opts.parallel || false;
       const dryRun = opts.dryRun || false;
 

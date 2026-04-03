@@ -31,7 +31,7 @@ export function registerWatch(program: Command): void {
     .command('start')
     .description('Start watching for changes')
     .option('-s, --stack <stack>', 'Tech stack override')
-    .option('-m, --model <model>', 'Model for auto-fix agents', 'sonnet')
+    .option('-m, --model <model>', 'Model for auto-fix agents (e.g., sonnet, openai/gpt-4o)', 'sonnet')
     .option('--test-only', 'Run tests but do not auto-fix failures')
     .option('--commit', 'Auto-commit when tests pass after a fix')
     .option('--scope <path>', 'Watch only a specific directory')
@@ -52,7 +52,7 @@ export function registerWatch(program: Command): void {
       const config = loadConfig();
       const cwd = process.cwd();
       const stack = (opts.stack as TechStack) || config.stack;
-      const model = opts.model || 'sonnet';
+      const model = opts.model || config.model;
       const testOnly = opts.testOnly ?? false;
       const autoCommit = opts.commit ?? false;
       const debounceMs = parseInt(opts.debounce) || 2000;

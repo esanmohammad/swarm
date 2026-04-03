@@ -16,7 +16,7 @@ export function registerExplain(program: Command): void {
     .description('Explain your codebase — full overview, specific files/dirs, or answer questions')
     .argument('[target]', 'File path, directory, or question (omit for full overview)')
     .option('-s, --stack <stack>', 'Tech stack override')
-    .option('-m, --model <model>', 'Model override (default: haiku for speed)')
+    .option('-m, --model <model>', 'Model override (default: haiku for speed, e.g., sonnet, openai/gpt-4o)')
     .option('--diagram', 'Include Mermaid diagrams in the explanation')
     .option('--depth <level>', 'Detail level: shallow, medium, deep', 'medium')
     .option('-o, --output <file>', 'Save explanation to file')

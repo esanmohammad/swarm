@@ -11,7 +11,7 @@ export function registerSimplify(program: Command): void {
     .command('simplify')
     .description('Review changed code for reuse, quality, and efficiency — then auto-fix issues')
     .option('-s, --stack <stack>', 'Tech stack override')
-    .option('-m, --model <model>', 'Model override (default: haiku for speed)')
+    .option('-m, --model <model>', 'Model override (default: haiku for speed, e.g., sonnet, openai/gpt-4o)')
     .option('--scope <path>', 'Limit to specific directory or file')
     .option('--dry-run', 'Report only — do not apply changes')
     .option('-b, --budget <amount>', 'Max budget in USD', '3')

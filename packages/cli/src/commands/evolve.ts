@@ -752,12 +752,12 @@ export function registerEvolve(program: Command): void {
     .command('work')
     .description('Fix highest-priority auto-fixable debt items')
     .option('-n, --count <n>', 'Max items to fix', '10')
-    .option('-m, --model <model>', 'Model override (default: sonnet)')
+    .option('-m, --model <model>', 'Model override (e.g., sonnet, openai/gpt-4o, ollama/llama3)')
     .option('-b, --budget <amount>', 'Max budget in USD', '5')
     .action(async (opts) => {
       const swarmDir = requireSwarmDir();
       const config = loadConfig();
-      config.model = opts.model || 'sonnet';
+      config.model = opts.model || config.model;
       if (opts.budget) {
         config.maxBudgetUsd = opts.budget === 'none' ? null : (parseFloat(opts.budget) || 5);
       }

@@ -2721,6 +2721,221 @@ export class SwarmWsServer {
         console.log(`[ws] Removing plugin: ${cmd.name}`);
         break;
       }
+
+      case 'list-models': {
+        try {
+          const { getModelCatalog } = await import('./providers/model-catalog.js');
+          const catalog = getModelCatalog();
+          const models = await catalog.listAll();
+          this.broadcast({ type: 'model-list', payload: { models } } as unknown as WsMessage);
+        } catch (err) {
+          console.error('[ws] list-models error:', err);
+          this.broadcast({ type: 'model-list', payload: { models: [], error: String(err) } } as unknown as WsMessage);
+        }
+        break;
+      }
+
+      case 'test-model': {
+        const { model } = cmd;
+        try {
+          const { getRegistry } = await import('./providers/registry.js');
+          const registry = getRegistry();
+          const resolved = registry.resolve(model);
+          const provider = registry.getProviderForModel(model);
+          if (!provider) {
+            this.broadcast({ type: 'model-test-result', payload: { model, ok: false, error: `No provider configured for ${resolved.provider}` } } as unknown as WsMessage);
+            break;
+          }
+          const result = await provider.testConnection();
+          this.broadcast({ type: 'model-test-result', payload: { model, ...result } } as unknown as WsMessage);
+        } catch (err) {
+          this.broadcast({ type: 'model-test-result', payload: { model, ok: false, error: String(err) } } as unknown as WsMessage);
+        }
+        break;
+      }
+
+      case 'get-model-config': {
+        const config = this.swarmConfig;
+        this.broadcast({
+          type: 'model-config',
+          payload: {
+            defaultModel: config.model,
+            stageModels: config.models || {},
+            providers: Object.fromEntries(
+              Object.entries(config.providers || {}).map(([name, cfg]) => [
+                name,
+                { configured: !!cfg.apiKey || name === 'ollama', mode: cfg.mode }
+              ])
+            ),
+            aliases: config.aliases || {},
+          },
+        } as unknown as WsMessage);
+        break;
+      }
+
+      case 'set-model-config': {
+        const { stage, model } = cmd;
+        const validStages = ['analyst', 'architect', 'lead', 'engineer', 'tester', 'default'];
+        if (!validStages.includes(stage)) {
+          this.broadcast({ type: 'model-config-error', payload: { error: `Invalid stage: ${stage}` } } as unknown as WsMessage);
+          break;
+        }
+        if (stage === 'default') {
+          this.swarmConfig.model = model;
+        } else {
+          if (!this.swarmConfig.models) this.swarmConfig.models = {};
+          (this.swarmConfig.models as Record<string, string>)[stage] = model;
+        }
+        // Save config to disk
+        try {
+          const configPath = join(this.state.getFilePath(), '..', 'config.yaml');
+          let existing: Record<string, unknown> = {};
+          if (existsSync(configPath)) {
+            try {
+              const raw = readFileSync(configPath, 'utf-8');
+              const parsed = parseYaml(raw);
+              if (parsed && typeof parsed === 'object') existing = parsed as Record<string, unknown>;
+            } catch { /* ignore */ }
+          }
+          if (stage === 'default') {
+            existing.model = model;
+          } else {
+            if (!existing.models || typeof existing.models !== 'object') existing.models = {};
+            (existing.models as Record<string, string>)[stage] = model;
+          }
+          writeFileSync(configPath, toYaml(existing));
+          console.log(`[ws] Updated model config: ${stage} → ${model}`);
+        } catch (err) {
+          console.error('[ws] set-model-config save error:', err);
+        }
+        // Broadcast updated config
+        this.broadcast({
+          type: 'model-config',
+          payload: {
+            defaultModel: this.swarmConfig.model,
+            stageModels: this.swarmConfig.models || {},
+            providers: Object.fromEntries(
+              Object.entries(this.swarmConfig.providers || {}).map(([name, cfg]) => [
+                name,
+                { configured: !!cfg.apiKey || name === 'ollama', mode: cfg.mode }
+              ])
+            ),
+            aliases: this.swarmConfig.aliases || {},
+          },
+        } as unknown as WsMessage);
+        break;
+      }
+
+      case 'save-provider-key': {
+        const { provider, apiKey } = cmd;
+        if (!this.swarmConfig.providers) this.swarmConfig.providers = {};
+        if (!this.swarmConfig.providers[provider]) this.swarmConfig.providers[provider] = {};
+        this.swarmConfig.providers[provider].apiKey = apiKey;
+        // Save config to disk
+        try {
+          const configPath = join(this.state.getFilePath(), '..', 'config.yaml');
+          let existing: Record<string, unknown> = {};
+          if (existsSync(configPath)) {
+            try {
+              const raw = readFileSync(configPath, 'utf-8');
+              const parsed = parseYaml(raw);
+              if (parsed && typeof parsed === 'object') existing = parsed as Record<string, unknown>;
+            } catch { /* ignore */ }
+          }
+          if (!existing.providers || typeof existing.providers !== 'object') existing.providers = {};
+          const providers = existing.providers as Record<string, Record<string, unknown>>;
+          if (!providers[provider]) providers[provider] = {};
+          providers[provider].apiKey = apiKey;
+          writeFileSync(configPath, toYaml(existing));
+          console.log(`[ws] Saved API key for provider: ${provider}`);
+          // Test connection after saving key
+          try {
+            const { getRegistry } = await import('./providers/registry.js');
+            const registry = getRegistry();
+            const prov = registry.getProvider(provider);
+            if (prov) {
+              const result = await prov.testConnection();
+              this.broadcast({ type: 'provider-key-result', payload: { provider, ok: result.ok, error: result.ok ? undefined : 'Connection test failed' } } as unknown as WsMessage);
+              break;
+            }
+          } catch { /* ignore test failure */ }
+          this.broadcast({ type: 'provider-key-result', payload: { provider, ok: true } } as unknown as WsMessage);
+        } catch (err) {
+          console.error('[ws] save-provider-key error:', err);
+          this.broadcast({ type: 'provider-key-result', payload: { provider, ok: false, error: String(err) } } as unknown as WsMessage);
+        }
+        break;
+      }
+
+      case 'save-provider-url': {
+        const { provider, baseUrl } = cmd;
+        if (!this.swarmConfig.providers) this.swarmConfig.providers = {};
+        if (!this.swarmConfig.providers[provider]) this.swarmConfig.providers[provider] = {};
+        this.swarmConfig.providers[provider].baseUrl = baseUrl;
+        // Save config to disk
+        try {
+          const configPath = join(this.state.getFilePath(), '..', 'config.yaml');
+          let existing: Record<string, unknown> = {};
+          if (existsSync(configPath)) {
+            try {
+              const raw = readFileSync(configPath, 'utf-8');
+              const parsed = parseYaml(raw);
+              if (parsed && typeof parsed === 'object') existing = parsed as Record<string, unknown>;
+            } catch { /* ignore */ }
+          }
+          if (!existing.providers || typeof existing.providers !== 'object') existing.providers = {};
+          const providers = existing.providers as Record<string, Record<string, unknown>>;
+          if (!providers[provider]) providers[provider] = {};
+          providers[provider].baseUrl = baseUrl;
+          writeFileSync(configPath, toYaml(existing));
+          console.log(`[ws] Saved base URL for provider: ${provider} → ${baseUrl}`);
+          this.broadcast({ type: 'provider-url-result', payload: { provider, ok: true } } as unknown as WsMessage);
+        } catch (err) {
+          console.error('[ws] save-provider-url error:', err);
+          this.broadcast({ type: 'provider-url-result', payload: { provider, ok: false, error: String(err) } } as unknown as WsMessage);
+        }
+        break;
+      }
+
+      case 'test-provider': {
+        const { provider } = cmd;
+        try {
+          const { getRegistry } = await import('./providers/registry.js');
+          const registry = getRegistry();
+          const prov = registry.getProvider(provider);
+          if (!prov) {
+            this.broadcast({ type: 'provider-test-result', payload: { provider, ok: false, error: `Provider ${provider} not configured` } } as unknown as WsMessage);
+            break;
+          }
+          const result = await prov.testConnection();
+          this.broadcast({ type: 'provider-test-result', payload: { provider, ...result } } as unknown as WsMessage);
+        } catch (err) {
+          this.broadcast({ type: 'provider-test-result', payload: { provider, ok: false, error: String(err) } } as unknown as WsMessage);
+        }
+        break;
+      }
+
+      case 'list-providers': {
+        try {
+          const { getRegistry } = await import('./providers/registry.js');
+          const registry = getRegistry();
+          const providers = registry.listProviders();
+          const statuses = await Promise.all(providers.map(async (name: string) => {
+            const prov = registry.getProvider(name);
+            const cfg = this.swarmConfig.providers?.[name];
+            return {
+              name,
+              configured: !!(cfg as Record<string, unknown>)?.apiKey || name === 'ollama',
+              connected: prov ? (await prov.testConnection().catch(() => ({ ok: false }))).ok : false,
+              modelsAvailable: prov ? (await prov.listModels().catch(() => [])).length : 0,
+            };
+          }));
+          this.broadcast({ type: 'provider-list', payload: { providers: statuses } } as unknown as WsMessage);
+        } catch (err) {
+          this.broadcast({ type: 'provider-list', payload: { providers: [], error: String(err) } } as unknown as WsMessage);
+        }
+        break;
+      }
     }
   }
 

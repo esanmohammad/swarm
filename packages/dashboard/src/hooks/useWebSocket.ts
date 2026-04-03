@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import type { PipelineState, PipelineInfo, WsMessage, WsCommand, GuardrailViolation, AgentActivity, HistoryEntry, StageName, AutopilotState, InboxState, StandupReport, JournalData, ScopeAnalysis, ContextIndex, PairSessionState, DelegateState, ReportData, TeamActivity, RetroReport, SurfacesState, ArchReviewData, OnboardData, RoadmapData, SystemGraphData, SloData, DebtData, ForecastData, ComplianceData, PluginRegistryData } from '../types';
+import type { PipelineState, PipelineInfo, WsMessage, WsCommand, GuardrailViolation, AgentActivity, HistoryEntry, StageName, AutopilotState, InboxState, StandupReport, JournalData, ScopeAnalysis, ContextIndex, PairSessionState, DelegateState, ReportData, TeamActivity, RetroReport, SurfacesState, ArchReviewData, OnboardData, RoadmapData, SystemGraphData, SloData, DebtData, ForecastData, ComplianceData, PluginRegistryData, ModelConfig, ModelInfo, ProviderStatus } from '../types';
 
 // WS port is injected by the dashboard HTTP server into window.__SWARM_WS_PORT__
 // Falls back to deriving from dashboard port (wsPort = dashboardPort - 1) or default 3847
@@ -53,6 +53,9 @@ interface UseWebSocketReturn {
   forecastData: ForecastData | null;
   complianceData: ComplianceData | null;
   pluginRegistry: PluginRegistryData | null;
+  modelConfig: ModelConfig | null;
+  availableModels: ModelInfo[] | null;
+  providerStatus: ProviderStatus[] | null;
   sendCommand: (cmd: WsCommand) => void;
   switchPipeline: (namespace: string) => void;
   listPipelines: () => void;
@@ -95,6 +98,9 @@ export function useWebSocket(): UseWebSocketReturn {
   const [forecastData, setForecastData] = useState<ForecastData | null>(null);
   const [complianceData, setComplianceData] = useState<ComplianceData | null>(null);
   const [pluginRegistry, setPluginRegistry] = useState<PluginRegistryData | null>(null);
+  const [modelConfig, setModelConfig] = useState<ModelConfig | null>(null);
+  const [availableModels, setAvailableModels] = useState<ModelInfo[] | null>(null);
+  const [providerStatus, setProviderStatus] = useState<ProviderStatus[] | null>(null);
   const agentOutputsRef = useRef(new Map<string, string>());
   const agentActivitiesRef = useRef(new Map<string, AgentActivity[]>());
   const artifactContentRef = useRef(new Map<StageName, string>());
@@ -331,6 +337,18 @@ export function useWebSocket(): UseWebSocketReturn {
           case 'plugin-registry':
             setPluginRegistry(msg.payload);
             break;
+
+          case 'model-config':
+            setModelConfig(msg.payload);
+            break;
+
+          case 'models-list':
+            setAvailableModels(msg.payload);
+            break;
+
+          case 'providers-list':
+            setProviderStatus(msg.payload);
+            break;
         }
       } catch {
         // ignore malformed messages
@@ -399,6 +417,9 @@ export function useWebSocket(): UseWebSocketReturn {
     forecastData,
     complianceData,
     pluginRegistry,
+    modelConfig,
+    availableModels,
+    providerStatus,
     sendCommand,
     switchPipeline,
     listPipelines,

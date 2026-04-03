@@ -143,7 +143,7 @@ export function registerPair(program: Command): void {
   cmd
     .command('test')
     .description('Generate tests for files changed in the current pair session')
-    .option('-m, --model <model>', 'Model for test generation', 'sonnet')
+    .option('-m, --model <model>', 'Model for test generation (e.g., sonnet, openai/gpt-4o)', 'sonnet')
     .action(async (opts) => {
       let swarmDir: string;
       try {
@@ -154,7 +154,7 @@ export function registerPair(program: Command): void {
       }
 
       const config = loadConfig();
-      config.model = opts.model || 'sonnet';
+      config.model = opts.model || config.model;
 
       console.log(chalk.bold('\nSwarm Pair Test — generating tests for recent changes'));
       console.log(chalk.dim('Analyzing changed files and generating test suggestions...\n'));
@@ -211,7 +211,7 @@ export function registerPair(program: Command): void {
           name: 'pair-commit-msg',
           persona: 'analyst',
           stack: config.stack,
-          model: config.model || 'sonnet',
+          model: config.model,
           prompt: 'Look at the current git diff (staged and unstaged) and generate a clear, concise conventional commit message. Include a short subject line and a body explaining the why. Output ONLY the commit message, nothing else.',
           permissionMode: 'plan',
           cwd: process.cwd(),

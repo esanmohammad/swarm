@@ -383,7 +383,7 @@ export function registerDeps(program: Command): void {
   cmd
     .command('update')
     .description('Apply safe dependency updates (patches, then minors)')
-    .option('-m, --model <model>', 'Model for major update agent', 'sonnet')
+    .option('-m, --model <model>', 'Model for major update agent (e.g., sonnet, openai/gpt-4o)', 'sonnet')
     .option('-l, --level <level>', 'Update level: patch, minor, or major', 'minor')
     .option('--dry-run', 'Show what would change without applying')
     .option('-b, --budget <amount>', 'Max budget for agent-assisted major updates in USD', '5')
@@ -393,7 +393,7 @@ export function registerDeps(program: Command): void {
       const level = (opts.level || 'minor') as UpdateLevel;
       const dryRun = opts.dryRun ?? false;
       const verify = opts.verify ?? false;
-      const model = opts.model || 'sonnet';
+      const model = opts.model || 'sonnet'; // deps.update uses local model var, not config
       const budget = parseFloat(opts.budget) || 5;
       const manager = detectPackageManager(cwd);
 

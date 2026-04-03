@@ -49,7 +49,7 @@ export function registerIncident(program: Command): void {
     .argument('<description>', 'Description of the incident')
     .option('--severity <level>', 'Severity level (P1, P2, P3, P4)', 'P3')
     .option('--logs <path>', 'Path to log file or URL')
-    .option('-m, --model <model>', 'Model override', 'sonnet')
+    .option('-m, --model <model>', 'Model override (e.g., sonnet, openai/gpt-4o)', 'sonnet')
     .option('-b, --budget <amount>', 'Max budget in USD', '10')
     .option('--fix', 'Attempt to generate a fix (not just diagnose)')
     .action(async (description: string, opts) => {
@@ -65,7 +65,7 @@ export function registerIncident(program: Command): void {
       }
 
       const config = loadConfig();
-      config.model = opts.model || 'sonnet';
+      config.model = opts.model || config.model;
       if (opts.budget) {
         config.maxBudgetUsd = opts.budget === 'none' ? null : (parseFloat(opts.budget) || null);
       }

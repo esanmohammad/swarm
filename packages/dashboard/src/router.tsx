@@ -22,6 +22,7 @@ import {
   RoutedSurfaces, RoutedArchReview, RoutedOnboard, RoutedRoadmap,
   RoutedSystem, RoutedSlo, RoutedDebt, RoutedForecast, RoutedCompliance,
   RoutedPlugins,
+  RoutedModelSettings,
 } from './views/routed';
 
 export const router = createBrowserRouter([
@@ -98,6 +99,7 @@ export const router = createBrowserRouter([
 
       // Settings
       { path: 'settings/onboard', element: <RoutedOnboard /> },
+      { path: 'settings/models', element: <RoutedModelSettings /> },
 
       // Catch-all — redirect to home
       { path: '*', element: <Navigate to="/" replace /> },

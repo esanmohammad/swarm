@@ -32,7 +32,7 @@ export function registerSecure(program: Command): void {
     .option('--json', 'Output as JSON')
     .option('--sarif', 'Output in SARIF format')
     .option('--scope <path>', 'Limit scan to specific path')
-    .option('--model <model>', 'Model for LLM analysis', 'sonnet')
+    .option('--model <model>', 'Model for LLM analysis (e.g., sonnet, openai/gpt-4o)', 'sonnet')
     .action(async (opts) => {
       const cwd = process.cwd();
       const swarmDir = join(cwd, '.swarm');

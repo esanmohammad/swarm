@@ -11,7 +11,7 @@ export function registerBuild(program: Command): void {
     .command('build')
     .description('Run Engineer persona(s) to implement TASKS.md')
     .option('-s, --stack <stack>', 'Tech stack override (react, node, go)')
-    .option('-m, --model <model>', 'Model override (sonnet, opus, haiku)')
+    .option('-m, --model <model>', 'Model override (e.g., sonnet, openai/gpt-4o, ollama/llama3)')
     .option('-p, --parallel <n>', 'Max parallel agents', '3')
     .option('-t, --task <id>', 'Run a specific task ID only')
     .option('--headless', 'Skip interactive features (for CI/automation)')

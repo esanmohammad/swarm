@@ -776,7 +776,7 @@ A Settings page in the dashboard for model configuration.
 - [ ] Provider configuration cards: API key input (masked), base URL, test connection button
 - [ ] Per-stage model assignment: dropdown per stage with capability validation
 - [ ] "Test" button per model: sends a quick "Hello" message to verify connectivity
-- [ ] Available models list: auto-discovered from Ollama (`/api/tags`), hardcoded for cloud providers
+- [ ] Available models list: dynamically discovered from all configured providers via `ModelCatalog` (P8.5) — Ollama `/api/tags`, OpenAI `/v1/models`, etc. No hardcoded model lists.
 - [ ] Cost estimator: show estimated pipeline cost for current model mix vs. all-Claude
 - [ ] Save config: writes to `.swarm/config.yaml` via WebSocket command
 - [ ] Validation: warn if engineer/tester stage assigned a model without tool support
@@ -827,6 +827,208 @@ swarm models cost
 
 ---
 
+## P8.5: Dynamic Model Discovery — Eliminate Hardcoded Model Names (Impact: 9/10)
+
+### Problem
+Model names are hardcoded as string literals throughout the codebase. Every command that accepts `--model` defaults to `'sonnet'` or lists `'sonnet, opus, haiku'` as the only options. This means:
+
+1. **Adding a new model requires editing 20+ files** — every command with `--model` has a hardcoded default and description
+2. **Model names are stale** — the strings `'sonnet'`, `'opus'`, `'haiku'` refer to Claude Code shorthands; when Anthropic releases new models (or when users configure OpenAI, Gemini, etc.), these literals are wrong
+3. **No single source of truth** — each command independently defaults to `'sonnet'`, duplicating the knowledge
+4. **Dashboard model dropdowns will need the same list** — the model picker UI (P7) can't just hardcode another static list
+
+### Current Hardcoded Locations (26 files)
+
+```
+packages/cli/src/commands/inbox.ts      → .option('-m, --model <model>', '...', 'sonnet')
+packages/cli/src/commands/migrate.ts    → .option('-m, --model <model>', '...sonnet)')
+packages/cli/src/commands/mentor.ts     → .option('-m, --model <model>', '...sonnet)') ×3
+packages/cli/src/commands/mayday.ts     → 'haiku', 'sonnet', 'opus' hardcoded in --lean/--smart
+packages/cli/src/commands/build.ts      → .option('-m, --model <model>', '...sonnet, opus, haiku)')
+packages/cli/src/commands/fix.ts        → .option('-m, --model <model>', '...sonnet, opus, haiku)')
+packages/cli/src/commands/review.ts     → opts.model || 'sonnet'
+packages/cli/src/commands/secure.ts     → .option('--model <model>', '...', 'sonnet')
+packages/cli/src/commands/pair.ts       → opts.model || 'sonnet' ×2
+packages/cli/src/commands/watch.ts      → opts.model || 'sonnet'
+packages/cli/src/commands/architect.ts  → .option('-m, --model <model>', '...sonnet, opus, haiku)')
+packages/cli/src/commands/babysit-prs.ts → opts.model || 'sonnet'
+packages/cli/src/commands/teach.ts      → .option('--model <base>', '...', 'haiku')
+packages/cli/src/core/config.ts         → defaultModel: 'sonnet'
+packages/cli/src/core/pipeline.ts       → model name references in stage logic
+packages/dashboard/src/views/ModelSettingsView.tsx (P7) — will need dynamic list
+```
+
+### Solution
+A centralized model registry that:
+1. **Provides the single source of truth** for default model, available models, and model metadata
+2. **Dynamically discovers available models** from configured providers at runtime
+3. **Never hardcodes model names** in CLI commands — commands read from the registry
+4. **Allows the user to set their own default** in `.swarm/config.yaml`
+5. **Auto-updates** when providers add new models (Ollama `/api/tags`, OpenAI `/v1/models`, etc.)
+
+### Model Discovery Sources
+
+| Provider | Discovery Method | Endpoint |
+|----------|-----------------|----------|
+| **Anthropic** | Provider SDK / known models list refreshed from API | `GET /v1/models` |
+| **OpenAI** | API model listing | `GET /v1/models` |
+| **Google Gemini** | API model listing | `GET /v1beta/models` |
+| **Ollama** | Local API | `GET /api/tags` |
+| **Together AI** | OpenAI-compat model listing | `GET /v1/models` |
+| **Groq** | OpenAI-compat model listing | `GET /v1/models` |
+| **DeepSeek** | OpenAI-compat model listing | `GET /v1/models` |
+| **Custom** | User-provided in `modelRegistry` config | N/A (static config) |
+
+### Implementation
+
+#### Files to Create
+1. `src/core/providers/model-catalog.ts` — Dynamic model catalog with discovery, caching, and fallback
+
+#### Files to Modify
+1. `src/core/providers/registry.ts` (from P1) — Add `listModels()`, `getDefaultModel()`, `discoverModels()` methods
+2. `src/core/config.ts` — Replace `defaultModel: 'sonnet'` with `defaultModel` read from config → registry fallback
+3. **All 20+ command files** — Replace hardcoded `'sonnet'` defaults with `registry.getDefaultModel()` and model descriptions with dynamic options
+
+#### Design
+
+```typescript
+// src/core/providers/model-catalog.ts
+
+interface DiscoveredModel {
+  id: string;              // e.g., 'openai/gpt-4o' or 'ollama/llama3.1:70b'
+  provider: string;        // e.g., 'openai'
+  name: string;            // Human-readable: 'GPT-4o'
+  contextWindow: number;
+  supportsTools: boolean;
+  supportsStreaming: boolean;
+  supportsThinking: boolean;
+  costPer1kInput: number;
+  costPer1kOutput: number;
+  tier: 1 | 2 | 3;        // Capability tier from architecture design
+  tags: string[];          // e.g., ['fast', 'cheap', 'coding', 'reasoning']
+}
+
+class ModelCatalog {
+  private cache: Map<string, DiscoveredModel[]> = new Map();
+  private cacheExpiry: number = 0;
+  private static CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+  /**
+   * Get all available models across all configured providers.
+   * Results are cached to avoid repeated API calls.
+   */
+  async listAll(): Promise<DiscoveredModel[]>;
+
+  /**
+   * Discover models from a specific provider.
+   * Calls the provider's model listing API.
+   */
+  async discoverFromProvider(provider: string): Promise<DiscoveredModel[]>;
+
+  /**
+   * Get the user's configured default model.
+   * Falls back to 'anthropic/claude-sonnet-4' if not configured.
+   * NEVER returns a bare string like 'sonnet' — always provider/model format.
+   */
+  getDefaultModel(): string;
+
+  /**
+   * Get shorthand aliases. User-configurable + built-in defaults.
+   * Built-in: { sonnet: 'anthropic/claude-sonnet-4', opus: 'anthropic/claude-opus-4', ... }
+   * Users can add their own: { fast: 'groq/llama-3.1-70b-versatile', cheap: 'ollama/llama3.1:8b' }
+   */
+  getAliases(): Record<string, string>;
+
+  /**
+   * Resolve a model string to a full provider/model ID.
+   * 'sonnet' → 'anthropic/claude-sonnet-4'
+   * 'gpt-4o' → 'openai/gpt-4o'
+   * 'openai/gpt-4o' → 'openai/gpt-4o' (passthrough)
+   */
+  resolve(modelString: string): string;
+
+  /**
+   * Get CLI option description with available models listed dynamically.
+   * Returns something like: 'Model (default: sonnet). Available: sonnet, opus, haiku, openai/gpt-4o, ollama/llama3'
+   * Used by all --model CLI options.
+   */
+  getCliModelDescription(): string;
+}
+```
+
+#### Command File Refactoring Pattern
+
+**Before (hardcoded):**
+```typescript
+.option('-m, --model <model>', 'Model override (sonnet, opus, haiku)')
+// ...
+config.model = opts.model || 'sonnet';
+```
+
+**After (dynamic):**
+```typescript
+import { getModelCatalog } from '../core/providers/model-catalog.js';
+
+const catalog = getModelCatalog();
+.option('-m, --model <model>', catalog.getCliModelDescription())
+// ...
+config.model = catalog.resolve(opts.model || catalog.getDefaultModel());
+```
+
+#### Mayday Smart/Lean Mode Refactoring
+
+**Before (hardcoded model tiers):**
+```typescript
+stageModels = { analyst: 'haiku', architect: 'haiku', lead: 'haiku', tester: 'haiku' }; // lean
+stageModels = { analyst: 'sonnet', architect: 'sonnet', lead: 'sonnet', tester: 'sonnet', engineer: 'opus' }; // smart
+```
+
+**After (tier-based from registry):**
+```typescript
+const catalog = getModelCatalog();
+// lean: cheapest available model for text stages, default for engineer
+stageModels = catalog.suggestForTier('lean'); // { analyst: cheapest, ..., engineer: default }
+// smart: mid-tier for text stages, best for engineer
+stageModels = catalog.suggestForTier('smart'); // { analyst: mid, ..., engineer: best }
+```
+
+#### Config Extension
+
+```yaml
+# .swarm/config.yaml
+
+# User sets their own default (replaces hardcoded 'sonnet')
+model: sonnet  # or 'openai/gpt-4o' or 'ollama/llama3'
+
+# Custom aliases
+aliases:
+  fast: groq/llama-3.1-70b-versatile
+  cheap: ollama/llama3.1:8b
+  best: anthropic/claude-opus-4
+
+# Then use anywhere: swarm build -m fast
+```
+
+#### Tasks
+- [ ] Create `ModelCatalog` class with `listAll()`, `discoverFromProvider()`, `getDefaultModel()`, `resolve()`
+- [ ] Implement discovery for each provider:
+  - Anthropic: `GET /v1/models` (or fallback to known list)
+  - OpenAI: `GET /v1/models` → filter chat models
+  - Ollama: `GET /api/tags` → map to model catalog format
+  - Others: `GET /v1/models` (OpenAI-compat)
+- [ ] Add `aliases` config section for user-defined shorthands
+- [ ] Add `suggestForTier('lean' | 'smart' | 'balanced')` for automatic stage model assignment
+- [ ] Cache discovery results (5min TTL) to avoid API spam
+- [ ] Graceful fallback: if discovery fails, use last cached results or built-in known models
+- [ ] Refactor ALL 20+ command files to use `catalog.getDefaultModel()` instead of `'sonnet'`
+- [ ] Refactor all `--model` option descriptions to use `catalog.getCliModelDescription()`
+- [ ] Refactor mayday `--lean`/`--smart` to use `catalog.suggestForTier()`
+- [ ] Dashboard model picker (P7) reads from same catalog via WS command `list-models`
+- [ ] Add WS command `list-models` → returns `catalog.listAll()` for dashboard consumption
+- [ ] `swarm models list` (P8) uses the same catalog internally
+
+---
+
 ## P9: Prompt Adaptation Layer (Impact: 8/10)
 
 ### Problem
@@ -871,8 +1073,14 @@ A cost calculator that works across all providers.
 1. `src/core/providers/cost-table.ts` — Pricing data per model
 
 #### Cost Table
+
+**Important:** This table serves as a **fallback only**. Pricing should be fetched dynamically from the `ModelCatalog` (P8.5) whenever possible. Many providers include pricing in their `/v1/models` response or publish pricing APIs. The static table below is used when:
+- The provider doesn't expose pricing
+- The user is offline / discovery fails
+- Custom/self-hosted models (user sets pricing in `modelRegistry` config)
+
 ```typescript
-const COST_TABLE: Record<string, { input: number; output: number; cacheRead?: number }> = {
+const FALLBACK_COST_TABLE: Record<string, { input: number; output: number; cacheRead?: number }> = {
   // Anthropic (per 1M tokens)
   'anthropic/claude-opus-4':     { input: 15.00, output: 75.00, cacheRead: 1.50 },
   'anthropic/claude-sonnet-4':   { input: 3.00,  output: 15.00, cacheRead: 0.30 },
@@ -894,6 +1102,10 @@ const COST_TABLE: Record<string, { input: number; output: number; cacheRead?: nu
   // Local (free)
   'ollama/*':                    { input: 0, output: 0 },
 };
+
+// NOTE: When a new model is discovered via ModelCatalog.discoverFromProvider(),
+// pricing is populated from the provider API response or the user's modelRegistry config.
+// This table is NOT the authoritative source — it's the last resort.
 ```
 
 #### Tasks
@@ -915,15 +1127,18 @@ const COST_TABLE: Record<string, { input: number; output: number; cacheRead?: nu
 | P3 | Anthropic API provider | 9/10 | 1 week | P1 | 2-3 |
 | P5 | Swarm tool executor | 10/10 | 3 weeks | P2 | 2-5 |
 | P6 | Modified AgentProcess | 10/10 | 2 weeks | P1, P2, P5 | 4-6 |
+| P8.5 | Dynamic model discovery | 9/10 | 1 week | P1 | 3-4 |
 | P9 | Prompt adaptation | 8/10 | 1 week | P6 | 5-6 |
-| P10 | Unified cost tracking | 7/10 | 1 week | P2, P3 | 5-6 |
+| P10 | Unified cost tracking | 7/10 | 1 week | P2, P3, P8.5 | 5-6 |
 | P4 | Google Gemini provider | 7/10 | 1 week | P1 | 6-7 |
-| P7 | Dashboard model settings | 9/10 | 2 weeks | P1, P6 | 6-8 |
-| P8 | CLI `swarm models` command | 7/10 | 1 week | P1 | 7-8 |
+| P7 | Dashboard model settings | 9/10 | 2 weeks | P1, P6, P8.5 | 6-8 |
+| P8 | CLI `swarm models` command | 7/10 | 1 week | P1, P8.5 | 7-8 |
 
 **Total: 8 weeks** (with parallelization)
 
 **Critical path: P1 → P2 → P5 → P6** (provider registry → API provider → tool executor → agent process)
+
+**Second critical path: P1 → P8.5 → P7/P8** (registry → dynamic discovery → dashboard/CLI model UIs)
 
 ---
 
@@ -982,7 +1197,8 @@ After Wave 8:
 4. **Local models** — `ollama/llama3.1:70b` for completely free, offline pipelines
 5. **Dashboard config** — point-and-click model selection per stage, with cost estimates
 6. **One API key format** — environment variables or config file, never hardcoded
-7. **Graceful degradation** — if a model can't do tools, fall back to text-only mode for that stage
-8. **Transparent costs** — see per-model, per-stage cost breakdown regardless of provider
+7. **Zero hardcoded model names** — model lists are discovered dynamically from providers, not baked into source code. New models appear automatically.
+8. **Graceful degradation** — if a model can't do tools, fall back to text-only mode for that stage
+9. **Transparent costs** — see per-model, per-stage cost breakdown regardless of provider
 
 **No more vendor lock-in. Claude is the best, but it's not the only option.**

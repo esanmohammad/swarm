@@ -12,7 +12,7 @@ export function registerSpike(program: Command): void {
     .description('Quick exploration: single engineer agent, no artifacts, no pipeline — just investigate and report')
     .argument('<question>', 'Question or exploration task')
     .option('-s, --stack <stack>', 'Tech stack override')
-    .option('-m, --model <model>', 'Model override (default: haiku for speed)')
+    .option('-m, --model <model>', 'Model override (default: haiku for speed, e.g., sonnet, openai/gpt-4o)')
     .option('-f, --file', 'Treat argument as a file path to read')
     .option('-b, --budget <amount>', 'Max budget in USD', '3')
     .option('-i, --interactive', 'Interactive mode — converse with the agent in terminal')
