@@ -2,14 +2,12 @@ import { usePersistedState } from '../hooks/usePersistedState';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Home, Rocket, BarChart3, Clock, Users as AgentsIcon,
-  Wrench, GitPullRequest, Bot, Inbox, GitBranch, Eye,
-  TrendingUp, Activity, LineChart, Gauge, FileText,
-  Layers, HelpCircle, BookOpen, Brain, Network,
-  Map, Search, Target, Zap, Bug, Shield, ClipboardCheck, Building2,
-  Upload, Database, Package, AlertTriangle,
-  RefreshCw, Puzzle, Cpu,
+  Wrench, GitPullRequest,
+  TrendingUp,
+  Layers, BookOpen, Brain,
+  Cpu,
   ChevronRight, ChevronDown, PanelLeftClose, PanelLeft,
-  Sparkles, Settings
+  Sparkles
 } from 'lucide-react';
 
 interface NavItem {
@@ -35,17 +33,14 @@ const PRIMARY_ITEMS: NavItem[] = [
   { path: '/agents', label: 'Agents', icon: AgentsIcon },
 ];
 
+// v0.1 navigation — only launch-ready features
 const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Workflows',
     defaultOpen: true,
     items: [
       { path: '/workflows', label: 'Overview', icon: Wrench },
-      { path: '/workflows/autopilot', label: 'Autopilot', icon: Bot },
-      { path: '/workflows/inbox', label: 'Inbox', icon: Inbox },
-      { path: '/workflows/review', label: 'PR Reviews', icon: GitPullRequest },
-      { path: '/workflows/delegate', label: 'Delegate', icon: GitBranch },
-      { path: '/workflows/watch', label: 'Watch', icon: Eye },
+      { path: '/workflows/review', label: 'Code Review', icon: GitPullRequest },
     ],
   },
   {
@@ -53,68 +48,14 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { path: '/intelligence', label: 'Overview', icon: TrendingUp },
       { path: '/intelligence/stats', label: 'Stats', icon: TrendingUp },
-      { path: '/intelligence/health', label: 'Health', icon: Activity },
-      { path: '/intelligence/forecast', label: 'Forecast', icon: LineChart },
-      { path: '/intelligence/benchmark', label: 'Benchmark', icon: Gauge },
-      { path: '/intelligence/report', label: 'Reports', icon: FileText },
     ],
   },
   {
     label: 'Codebase',
     items: [
       { path: '/codebase', label: 'Overview', icon: Layers },
-      { path: '/codebase/context', label: 'Context', icon: Layers },
-      { path: '/codebase/explain', label: 'Explain', icon: HelpCircle },
       { path: '/codebase/conventions', label: 'Conventions', icon: BookOpen },
       { path: '/codebase/memory', label: 'Memory', icon: Brain },
-      { path: '/codebase/system', label: 'System Map', icon: Network },
-    ],
-  },
-  {
-    label: 'Planning',
-    items: [
-      { path: '/planning', label: 'Overview', icon: Map },
-      { path: '/planning/roadmap', label: 'Roadmap', icon: Map },
-      { path: '/planning/scope', label: 'Scope', icon: Search },
-    ],
-  },
-  {
-    label: 'Quality',
-    items: [
-      { path: '/quality', label: 'Overview', icon: Target },
-      { path: '/quality/slo', label: 'SLOs', icon: Zap },
-      { path: '/quality/debt', label: 'Tech Debt', icon: Bug },
-      { path: '/quality/security', label: 'Security', icon: Shield },
-      { path: '/quality/compliance', label: 'Compliance', icon: ClipboardCheck },
-      { path: '/quality/architecture', label: 'Architecture', icon: Building2 },
-    ],
-  },
-  {
-    label: 'Team',
-    items: [
-      { path: '/team', label: 'Overview', icon: AgentsIcon },
-      { path: '/team/standup', label: 'Standup', icon: FileText },
-      { path: '/team/journal', label: 'Journal', icon: BookOpen },
-      { path: '/team/retro', label: 'Retro', icon: RefreshCw },
-      { path: '/team/pair', label: 'Pair', icon: AgentsIcon },
-    ],
-  },
-  {
-    label: 'Operations',
-    items: [
-      { path: '/operations', label: 'Overview', icon: Upload },
-      { path: '/operations/deploy', label: 'Deploy', icon: Upload },
-      { path: '/operations/migrate', label: 'Migrate', icon: Database },
-      { path: '/operations/deps', label: 'Dependencies', icon: Package },
-      { path: '/operations/incident', label: 'Incidents', icon: AlertTriangle },
-    ],
-  },
-  {
-    label: 'Advanced',
-    items: [
-      { path: '/advanced', label: 'Overview', icon: Settings },
-      { path: '/advanced/plugins', label: 'Plugins', icon: Puzzle },
-      { path: '/advanced/surfaces', label: 'Surfaces', icon: Target },
     ],
   },
   {
