@@ -817,7 +817,8 @@ export class SwarmWsServer {
               '5. If no tests exist for this bug, write a focused test that reproduces the bug and verifies the fix.',
             ].join('\n');
 
-            await this.agentManager.spawn({
+            const startedAt = Date.now();
+            const agent = await this.agentManager.spawn({
               name: `fix-engineer-${fixStack}`,
               persona: 'engineer',
               stack: fixStack,
@@ -826,6 +827,15 @@ export class SwarmWsServer {
               cwd: this.getEffectiveCwd(),
               interactive: false,
               permissionMode: 'auto',
+            });
+            await this.agentManager.waitForAgent(agent.id);
+            this.state.saveActivity({
+              activityType: 'fix',
+              summary: bugDescription.slice(0, 200),
+              cost: agent.cost,
+              durationMs: Date.now() - startedAt,
+              status: agent.status === 'done' ? 'success' : 'error',
+              model: fixModel,
             });
             console.log(`[ws] Fix complete`);
           } catch (err) {
@@ -857,7 +867,8 @@ export class SwarmWsServer {
               '5. Keep your investigation focused — this is a quick spike, not a deep audit.',
             ].join('\n');
 
-            await this.agentManager.spawn({
+            const spikeStart = Date.now();
+            const spikeAgent = await this.agentManager.spawn({
               name: `spike-${spikeStack}`,
               persona: 'engineer',
               stack: spikeStack,
@@ -867,6 +878,15 @@ export class SwarmWsServer {
               interactive: false,
               permissionMode: 'auto',
               disallowedTools: ['Edit', 'Write', 'NotebookEdit'],
+            });
+            await this.agentManager.waitForAgent(spikeAgent.id);
+            this.state.saveActivity({
+              activityType: 'spike',
+              summary: (cmd.prompt || '').slice(0, 200),
+              cost: spikeAgent.cost,
+              durationMs: Date.now() - spikeStart,
+              status: spikeAgent.status === 'done' ? 'success' : 'error',
+              model: spikeModel,
             });
             console.log(`[ws] Spike complete`);
           } catch (err) {
@@ -936,7 +956,8 @@ export class SwarmWsServer {
               '```',
             ].join('\n');
 
-            await this.agentManager.spawn({
+            const reviewStart = Date.now();
+            const reviewAgent = await this.agentManager.spawn({
               name: `reviewer-${reviewStack}`,
               persona: 'engineer',
               stack: reviewStack,
@@ -946,6 +967,15 @@ export class SwarmWsServer {
               interactive: false,
               permissionMode: 'auto',
               disallowedTools: ['Edit', 'Write', 'Bash', 'NotebookEdit'],
+            });
+            await this.agentManager.waitForAgent(reviewAgent.id);
+            this.state.saveActivity({
+              activityType: 'review',
+              summary: reviewContext.slice(0, 200),
+              cost: reviewAgent.cost,
+              durationMs: Date.now() - reviewStart,
+              status: reviewAgent.status === 'done' ? 'success' : 'error',
+              model: reviewModel,
             });
             console.log(`[ws] Review complete`);
           } catch (err) {
@@ -986,7 +1016,8 @@ export class SwarmWsServer {
 
             // Step 2: Apply
             const analysisOutput = analyst.output.slice(-10000);
-            await this.agentManager.spawn({
+            const refactorStart = Date.now();
+            const refactorAgent = await this.agentManager.spawn({
               name: `refactor-engineer-${refactorStack}`,
               persona: 'engineer',
               stack: refactorStack,
@@ -1001,6 +1032,16 @@ export class SwarmWsServer {
               cwd: this.getEffectiveCwd(),
               interactive: false,
               permissionMode: 'auto',
+            });
+            await this.agentManager.waitForAgent(refactorAgent.id);
+            const totalRefactorCost = (analyst.cost?.totalUsd || 0) + (refactorAgent.cost?.totalUsd || 0);
+            this.state.saveActivity({
+              activityType: 'refactor',
+              summary: (cmd.prompt || '').slice(0, 200),
+              cost: { ...refactorAgent.cost, totalUsd: totalRefactorCost },
+              durationMs: Date.now() - refactorStart,
+              status: refactorAgent.status === 'done' ? 'success' : 'error',
+              model: refactorModel,
             });
             console.log(`[ws] Refactor complete`);
           } catch (err) {

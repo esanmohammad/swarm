@@ -115,8 +115,9 @@ export function useWebSocket(): UseWebSocketReturn {
     ws.onopen = () => {
       setConnected(true);
       reconnectDelay.current = RECONNECT_DELAY;
-      // Request pipeline list after connecting
+      // Request pipeline list and history after connecting
       ws.send(JSON.stringify({ action: 'list-pipelines' }));
+      ws.send(JSON.stringify({ action: 'get-history' }));
     };
 
     ws.onclose = () => {
@@ -158,6 +159,10 @@ export function useWebSocket(): UseWebSocketReturn {
               }
               return { ...prev, agents };
             });
+            // Refresh history when an agent completes (new history entry may exist)
+            if (msg.payload.status === 'done' || msg.payload.status === 'error') {
+              ws.send(JSON.stringify({ action: 'get-history' }));
+            }
             break;
 
           case 'agent-output':
