@@ -67,7 +67,7 @@ export function registerLearn(program: Command): void {
             '',
             '---',
             '',
-            '<!-- Auto-updated by swarm learn --merge -->',
+            '<!-- Auto-updated by hivemind learn --merge -->',
             conventions,
           ].join('\n');
           writeFileSync(conventionsPath, merged, 'utf-8');

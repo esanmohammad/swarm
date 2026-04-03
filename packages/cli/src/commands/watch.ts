@@ -184,7 +184,7 @@ export function registerWatch(program: Command): void {
 
             if (autoCommit) {
               try {
-                execSync('git add -A && git commit -m "fix: auto-fix by swarm watch"', { cwd, stdio: 'pipe' });
+                execSync('git add -A && git commit -m "fix: auto-fix by hivemind watch"', { cwd, stdio: 'pipe' });
                 console.log(chalk.green(`  [${time()}] Auto-committed`));
               } catch {
                 console.log(chalk.yellow(`  [${time()}] Could not auto-commit`));
