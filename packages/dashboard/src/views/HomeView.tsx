@@ -1,10 +1,10 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Rocket, Wrench, GitPullRequest, Search, RefreshCw, Sparkles,
   Play, ChevronDown, ChevronUp, Clock,
   CheckCircle, XCircle, Loader2, ArrowRight,
-  Activity
+  Activity, X
 } from 'lucide-react';
 import type { WsCommand, PipelineState, HistoryEntry, AgentActivity } from '../types';
 
@@ -119,9 +119,6 @@ export function HomeView({ sendCommand, state, agentOutputs, agentActivities, hi
       return next;
     });
   };
-
-  // Recent completed from history
-  const recentCompleted = historyEntries.slice(0, 5);
 
   return (
     <div className="flex-1 overflow-y-auto">
@@ -311,63 +308,332 @@ export function HomeView({ sendCommand, state, agentOutputs, agentActivities, hi
           </section>
         )}
 
-        {/* Recently Completed */}
-        <section>
-          <h2 className="text-xs font-semibold text-stone-500 uppercase tracking-wider mb-3">Recently Completed</h2>
-          {recentCompleted.length > 0 ? (
-            <div className="space-y-1.5">
-              {recentCompleted.map((entry) => {
-                const type = entry.activityType || 'pipeline';
-                const isSuccess = entry.activityStatus === 'success' || (!entry.activityStatus && Object.values(entry.stagesSummary).every(s => s === 'done' || s === 'skipped'));
-                const isError = entry.activityStatus === 'error' || (!entry.activityStatus && Object.values(entry.stagesSummary).some(s => s === 'error'));
-                const label = entry.summary || entry.featureRequest || `${type} run`;
+        {/* Activity Center — Tabbed View */}
+        <ActivityCenter
+          historyEntries={historyEntries}
+          runningAgents={runningAgents}
+          agentOutputs={agentOutputs}
+          agentActivities={agentActivities}
+          state={state}
+        />
+      </div>
+    </div>
+  );
+}
 
-                const TYPE_BADGE: Record<string, { label: string; color: string }> = {
-                  pipeline: { label: 'Pipeline', color: 'bg-blue-500/20 text-blue-300' },
-                  fix: { label: 'Fix', color: 'bg-amber-500/20 text-amber-300' },
-                  review: { label: 'Review', color: 'bg-purple-500/20 text-purple-300' },
-                  spike: { label: 'Spike', color: 'bg-cyan-500/20 text-cyan-300' },
-                  refactor: { label: 'Refactor', color: 'bg-emerald-500/20 text-emerald-300' },
-                  simplify: { label: 'Simplify', color: 'bg-teal-500/20 text-teal-300' },
-                  'test-gen': { label: 'Test Gen', color: 'bg-pink-500/20 text-pink-300' },
-                  learn: { label: 'Learn', color: 'bg-indigo-500/20 text-indigo-300' },
-                  pr: { label: 'PR', color: 'bg-orange-500/20 text-orange-300' },
-                  check: { label: 'Check', color: 'bg-stone-500/20 text-stone-300' },
-                };
-                const badge = TYPE_BADGE[type] || TYPE_BADGE.pipeline;
+// === Activity Center: Tabbed view with Pipelines / Agents / Reviews ===
 
-                return (
-                  <div key={entry.runId} className="flex items-center gap-2 px-3 py-2 rounded-md bg-stone-900/30 border border-stone-800/30">
-                    {isSuccess ? (
-                      <CheckCircle size={14} className="text-green-400 shrink-0" />
-                    ) : isError ? (
-                      <XCircle size={14} className="text-red-400 shrink-0" />
-                    ) : (
-                      <Loader2 size={14} className="text-stone-500 shrink-0" />
-                    )}
-                    <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full shrink-0 ${badge.color}`}>{badge.label}</span>
-                    <span className="text-xs text-stone-400 truncate flex-1">{label}</span>
-                    <span className="text-[10px] text-amber-400 shrink-0">${entry.totalCost?.totalUsd?.toFixed(2) || '0.00'}</span>
-                    <span className="text-[10px] text-stone-600 shrink-0">{timeAgo(entry.timestamp)}</span>
-                  </div>
-                );
-              })}
-              <button onClick={() => navigate('/history')} className="text-xs text-stone-600 hover:text-stone-400 px-3 py-1">
-                View all history &rarr;
+type ActivityTab = 'pipelines' | 'agents' | 'reviews';
+
+const AGENT_TYPES: Set<string> = new Set(['fix', 'spike', 'refactor', 'simplify', 'test-gen', 'learn', 'check']);
+const REVIEW_TYPES: Set<string> = new Set(['review', 'pr']);
+
+function classifyEntry(entry: HistoryEntry): ActivityTab {
+  const t = entry.activityType || 'pipeline';
+  if (REVIEW_TYPES.has(t)) return 'reviews';
+  if (AGENT_TYPES.has(t)) return 'agents';
+  return 'pipelines';
+}
+
+interface TabStats {
+  count: number;
+  cost: number;
+  successCount: number;
+}
+
+function computeTabStats(entries: HistoryEntry[]): TabStats {
+  return {
+    count: entries.length,
+    cost: entries.reduce((s, e) => s + (e.totalCost?.totalUsd || 0), 0),
+    successCount: entries.filter(e => {
+      if (e.activityStatus) return e.activityStatus === 'success';
+      return Object.values(e.stagesSummary).every(s => s === 'done' || s === 'skipped');
+    }).length,
+  };
+}
+
+const TYPE_BADGE: Record<string, { label: string; color: string }> = {
+  pipeline: { label: 'Pipeline', color: 'bg-blue-500/20 text-blue-300' },
+  fix: { label: 'Fix', color: 'bg-amber-500/20 text-amber-300' },
+  review: { label: 'Review', color: 'bg-purple-500/20 text-purple-300' },
+  spike: { label: 'Spike', color: 'bg-cyan-500/20 text-cyan-300' },
+  refactor: { label: 'Refactor', color: 'bg-emerald-500/20 text-emerald-300' },
+  simplify: { label: 'Simplify', color: 'bg-teal-500/20 text-teal-300' },
+  'test-gen': { label: 'Test Gen', color: 'bg-pink-500/20 text-pink-300' },
+  learn: { label: 'Learn', color: 'bg-indigo-500/20 text-indigo-300' },
+  pr: { label: 'PR', color: 'bg-orange-500/20 text-orange-300' },
+  check: { label: 'Check', color: 'bg-stone-500/20 text-stone-300' },
+};
+
+interface ActivityCenterProps {
+  historyEntries: HistoryEntry[];
+  runningAgents: PipelineState['agents'];
+  agentOutputs: Map<string, string>;
+  agentActivities: Map<string, AgentActivity[]>;
+  state: PipelineState | null;
+}
+
+function ActivityCenter({ historyEntries, runningAgents, agentOutputs, state }: ActivityCenterProps) {
+  const [tab, setTab] = useState<ActivityTab>('pipelines');
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  // Classify history entries by tab
+  const { pipelines, agents, reviews, allStats, tabStats } = useMemo(() => {
+    const pipelines: HistoryEntry[] = [];
+    const agents: HistoryEntry[] = [];
+    const reviews: HistoryEntry[] = [];
+
+    for (const entry of historyEntries) {
+      const bucket = classifyEntry(entry);
+      if (bucket === 'pipelines') pipelines.push(entry);
+      else if (bucket === 'agents') agents.push(entry);
+      else reviews.push(entry);
+    }
+
+    const allStats = computeTabStats(historyEntries);
+    const tabStats: Record<ActivityTab, TabStats> = {
+      pipelines: computeTabStats(pipelines),
+      agents: computeTabStats(agents),
+      reviews: computeTabStats(reviews),
+    };
+
+    return { pipelines, agents, reviews, allStats, tabStats };
+  }, [historyEntries]);
+
+  const currentEntries = tab === 'pipelines' ? pipelines : tab === 'agents' ? agents : reviews;
+  const currentStats = tabStats[tab];
+
+  // Running items for each tab
+  const runningForTab = useMemo(() => {
+    if (!state) return [];
+    if (tab === 'pipelines') {
+      return state.mayday?.active ? runningAgents.filter(a => a.persona !== undefined) : [];
+    }
+    if (tab === 'agents') {
+      // Non-pipeline running agents
+      return runningAgents.filter(a => !state.mayday?.active || !['analyst', 'architect', 'lead', 'engineer', 'tester'].includes(a.persona));
+    }
+    if (tab === 'reviews') {
+      return runningAgents.filter(a => a.name?.includes('reviewer'));
+    }
+    return [];
+  }, [tab, runningAgents, state]);
+
+  // Find the selected entry or running agent for detail view
+  const selectedEntry = currentEntries.find(e => e.runId === selectedId);
+  const selectedAgent = selectedId ? state?.agents.find(a => a.id === selectedId) : null;
+
+  const TABS: { key: ActivityTab; label: string; icon: typeof Rocket }[] = [
+    { key: 'pipelines', label: 'Pipelines', icon: Rocket },
+    { key: 'agents', label: 'Agents', icon: Wrench },
+    { key: 'reviews', label: 'Reviews', icon: GitPullRequest },
+  ];
+
+  return (
+    <section>
+      {/* Tab bar */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-1">
+          {TABS.map(t => {
+            const count = tabStats[t.key].count + (t.key === tab ? runningForTab.length : 0);
+            const isActive = tab === t.key;
+            return (
+              <button
+                key={t.key}
+                onClick={() => { setTab(t.key); setSelectedId(null); }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                  isActive
+                    ? 'bg-stone-800/60 text-stone-200'
+                    : 'text-stone-500 hover:text-stone-300 hover:bg-stone-800/30'
+                }`}
+              >
+                <t.icon size={12} />
+                {t.label}
+                {count > 0 && (
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${isActive ? 'bg-stone-700 text-stone-300' : 'bg-stone-800 text-stone-500'}`}>
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Cumulative stats */}
+        <div className="flex items-center gap-3 text-[10px] text-stone-500">
+          <span>{allStats.count} total</span>
+          <span className="text-amber-400">${allStats.cost.toFixed(2)}</span>
+          <span>{allStats.count > 0 ? Math.round((allStats.successCount / allStats.count) * 100) : 0}% success</span>
+        </div>
+      </div>
+
+      {/* Per-tab stats bar */}
+      {currentStats.count > 0 && (
+        <div className="flex items-center gap-4 px-3 py-2 mb-2 rounded-md bg-stone-900/30 border border-stone-800/30 text-[10px]">
+          <span className="text-stone-400">{currentStats.count} runs</span>
+          <span className="text-amber-400">${currentStats.cost.toFixed(2)} spent</span>
+          <span className="text-green-400">{Math.round((currentStats.successCount / currentStats.count) * 100)}% success rate</span>
+          {currentStats.count > 0 && (
+            <span className="text-stone-500">avg ${(currentStats.cost / currentStats.count).toFixed(2)}/run</span>
+          )}
+        </div>
+      )}
+
+      {/* Content area: split view when item selected */}
+      <div className={selectedId ? 'grid grid-cols-1 lg:grid-cols-2 gap-3' : ''}>
+        {/* List panel (scrollable) */}
+        <div className="max-h-[500px] overflow-y-auto space-y-1.5 pr-1 scrollbar-thin">
+          {/* Running items pinned at top */}
+          {runningForTab.map(agent => (
+            <button
+              key={agent.id}
+              onClick={() => setSelectedId(agent.id)}
+              className={`w-full text-left flex items-center gap-2 px-3 py-2.5 rounded-md border transition-colors ${
+                selectedId === agent.id
+                  ? 'bg-stone-800/60 border-stone-600/50'
+                  : 'bg-stone-900/30 border-stone-800/30 hover:bg-stone-800/30'
+              }`}
+            >
+              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shrink-0" />
+              <span className="text-xs text-stone-300 truncate flex-1">{agent.name || agent.persona}</span>
+              {agent.cost && <span className="text-[10px] text-amber-400 shrink-0">${agent.cost.totalUsd.toFixed(2)}</span>}
+              {agent.startedAt && <span className="text-[10px] text-stone-600 shrink-0">{formatElapsed(Date.now() - agent.startedAt)}</span>}
+            </button>
+          ))}
+
+          {/* Completed items */}
+          {currentEntries.map(entry => {
+            const type = entry.activityType || 'pipeline';
+            const isSuccess = entry.activityStatus === 'success' || (!entry.activityStatus && Object.values(entry.stagesSummary).every(s => s === 'done' || s === 'skipped'));
+            const isError = entry.activityStatus === 'error' || (!entry.activityStatus && Object.values(entry.stagesSummary).some(s => s === 'error'));
+            const label = entry.summary || entry.featureRequest || `${type} run`;
+            const badge = TYPE_BADGE[type] || TYPE_BADGE.pipeline;
+
+            return (
+              <button
+                key={entry.runId}
+                onClick={() => setSelectedId(entry.runId === selectedId ? null : entry.runId)}
+                className={`w-full text-left flex items-center gap-2 px-3 py-2 rounded-md border transition-colors ${
+                  selectedId === entry.runId
+                    ? 'bg-stone-800/60 border-stone-600/50'
+                    : 'bg-stone-900/30 border-stone-800/30 hover:bg-stone-800/30'
+                }`}
+              >
+                {isSuccess ? (
+                  <CheckCircle size={13} className="text-green-400 shrink-0" />
+                ) : isError ? (
+                  <XCircle size={13} className="text-red-400 shrink-0" />
+                ) : (
+                  <Loader2 size={13} className="text-stone-500 shrink-0" />
+                )}
+                <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full shrink-0 ${badge.color}`}>{badge.label}</span>
+                <span className="text-xs text-stone-400 truncate flex-1">{label}</span>
+                <span className="text-[10px] text-amber-400 shrink-0">${entry.totalCost?.totalUsd?.toFixed(2) || '0.00'}</span>
+                <span className="text-[10px] text-stone-600 shrink-0">{timeAgo(entry.timestamp)}</span>
+              </button>
+            );
+          })}
+
+          {currentEntries.length === 0 && runningForTab.length === 0 && (
+            <p className="text-xs text-stone-600 px-3 py-4 text-center">
+              No {tab} activity yet.
+            </p>
+          )}
+        </div>
+
+        {/* Detail panel (inline output) */}
+        {selectedId && (
+          <div className="rounded-lg border border-stone-800/50 bg-stone-900/20 overflow-hidden">
+            <div className="flex items-center justify-between px-3 py-2 border-b border-stone-800/40">
+              <span className="text-xs font-medium text-stone-300">
+                {selectedAgent ? `${selectedAgent.name || selectedAgent.persona} (running)` : selectedEntry?.summary || selectedEntry?.featureRequest || 'Details'}
+              </span>
+              <button onClick={() => setSelectedId(null)} className="text-stone-600 hover:text-stone-400">
+                <X size={14} />
               </button>
             </div>
-          ) : (
-            <p className="text-xs text-stone-600 px-3 py-2">No completed runs yet. Launch your first pipeline above!</p>
-          )}
-        </section>
+            <div className="max-h-[420px] overflow-y-auto p-3">
+              {selectedAgent ? (
+                // Running agent: show live output
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                    <span className="text-xs text-stone-400">{selectedAgent.persona} · {selectedAgent.stack}</span>
+                    {selectedAgent.cost && <span className="text-[10px] text-amber-400">${selectedAgent.cost.totalUsd.toFixed(2)}</span>}
+                  </div>
+                  <pre className="text-[11px] text-stone-400 font-mono bg-stone-950/50 rounded p-3 max-h-[350px] overflow-y-auto whitespace-pre-wrap">
+                    {agentOutputs.get(selectedAgent.id)?.slice(-8000) || 'Waiting for output...'}
+                  </pre>
+                </div>
+              ) : selectedEntry ? (
+                // Completed entry: show summary + stage info
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3 text-xs">
+                    <span className={`font-medium px-1.5 py-0.5 rounded-full ${(TYPE_BADGE[selectedEntry.activityType || 'pipeline'] || TYPE_BADGE.pipeline).color}`}>
+                      {(TYPE_BADGE[selectedEntry.activityType || 'pipeline'] || TYPE_BADGE.pipeline).label}
+                    </span>
+                    <span className="text-amber-400">${selectedEntry.totalCost?.totalUsd?.toFixed(2) || '0.00'}</span>
+                    <span className="text-stone-500">{formatElapsed(selectedEntry.durationMs)}</span>
+                    <span className="text-stone-600">{new Date(selectedEntry.timestamp).toLocaleString()}</span>
+                  </div>
 
-        {/* Daily summary */}
-        {historyEntries.length > 0 && (
-          <div className="text-[10px] text-stone-600 px-1 pb-4">
-            {historyEntries.length} total runs | ${historyEntries.reduce((s, e) => s + (e.totalCost?.totalUsd || 0), 0).toFixed(2)} spent
+                  {/* Pipeline stages */}
+                  {(selectedEntry.activityType === 'pipeline' || !selectedEntry.activityType) && (
+                    <div className="flex items-center gap-2">
+                      {(['analyze', 'architect', 'plan', 'build', 'test'] as const).map(stage => {
+                        const status = selectedEntry.stagesSummary[stage] ?? 'pending';
+                        return (
+                          <div key={stage} className="flex items-center gap-1">
+                            <div className={`w-2.5 h-2.5 rounded-full ${
+                              status === 'done' ? 'bg-green-500' : status === 'error' ? 'bg-red-500' : status === 'skipped' ? 'bg-stone-600' : 'bg-stone-700'
+                            }`} />
+                            <span className={`text-[10px] ${status === 'done' ? 'text-green-400' : status === 'error' ? 'text-red-400' : 'text-stone-600'}`}>{stage}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Stage breakdowns (cost per stage) */}
+                  {selectedEntry.stageBreakdowns && selectedEntry.stageBreakdowns.length > 0 && (
+                    <div className="space-y-1">
+                      <h4 className="text-[10px] font-medium text-stone-500 uppercase tracking-wider">Cost Breakdown</h4>
+                      {selectedEntry.stageBreakdowns.filter(b => b.cost > 0).map(b => (
+                        <div key={b.name} className="flex items-center justify-between text-[10px]">
+                          <span className="text-stone-400">{b.name}</span>
+                          <div className="flex items-center gap-3">
+                            <span className="text-amber-400">${b.cost.toFixed(3)}</span>
+                            <span className="text-stone-600">{formatElapsed(b.durationMs)}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Summary / feature request */}
+                  {(selectedEntry.summary || selectedEntry.featureRequest) && (
+                    <div>
+                      <h4 className="text-[10px] font-medium text-stone-500 uppercase tracking-wider mb-1">Description</h4>
+                      <p className="text-xs text-stone-400">{selectedEntry.summary || selectedEntry.featureRequest}</p>
+                    </div>
+                  )}
+
+                  {/* Model + metadata */}
+                  <div className="flex items-center gap-3 text-[10px] text-stone-600">
+                    {selectedEntry.model && <span>Model: {selectedEntry.model}</span>}
+                    {selectedEntry.fixIterations != null && selectedEntry.fixIterations > 0 && (
+                      <span>Fix iterations: {selectedEntry.fixIterations}</span>
+                    )}
+                    <span>{selectedEntry.projectName}:{selectedEntry.stack}</span>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-stone-600">Select an item to view details.</p>
+              )}
+            </div>
           </div>
         )}
       </div>
-    </div>
+    </section>
   );
 }
