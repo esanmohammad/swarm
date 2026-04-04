@@ -24,6 +24,10 @@
   <img src="https://img.shields.io/badge/TypeScript-strict-blue" alt="TypeScript" />
 </p>
 
+<p align="center">
+  <img src=".github/assets/dashboard.png" alt="Hivemind Dashboard" width="800" />
+</p>
+
 ---
 
 ## What is Hivemind?
