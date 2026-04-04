@@ -1,295 +1,348 @@
-# Swarm
+<p align="center">
+  <img src="https://img.shields.io/badge/Hivemind-AI%20Agent%20Orchestrator-blue?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiPjxwYXRoIGQ9Ik0xMiAydjIwTTIgMTJoMjBNNi41IDYuNWwxMSAxMU02LjUgMTcuNWwxMS0xMSIvPjwvc3ZnPg==" alt="Hivemind" />
+</p>
 
-**One command. 5 AI agents. Complete features.**
+<h1 align="center">Hivemind</h1>
 
-Swarm orchestrates multiple Claude Code agents through a production-grade pipeline to turn feature requests into tested, committed code. Each agent has a specialized role with strict boundaries — just like a real engineering team.
+<p align="center">
+  <strong>Describe a feature. Get working, tested code.</strong><br/>
+  Hivemind orchestrates Claude Code agents through a 5-stage pipeline — from requirements to passing tests — while you watch.
+</p>
+
+<p align="center">
+  <a href="#quick-start">Quick Start</a> &bull;
+  <a href="#how-it-works">How It Works</a> &bull;
+  <a href="#commands">Commands</a> &bull;
+  <a href="#dashboard">Dashboard</a> &bull;
+  <a href="#configuration">Configuration</a>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/license-BUSL--1.1-blue" alt="License" />
+  <img src="https://img.shields.io/badge/node-%3E%3D18-brightgreen" alt="Node" />
+  <img src="https://img.shields.io/badge/claude_code-required-orange" alt="Claude Code" />
+  <img src="https://img.shields.io/badge/TypeScript-strict-blue" alt="TypeScript" />
+</p>
+
+---
+
+## What is Hivemind?
+
+Hivemind is a CLI tool and web dashboard that turns a plain-English feature request into working, tested code. It spawns specialized Claude Code sub-agents — each with a focused role and strict boundaries — and orchestrates them through a structured pipeline.
 
 ```
-"Add JWT login with refresh tokens"
-    |
-    v
-  Analyst    --> REQUIREMENTS.md    (gathers requirements, asks questions)
-  Architect  --> SPEC.md            (designs system, writes ADRs)
-  Lead       --> TASKS.md           (breaks work into parallel tasks)
-  Engineer   --> Source code         (implements features)
-  Tester     --> TESTPLAN.md        (writes + runs tests, auto-fixes failures)
-    |
-    v
-  Working code, tests passing, PR ready
+You: "Add dark mode with system preference detection"
+
+Hivemind:
+  1. Requirements  → REQUIREMENTS.md (user stories, acceptance criteria)
+  2. Design        → SPEC.md (architecture, component design, ADRs)
+  3. Tasks         → TASKS.md (parallelizable work items with IDs)
+  4. Code          → Implementation (multiple agents in parallel)
+  5. Test          → TESTPLAN.md + automated test execution
+
+  If tests fail → intelligent fix loop (targets specific failures, avoids regressions)
 ```
+
+**No copy-pasting. No context-switching. You describe what you want, and Hivemind builds it.**
+
+---
 
 ## Quick Start
 
+### Prerequisites
+
+- **Node.js** >= 18
+- **Claude Code CLI** installed and authenticated (`claude` command available)
+
+### Install
+
 ```bash
-# 1. Prerequisites
-npm install -g @anthropic-ai/claude-code
-
-# 2. Install Swarm
-npm install -g swarm-pipeline
-
-# 3. Verify setup
-swarm doctor
-
-# 4. Build a feature
-swarm "Add a login page with JWT authentication"
+git clone https://github.com/esanmohammad/swarm.git
+cd swarm
+npm install
+npm run build
 ```
 
-Swarm auto-detects your tech stack, runs all 5 stages, fixes failing tests, and commits the result.
+Add the CLI alias to your shell:
 
-## Features (v0.1)
+```bash
+echo 'alias hivemind="node '$(pwd)'/packages/cli/dist/bin/swarm.js"' >> ~/.zshrc
+source ~/.zshrc
+```
 
-### Full Pipeline
+### First Run
 
-| Command | What it does |
-|---------|-------------|
-| `swarm "feature request"` | Full 5-stage pipeline end-to-end |
-| `swarm analyze` | Run analyst — gather requirements |
-| `swarm architect` | Run architect — design system |
-| `swarm plan` | Run lead — break into tasks |
-| `swarm build` | Run engineer(s) — implement code |
-| `swarm test` | Run tester — generate + run tests |
+```bash
+cd your-project
+hivemind init                    # Initialize Hivemind in your project
+hivemind "add a login page"      # Build a feature end-to-end
+```
 
-### Quick Workflows
+That's it. Hivemind will analyze your codebase, create a plan, write the code, and run tests.
 
-| Command | What it does | Typical cost |
-|---------|-------------|-------------|
-| `swarm fix "bug description"` | Fix a bug, run tests | $1-3 |
-| `swarm fix --issue 123` | Fetch GitHub issue, fix it | $1-3 |
-| `swarm review` | Review staged/unstaged changes | $0.50-1 |
-| `swarm review 456` | Review a GitHub PR | $0.50-1 |
-| `swarm pr --reviewers --risk` | Smart PR with risk scores + reviewers | $0.10-0.30 |
-| `swarm refactor "extract auth"` | Analyze scope, refactor, verify | $2-5 |
-| `swarm spike "how does auth work?"` | Read-only codebase exploration | $0.10-0.30 |
-| `swarm test-gen` | Generate tests for untested code | $1-5 |
-| `swarm learn` | Extract project conventions | free |
-
-### DevOps
-
-| Command | What it does |
-|---------|-------------|
-| `swarm init` | Initialize `.swarm/` with auto-detected stack |
-| `swarm doctor` | Verify environment (Node, Claude CLI, API key) |
-| `swarm check` | Validate artifacts against guardrail rules |
-| `swarm status` | Show pipeline state and agent status |
-| `swarm stats` | Cost analytics and performance trends |
-| `swarm memory` | Manage cross-run learning (what worked, what failed) |
-| `swarm dashboard` | Real-time web UI for monitoring agents |
+---
 
 ## How It Works
 
-### Role Boundaries
+### The 5-Stage Pipeline
 
-Each persona has strict tool restrictions. This prevents AI hallucinations from propagating across stages:
+Every feature goes through five stages, each handled by a specialized AI agent:
 
-| Persona | Can Do | Cannot Do |
-|---------|--------|-----------|
-| Analyst | Read code, ask questions | Write code, design architecture |
-| Architect | Design systems, write ADRs | Write code, assign tasks |
-| Lead | Break work into tasks | Write code, redesign architecture |
-| Engineer | Full implementation access | Redesign architecture |
-| Tester | Write tests, run test suite | Modify source code |
+| Stage | Agent | Produces | Role Boundary |
+|-------|-------|----------|---------------|
+| **Requirements** | Analyst | `REQUIREMENTS.md` | No architecture, no code |
+| **Design** | Architect | `SPEC.md` | No code, no task breakdown |
+| **Tasks** | Lead | `TASKS.md` | No code, no architecture changes |
+| **Code** | Engineer(s) | Implementation | Full file access |
+| **Test** | Tester | `TESTPLAN.md` | No source code changes |
 
-### Artifacts
-
-Every stage produces a validated, reviewable document:
-
-- **REQUIREMENTS.md** — User stories, acceptance criteria, scope
-- **SPEC.md** — Architecture diagrams (Mermaid), ADRs, API specs
-- **TASKS.md** — Parallelizable tasks with IDs, dependencies, file paths
-- **TESTPLAN.md** — Test cases with IDs, assertions, target files
-
-### Guardrails
-
-Artifacts are validated before the pipeline advances. If validation fails, the stage retries automatically.
-
-```bash
-swarm check
-
-  REQUIREMENTS.md
-    ✓  section-exists    Original Requirement
-    ✓  section-exists    Functional Requirements
-    ✗  pattern-match     No user stories found
-       Fix: Add "As a [user] I want [feature] So that [benefit]"
-
-  SPEC.md
-    ✓  section-exists    Architecture
-    ✗  pattern-match     No Mermaid diagrams found
-       Fix: Add a ```mermaid block in Architecture section
-
-  2 artifacts · 12 passed · 2 errors
-  Run swarm check --fix to auto-fix
-```
-
-Configure strictness in `.swarm/guardrails.yaml`:
-
-```yaml
-preset: standard   # strict | standard | lenient | off
-rules:
-  REQUIREMENTS.md:
-    user-stories: warning
-  SPEC.md:
-    mermaid-diagrams: off
-```
+Each agent gets a **stack-specific system prompt** (React, Node, Go, Python, Rust, Swift) and strict role boundaries to prevent scope creep.
 
 ### Intelligent Fix Loop
 
-When tests fail, Swarm doesn't just retry — it targets specific failures:
+When tests fail, Hivemind doesn't just retry blindly:
 
-1. Parse test output to identify individual failures
-2. Feed each failure to the engineer with context
-3. Detect regressions (new failures introduced by fixes)
-4. Track fix history to avoid repeated attempts
-5. Respect budget limits and max iterations
+- **Per-failure targeting** — fixes each failing test individually
+- **Regression detection** — ensures fixes don't break other tests
+- **Fix history** — tracks what was tried so it doesn't repeat failed approaches
+- **Budget-aware** — downgrades models at 80/90% budget, pauses (not kills) at 100%
 
-### Dashboard
+### Context Preservation
+
+When resuming from a failed step, Hivemind passes all prior artifacts (REQUIREMENTS.md, SPEC.md, TASKS.md) as context so the agent doesn't deviate from the original plan.
+
+---
+
+## Commands
+
+### Core Workflows
 
 ```bash
-swarm dashboard
-# Opens http://localhost:3000
+hivemind "your feature request"     # Full pipeline (shorthand)
+hivemind fix "describe the bug"     # Fix a specific bug
+hivemind review                     # Review uncommitted changes
+hivemind review 123                 # Review PR #123
+hivemind spike "how does X work?"   # Quick research investigation
+hivemind refactor "extract auth"    # Restructure without behavior change
+hivemind dashboard                  # Open the web UI
 ```
 
-Real-time monitoring of all agents:
-- Live output streaming
-- Cost and token tracking per persona
-- Stage progression with status indicators
-- Spawn/kill agents on demand
-- Dark mode
+### Pipeline Control
+
+```bash
+hivemind init                       # Initialize in current project
+hivemind init --stack react         # Initialize with specific stack
+hivemind status                     # Show pipeline state
+hivemind mayday --resume            # Resume an interrupted pipeline
+hivemind mayday --from-stage build  # Retry from a specific stage
+```
+
+### Workspace Tools
+
+```bash
+hivemind learn                      # Scan codebase to learn conventions
+hivemind stats                      # Show cost and usage statistics
+hivemind audit                      # View structured event log
+hivemind doctor                     # Check system health
+```
+
+### Advanced
+
+```bash
+hivemind pr --reviewers --risk      # Create PR with risk scores
+hivemind autopilot start            # Auto-process labeled GitHub issues
+hivemind watch "npm test"           # Re-run on file changes with auto-fix
+hivemind mentor "explain auth flow" # Ask questions about your codebase
+```
+
+---
+
+## Dashboard
+
+The web dashboard provides a real-time view of everything Hivemind is doing.
+
+```bash
+hivemind dashboard
+```
+
+### Features
+
+- **Activity Feed** — See all running and completed tasks in one place
+- **Live Output** — Stream agent output with markdown rendering and syntax highlighting
+- **Pipeline Progress** — Stage-by-stage progress with "step 2 of 5" indicators
+- **GitHub-Style Diff Viewer** — Unified and split views of code changes
+- **PR Reviews** — Review PRs by link, number, or scan all open PRs
+- **Coding Conventions** — Scan and edit your project's coding patterns
+- **Project Memory** — Add, filter, and manage things Hivemind remembers
+- **Usage & Costs** — Deep analytics with token usage, activity breakdown, cost by stage
+- **Stop / Resume / Retry** — Full control over running and failed pipelines
+- **Budget Management** — Set limits, get prompted to increase (agents pause, not die)
+- **Keyboard Navigation** — Arrow keys / j/k to browse, Cmd+K command palette
+- **Model Selection** — Choose Opus, Sonnet, or Haiku per run
+- **Lean Mode** — Use Haiku for doc stages, save ~60% on early pipeline stages
+
+### Build Feature Options
+
+| Option | Description |
+|--------|-------------|
+| **Model** | Opus (best quality), Sonnet (balanced), Haiku (fastest/cheapest) |
+| **Mode** | Full (best models throughout) or Lean (haiku for docs, default for code) |
+| **Figma URL** | Paste a Figma design link for visual reference |
+| **Budget** | Set a dollar limit — you'll be prompted to increase, never surprise-killed |
+
+---
 
 ## Configuration
 
-```bash
-swarm init
-```
-
-Creates `.swarm/config.yaml`:
+### Project Config (`.swarm/config.yaml`)
 
 ```yaml
-stack: react              # auto-detected: react | node | python | go | rust
-model: opus               # opus | sonnet | haiku
-budget: 20                # max dollars per run (null = unlimited)
-testFramework: vitest     # vitest | jest | playwright | pytest
+stack: react                    # Tech stack (react, node, go, python, rust, swift)
+model: sonnet                   # Default model for all stages
+maxBudgetUsd: 20                # Global budget limit (null = no limit)
+
+# Per-stage model overrides
+models:
+  analyst: haiku                # Cheaper model for requirements
+  architect: sonnet             # Balanced for design
+  engineer: opus                # Best for code generation
+  tester: sonnet                # Balanced for test planning
+
+# Parallel build agents
+parallel: 3                     # Number of concurrent engineers in build stage
 ```
 
 ### Custom Personas
 
-Create `.swarm/personas/my-analyst.yaml`:
+Drop YAML files in `.swarm/personas/` to customize agent behavior:
 
 ```yaml
-name: Security Analyst
-role: analyst
-stack: react
-model: sonnet
+# .swarm/personas/strict-reviewer.yaml
+name: strict-reviewer
+persona: engineer
 systemPrompt: |
-  You are a senior security analyst at a fintech company.
-  Focus on: authentication, authorization, data encryption, compliance.
+  You are an extremely thorough code reviewer.
+  Flag any potential security issues, performance problems, or maintainability concerns.
+  Always suggest specific improvements with code examples.
 ```
 
-## Cost & Performance
+### Guardrails (`.swarm/guardrails.yaml`)
 
-| Feature size | Time | Cost |
-|-------------|------|------|
-| Small (1-2 files) | 3-5 min | $2-5 |
-| Medium (3-8 files) | 5-10 min | $5-15 |
-| Complex (9+ files) | 10-20 min | $15-40 |
+```yaml
+rules:
+  - name: requirements-has-user-stories
+    stage: analyze
+    check: pattern-match
+    pattern: "As a .+ I want"
+    file: REQUIREMENTS.md
+    severity: warning
 
-```bash
-swarm stats                          # View cost history
-swarm "feature" --budget 10          # Fail if over $10
-swarm "feature" --lean               # Use haiku for docs, opus for code
+  - name: spec-has-data-model
+    stage: architect
+    check: section-exists
+    section: "Data Model"
+    file: SPEC.md
+    severity: error
 ```
+
+---
 
 ## Architecture
 
 ```
-CLI Command
-  → Pipeline (sequences 5 stages with role boundaries)
-    → AgentManager (spawns/tracks multiple agents)
-      → AgentProcess (wraps claude CLI subprocess, parses stream-json)
+hivemind CLI ──→ Pipeline ──→ AgentManager ──→ AgentProcess (claude subprocess)
+                                                     │
+                                                     ├── content events → output + WS broadcast
+                                                     ├── result event → cost tracking
+                                                     └── exit event → error handling
 
-StateManager ──events──> WebSocket Server ──> Dashboard (React)
+StateManager ──events──▶ WebSocket Server ──▶ Dashboard (React)
 ```
 
-Key design decisions:
-- **Subprocess isolation** — each agent is a separate `claude` CLI process
-- **Stream-json parsing** — real-time output from NDJSON streams
-- **State persistence** — `.swarm/state.json` with backup/recovery
-- **Ring-buffer output** — 50KB cap per agent prevents memory issues
-- **Inactivity watchdog** — kills stuck agents after configurable timeout
+### Tech Stack
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for deep dives.
+| Component | Technology |
+|-----------|-----------|
+| CLI | TypeScript, Commander.js |
+| Dashboard | React 19, Vite, Tailwind CSS |
+| Agent Runtime | Claude Code CLI (`claude` subprocess) |
+| Communication | WebSocket (real-time state sync) |
+| State | JSON file with backup-before-write |
+| Prompts | 30 stack-specific markdown files (5 personas x 6 stacks) |
 
-## Coming Soon (v0.2+)
+### Project Structure
 
-Swarm v0.1 ships 19 commands. 60+ more are in development:
-
-- **Autopilot** — Watch GitHub issues, auto-create PRs
-- **Incident Response** — Diagnose + fix production bugs
-- **Health Monitoring** — Track codebase quality over time
-- **Risk Scoring** — Identify high-risk changes before merge
-- **Multi-Repo** — Coordinate features across repositories
-- **Security Scanner** — OWASP static analysis + AI semantic review
-- **Supply Chain** — Verify dependencies before install
-- **Team Coordination** — Multi-developer awareness + conflict prevention
-- **Architecture Review** — Detect circular deps, god modules, coupling hotspots
-- **Roadmap Planning** — Multi-phase project plans with critical path analysis
-
-Run `swarm --help --all` to see the full command list.
-
-## Troubleshooting
-
-```bash
-# Environment issues
-swarm doctor
-
-# Agent stuck as "running"
-swarm status --clear
-
-# Tests keep failing
-swarm test --verbose
-swarm test --fix
-
-# Dashboard won't connect
-swarm dashboard --port 3001 --verbose
-
-# Cost concerns
-swarm stats
-swarm "feature" --budget 5 --dry-run
+```
+packages/
+  cli/              # CLI tool (TypeScript, Commander.js)
+    bin/            # Entry point
+    src/
+      commands/     # CLI commands (50+)
+      core/         # Pipeline, AgentManager, WebSocket server, CostTracker
+  dashboard/        # Web UI (React 19, Vite, Tailwind)
+    src/
+      components/   # Feed, Canvas, ActionBar, DiffViewer, OutputPanel
+      store/        # Feed selection state
+      theme/        # Design tokens (single dark theme)
+prompts/            # 30 persona system prompts
+.github/actions/    # GitHub Action for CI/CD integration
 ```
 
-## Contributing
+---
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines.
+## GitHub Action
 
-```bash
-git clone https://github.com/anthropics/swarm.git
-cd swarm
-npm install
-npm run build
-npm test
+Run Hivemind in CI/CD:
+
+```yaml
+- uses: ./.github/actions/swarm
+  with:
+    prompt: "Implement the feature described in this issue"
+    stack: react
+    model: sonnet
 ```
+
+---
+
+## Supported Stacks
+
+| Stack | Personas | Test Framework |
+|-------|----------|---------------|
+| React | All 5 | Jest / Vitest |
+| Node | All 5 | Jest / Vitest |
+| Go | All 5 | go test |
+| Python | All 5 | pytest |
+| Rust | All 5 | cargo test |
+| Swift | All 5 | XCTest |
+
+---
 
 ## FAQ
 
-**Does Swarm replace engineers?**
-No. Think of it like having junior engineers for initial implementation. You review, approve architecture, and make decisions.
+**Q: Does Hivemind write directly to my files?**
+A: Yes. Engineers have full file access. Use `--approval-required` to review each stage before it proceeds.
 
-**How much does it cost?**
-Swarm is free and open-source. You pay for Claude API usage. Typical feature: $2-15.
+**Q: What happens if I run out of budget mid-pipeline?**
+A: Agents pause and you're prompted to increase the budget. They're never killed without your consent.
 
-**What tech stacks are supported?**
-React, Node, Python, Go, Rust, Swift, and custom. Auto-detected from your project.
+**Q: Can I resume a failed pipeline?**
+A: Yes. Click "Retry from Failed Step" in the dashboard, or run `hivemind mayday --resume`. All prior artifacts are preserved as context.
 
-**Can I use a different LLM?**
-Currently Claude Code only. Multi-LLM support is coming in v0.2.
+**Q: How much does a typical feature cost?**
+A: Depends on complexity. A simple feature with Sonnet costs ~$1-3. Complex features with Opus can cost $5-15. Lean mode saves ~60% on early stages.
 
-**Is it production-ready?**
-v0.1 is solid for well-scoped features in mature codebases. Always review AI-generated code before merging.
+**Q: Can I use my own models?**
+A: Hivemind uses Claude Code under the hood. Any model available through your Claude Code setup works.
+
+---
 
 ## License
 
-See [LICENSE](LICENSE) for details.
+[Business Source License 1.1](LICENSE)
 
-## Acknowledgments
+---
 
-- Built on [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) by Anthropic
-- Inspired by [Aider](https://aider.chat), [MetaGPT](https://github.com/geekan/MetaGPT), and [CrewAI](https://github.com/joaomdmoura/crewAI)
+<p align="center">
+  Built by <a href="https://github.com/esanmohammad">Esan Mohammad</a><br/>
+  <sub>Hivemind orchestrates AI agents so you can focus on what matters.</sub>
+</p>
