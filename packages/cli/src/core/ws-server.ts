@@ -536,7 +536,15 @@ export class SwarmWsServer {
         const stageStack = this.state.getState().stack;
 
         if (cmd.resume) {
-          console.log(`[ws] Resuming MayDay session`);
+          const existingMayday = this.state.getMayday();
+          if (existingMayday?.active) {
+            console.log(`[ws] Resuming active MayDay session`);
+          } else if (cmd.fromStage) {
+            // Re-run from a specific stage (retry failed step)
+            console.log(`[ws] Retrying MayDay from stage: ${cmd.fromStage}`);
+          } else {
+            console.log(`[ws] Resuming MayDay session`);
+          }
         } else {
           if (!cmd.prompt?.trim()) {
             throw new Error('MayDay requires a feature request prompt.');
@@ -546,8 +554,25 @@ export class SwarmWsServer {
 
         (async () => {
           try {
-            if (cmd.resume) {
+            if (cmd.resume && this.state.getMayday()?.active) {
+              // Active session — use resumeMayday
               await this.pipeline.resumeMayday({ parallel: cmd.parallel, headless: true });
+            } else if (cmd.resume && cmd.fromStage) {
+              // Inactive session with fromStage — re-run from that stage
+              // Use the existing feature request if no new prompt given
+              const prompt = cmd.prompt || this.state.getMayday()?.featureRequest;
+              if (!prompt) throw new Error('No feature request found to resume.');
+              await this.pipeline.runMayday(prompt, {
+                stack: this.state.getState().stack,
+                maxIterations: cmd.maxIterations,
+                figmaUrl: cmd.figmaUrl,
+                parallel: cmd.parallel,
+                model: cmd.model,
+                maxFixBudgetUsd: cmd.maxFixBudgetUsd !== undefined ? cmd.maxFixBudgetUsd : 15,
+                fromStage: cmd.fromStage,
+                approvalRequired: cmd.approvalRequired,
+                headless: true,
+              });
             } else {
               // Apply lean mode: haiku for docs stages, keep engineer on default
               if (cmd.lean) {

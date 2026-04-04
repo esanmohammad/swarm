@@ -5,7 +5,7 @@ import {
   RefreshCw, GitPullRequest, Search as SearchIcon, Minimize2,
   Rocket, ChevronDown, ChevronRight,
 } from 'lucide-react';
-import type { HistoryEntry } from '../../types';
+import type { HistoryEntry, PipelineState, StageName } from '../../types';
 
 interface StatsData {
   totalRuns: number;
@@ -24,6 +24,7 @@ interface StatsData {
 interface StatsCanvasProps {
   stats: StatsData | null;
   historyEntries: HistoryEntry[];
+  state?: PipelineState;
 }
 
 // ── Stat Card ──
@@ -100,8 +101,10 @@ const ACTIVITY_META: Record<string, { icon: typeof Rocket; color: string; label:
   simplify: { icon: Minimize2, color: 'var(--activity-simplify)', label: 'Simplify' },
 };
 
-export function StatsCanvas({ stats, historyEntries }: StatsCanvasProps) {
-  const computed = stats ?? computeStats(historyEntries);
+const STAGE_ORDER: StageName[] = ['analyze', 'architect', 'plan', 'build', 'test'];
+
+export function StatsCanvas({ stats, historyEntries, state }: StatsCanvasProps) {
+  const computed = stats ?? computeStats(historyEntries, state);
   const deep = useDeepStats(historyEntries);
 
   return (
@@ -473,14 +476,26 @@ function useDeepStats(entries: HistoryEntry[]): DeepStats {
   }, [entries]);
 }
 
-function computeStats(entries: HistoryEntry[]): StatsData {
-  const totalRuns = entries.length;
+function computeStats(entries: HistoryEntry[], state?: PipelineState): StatsData {
+  const totalRuns = entries.length || (state ? 1 : 0);
   const passed = entries.filter((e) => e.activityStatus === 'success').length;
-  const failed = entries.filter((e) => e.activityStatus === 'error').length;
-  const totalCost = entries.reduce((sum, e) => sum + (e.totalCost?.totalUsd ?? 0), 0);
+  const failed = entries.filter((e) => e.activityStatus === 'error').length + (
+    state && !entries.length && STAGE_ORDER.some((s) => state.stages[s]?.status === 'error') ? 1 : 0
+  );
+
+  // Cost from history + current state
+  let totalCost = entries.reduce((sum, e) => sum + (e.totalCost?.totalUsd ?? 0), 0);
   const totalDuration = entries.reduce((sum, e) => sum + (e.durationMs ?? 0), 0);
 
-  // Compute stage costs from history breakdown data
+  // If no history cost, compute from current state
+  if (totalCost === 0 && state) {
+    totalCost = state.totalCost?.totalUsd > 0
+      ? state.totalCost.totalUsd
+      : state.agents.reduce((sum, a) => sum + (a.cost?.totalUsd ?? 0), 0) ||
+        STAGE_ORDER.reduce((sum, s) => sum + (state.stages[s]?.stageCost ?? 0), 0);
+  }
+
+  // Stage costs from history breakdowns + current state
   const stageMap = new Map<string, { totalCost: number; count: number; totalDuration: number }>();
   for (const e of entries) {
     if (e.stageBreakdowns) {
@@ -490,6 +505,16 @@ function computeStats(entries: HistoryEntry[]): StatsData {
         existing.count++;
         existing.totalDuration += sb.durationMs ?? 0;
         stageMap.set(sb.name, existing);
+      }
+    }
+  }
+  // Also add current state stages if no history
+  if (stageMap.size === 0 && state) {
+    for (const s of STAGE_ORDER) {
+      const st = state.stages[s];
+      if (st?.stageCost && st.stageCost > 0) {
+        const dur = (st.finishedAt && st.startedAt) ? st.finishedAt - st.startedAt : 0;
+        stageMap.set(s, { totalCost: st.stageCost, count: 1, totalDuration: dur });
       }
     }
   }

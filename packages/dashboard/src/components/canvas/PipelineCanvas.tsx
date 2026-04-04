@@ -35,10 +35,16 @@ export function PipelineCanvas({ state, agentOutputs, agentActivities, sendComma
   // Can resume if there's a feature request and pipeline is stopped, errored, or complete
   const canResume = !!mayday?.featureRequest && (isStopped || isError || isComplete);
 
-  // Compute total cost from agents if state.totalCost is 0
+  // Compute total cost from best available source
   const totalCost = state.totalCost?.totalUsd > 0
     ? state.totalCost.totalUsd
-    : state.agents.reduce((sum, a) => sum + (a.cost?.totalUsd ?? 0), 0);
+    : (() => {
+        // Try agent costs first
+        const agentCost = state.agents.reduce((sum, a) => sum + (a.cost?.totalUsd ?? 0), 0);
+        if (agentCost > 0) return agentCost;
+        // Fall back to stage costs
+        return STAGE_ORDER.reduce((sum, s) => sum + (state.stages[s]?.stageCost ?? 0), 0);
+      })();
 
   // Determine active stage
   const activeStage = useMemo(() => {

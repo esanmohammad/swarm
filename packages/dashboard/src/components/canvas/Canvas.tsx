@@ -57,7 +57,7 @@ export function Canvas({ state, ws, selectedId }: CanvasProps) {
   if (selectedId === 'tool:stats') {
     return (
       <div className="flex-1 min-w-0 overflow-hidden">
-        <StatsCanvas stats={ws.stats} historyEntries={ws.historyEntries} />
+        <StatsCanvas stats={ws.stats} historyEntries={ws.historyEntries} state={state} />
       </div>
     );
   }
