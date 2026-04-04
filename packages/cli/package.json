@@ -1,9 +1,9 @@
 {
   "name": "hivemind-pipeline",
-  "version": "0.1.0",
-  "description": "AI builds your feature while you watch — orchestrate Claude Code agents through a structured 5-stage pipeline",
+  "version": "0.1.1",
+  "description": "Describe a feature, get working tested code — orchestrate Claude Code agents through a 5-stage pipeline",
   "type": "module",
-  "license": "BUSL-1.1",
+  "license": "MIT",
   "author": "Esan Mohammad",
   "repository": {
     "type": "git",
@@ -11,15 +11,19 @@
   },
   "homepage": "https://github.com/esanmohammad/swarm#readme",
   "keywords": [
+    "hivemind",
     "claude",
+    "claude-code",
     "ai",
-    "agent",
+    "ai-agent",
+    "agent-orchestration",
     "pipeline",
     "cli",
     "code-generation",
-    "orchestration",
     "vibe-coding",
-    "anthropic"
+    "anthropic",
+    "developer-tools",
+    "automation"
   ],
   "bin": {
     "hivemind": "./dist/bin/swarm.js"

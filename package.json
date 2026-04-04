@@ -1,6 +1,6 @@
 {
   "name": "hivemind-orchestrator",
-  "private": true,
+  "private": false,
   "workspaces": ["packages/*"],
   "scripts": {
     "build": "npm run build -w hivemind-pipeline && npm run build -w @hivemind/dashboard",

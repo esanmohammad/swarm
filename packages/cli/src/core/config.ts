@@ -90,7 +90,7 @@ export function autoInit(projectName: string, stack: TechStack, cwd: string = pr
     projectName,
     stack,
     model: 'sonnet',
-    maxBudgetUsd: 5,
+    maxBudgetUsd: null,
     wsPort,
     dashboardPort,
   };
