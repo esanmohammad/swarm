@@ -646,7 +646,7 @@ export const DEFAULT_CONFIG: SwarmConfig = {
   projectName: 'my-project',
   stack: 'react',
   model: 'sonnet',
-  maxBudgetUsd: 5,
+  maxBudgetUsd: null,
   promptsDir: 'bundled',
   wsPort: 3847,
   dashboardPort: 3848,

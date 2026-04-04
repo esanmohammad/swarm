@@ -18,14 +18,14 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/license-BUSL--1.1-blue" alt="License" />
+  <img src="https://img.shields.io/badge/license-MIT-green" alt="License" />
   <img src="https://img.shields.io/badge/node-%3E%3D18-brightgreen" alt="Node" />
   <img src="https://img.shields.io/badge/claude_code-required-orange" alt="Claude Code" />
   <img src="https://img.shields.io/badge/TypeScript-strict-blue" alt="TypeScript" />
 </p>
 
 <p align="center">
-  <img src=".github/assets/dashboard.png" alt="Hivemind Dashboard" width="800" />
+  <img src="https://raw.githubusercontent.com/esanmohammad/swarm/main/.github/assets/dashboard.png" alt="Hivemind Dashboard" width="800" />
 </p>
 
 ---
@@ -352,7 +352,7 @@ A: Hivemind uses Claude Code under the hood. Any model available through your Cl
 
 ## License
 
-[Business Source License 1.1](LICENSE)
+[MIT License](LICENSE)
 
 ---
 

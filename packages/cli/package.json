@@ -1,9 +1,9 @@
 {
   "name": "hivemind-pipeline",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Describe a feature, get working tested code — orchestrate Claude Code agents through a 5-stage pipeline",
   "type": "module",
-  "license": "BUSL-1.1",
+  "license": "MIT",
   "author": "Esan Mohammad",
   "repository": {
     "type": "git",
