@@ -164,19 +164,29 @@ export function PipelineCanvas({ state, agentOutputs, agentActivities, sendComma
             </button>
           )}
 
-          {/* Resume button — for completed/errored pipeline */}
+          {/* Resume button — for completed/errored pipeline, resumes from failed step */}
           {(isComplete || isError) && mayday?.featureRequest && (
             <button
-              onClick={() => sendCommand({
-                action: 'run-mayday',
-                prompt: mayday.featureRequest,
-                resume: true,
-              })}
+              onClick={() => {
+                // Find the failed or first incomplete stage to resume from
+                let fromStage: StageName | undefined;
+                for (const s of STAGE_ORDER) {
+                  const st = state.stages[s];
+                  if (st?.status === 'error') { fromStage = s; break; }
+                  if (st?.status === 'pending' || st?.status === 'running') { fromStage = s; break; }
+                }
+                sendCommand({
+                  action: 'run-mayday',
+                  prompt: mayday.featureRequest,
+                  resume: true,
+                  fromStage,
+                });
+              }}
               className="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-colors"
               style={{ backgroundColor: 'var(--accent-muted)', color: 'var(--accent)', border: '1px solid var(--border-muted)' }}
             >
               <RotateCcw size={10} />
-              {isError ? 'Retry' : 'Resume'}
+              {isError ? 'Retry from Failed Step' : 'Resume'}
             </button>
           )}
         </div>

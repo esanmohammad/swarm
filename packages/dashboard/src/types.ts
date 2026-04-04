@@ -669,6 +669,7 @@ export type WsMessage =
   | { type: 'agent-logs'; payload: { agentId: string; output: string; activities: AgentActivity[] } }
   | { type: 'guardrail-alert'; payload: GuardrailViolation }
   | { type: 'cost-update'; payload: CostInfo }
+  | { type: 'budget-exceeded'; payload: { spent: number; budget: number; message: string } }
   | { type: 'history-list'; payload: HistoryEntry[] }
   | { type: 'agent-log'; payload: { agentId: string; log: string } }
   | { type: 'approval-request'; payload: { stage: StageName; summary: string } }
@@ -744,6 +745,8 @@ export type WsCommand =
   | { action: 'mayday-stop' }
   | { action: 'mayday-approve'; stage: StageName }
   | { action: 'mayday-reject'; stage: StageName; reason?: string }
+  | { action: 'increase-budget'; amount?: number }
+  | { action: 'decline-budget' }
   | { action: 'get-history' }
   | { action: 'get-agent-log'; agentId: string }
   | { action: 'get-artifact'; stage: StageName }

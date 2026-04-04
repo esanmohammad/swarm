@@ -56,6 +56,8 @@ interface UseWebSocketReturn {
   modelConfig: ModelConfig | null;
   availableModels: ModelInfo[] | null;
   providerStatus: ProviderStatus[] | null;
+  budgetExceeded: { spent: number; budget: number; message: string } | null;
+  clearBudgetExceeded: () => void;
   sendCommand: (cmd: WsCommand) => void;
   switchPipeline: (namespace: string) => void;
   listPipelines: () => void;
@@ -98,6 +100,7 @@ export function useWebSocket(): UseWebSocketReturn {
   const [forecastData, setForecastData] = useState<ForecastData | null>(null);
   const [complianceData, setComplianceData] = useState<ComplianceData | null>(null);
   const [pluginRegistry, setPluginRegistry] = useState<PluginRegistryData | null>(null);
+  const [budgetExceeded, setBudgetExceeded] = useState<UseWebSocketReturn['budgetExceeded']>(null);
   const [modelConfig, setModelConfig] = useState<ModelConfig | null>(null);
   const [availableModels, setAvailableModels] = useState<ModelInfo[] | null>(null);
   const [providerStatus, setProviderStatus] = useState<ProviderStatus[] | null>(null);
@@ -350,6 +353,10 @@ export function useWebSocket(): UseWebSocketReturn {
             setPluginRegistry(msg.payload);
             break;
 
+          case 'budget-exceeded':
+            setBudgetExceeded(msg.payload);
+            break;
+
           case 'model-config':
             setModelConfig(msg.payload);
             break;
@@ -429,6 +436,8 @@ export function useWebSocket(): UseWebSocketReturn {
     forecastData,
     complianceData,
     pluginRegistry,
+    budgetExceeded,
+    clearBudgetExceeded: useCallback(() => setBudgetExceeded(null), []),
     modelConfig,
     availableModels,
     providerStatus,

@@ -46,10 +46,10 @@ export function registerMentor(program: Command): void {
     .action(async (questionParts: string[], opts) => {
       const question = questionParts.join(' ');
       if (!question) {
-        console.log(chalk.yellow('Usage: swarm mentor <question>'));
-        console.log(chalk.dim('  swarm mentor "How does authentication work?"'));
-        console.log(chalk.dim('  swarm mentor review'));
-        console.log(chalk.dim('  swarm mentor explain src/core/pipeline.ts'));
+        console.log(chalk.yellow('Usage: hivemind mentor <question>'));
+        console.log(chalk.dim('  hivemind mentor "How does authentication work?"'));
+        console.log(chalk.dim('  hivemind mentor review'));
+        console.log(chalk.dim('  hivemind mentor explain src/core/pipeline.ts'));
         return;
       }
 

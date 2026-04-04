@@ -92,13 +92,12 @@ export class AgentManager extends EventEmitter {
     // Expose cost tracker for pipeline budget degradation
     this.getCostTracker = () => this.costTracker;
 
-    // Listen for aggregate budget exceeded — kill all agents immediately
+    // Listen for aggregate budget exceeded — pause and request user approval
     this.costTracker.on('budget-exceeded', (total: CostInfo) => {
       const budget = this.costTracker.getBudget();
-      console.error(`\n\x1b[31mBudget reached: $${total.totalUsd.toFixed(2)} spent (limit: $${budget})\x1b[0m`);
-      console.error(`To increase: swarm mayday --budget 15 or edit .swarm/config.yaml (maxBudgetUsd)`);
-      console.error(`To remove limit: swarm init --budget 0\n`);
-      this.killAll();
+      console.error(`\n\x1b[33mBudget reached: $${total.totalUsd.toFixed(2)} spent (limit: $${budget})\x1b[0m`);
+      console.error(`Waiting for user to increase budget or stop agents...\n`);
+      // Emit event for WS server to broadcast to dashboard — do NOT kill immediately
       this.emit('budget-exceeded', total);
     });
   }
@@ -187,7 +186,7 @@ export class AgentManager extends EventEmitter {
       if (agentProcess.timedOut) {
         agent.status = 'error';
         agent.finishedAt = Date.now();
-        agent.error = agent.error || 'Agent killed due to inactivity timeout. Use swarm mayday --resume to continue.';
+        agent.error = agent.error || 'Agent killed due to inactivity timeout. Use hivemind mayday --resume to continue.';
         this.state.updateAgent(agent);
         this.emit('agent-error', agent);
       } else if (code !== 0) {

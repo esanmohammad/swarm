@@ -109,7 +109,7 @@ export function registerMayday(program: Command): void {
 
         // New run requires a feature request
         if (!featureRequest) {
-          console.error(chalk.red('Feature request required. Usage: swarm mayday "build a login page"'));
+          console.error(chalk.red('Feature request required. Usage: hivemind mayday "build a login page"'));
           process.exit(1);
         }
 

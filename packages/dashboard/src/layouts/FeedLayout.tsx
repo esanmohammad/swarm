@@ -5,6 +5,7 @@ import { Canvas } from '../components/canvas/Canvas';
 import { ActionBar } from '../components/actionbar/ActionBar';
 import { CommandPalette } from '../components/CommandPalette';
 import { KillConfirmDialog } from '../components/KillConfirmDialog';
+import { BudgetDialog } from '../components/BudgetDialog';
 import { WebSocketProvider, useWs } from '../context/WebSocketContext';
 import { ActionsProvider } from '../context/ActionsContext';
 import { useFeedStore } from '../store/feed-store';
@@ -229,6 +230,16 @@ function FeedLayoutInner() {
           agent={killAgent}
           onConfirm={() => { sendCommand({ action: 'kill', agentId: killAgent.id }); setKillAgent(null); }}
           onCancel={() => setKillAgent(null)}
+        />
+      )}
+
+      {ws.budgetExceeded && (
+        <BudgetDialog
+          spent={ws.budgetExceeded.spent}
+          budget={ws.budgetExceeded.budget}
+          message={ws.budgetExceeded.message}
+          sendCommand={sendCommand}
+          onDismiss={() => ws.clearBudgetExceeded()}
         />
       )}
     </div>

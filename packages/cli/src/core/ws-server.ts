@@ -2,7 +2,7 @@ import { watch, readFileSync, writeFileSync, existsSync, unlinkSync, copyFileSyn
 import { join } from 'node:path';
 import { WebSocketServer, WebSocket } from 'ws';
 import { stringify as toYaml, parse as parseYaml } from 'yaml';
-import type { WsMessage, WsCommand, PipelineState, PipelineInfo, Persona, AgentActivity } from '../types.js';
+import type { WsMessage, WsCommand, PipelineState, PipelineInfo, Persona, AgentActivity, CostInfo } from '../types.js';
 import { emptyCost } from '../types.js';
 import { StateManager } from './state.js';
 import { AgentManager } from './agent-manager.js';
@@ -164,6 +164,20 @@ export class SwarmWsServer {
       this.broadcast({ type: 'agent-update', payload: agent });
       // Also broadcast full state to keep costs in sync
       this.broadcast({ type: 'state', payload: this.state.getState() });
+    });
+
+    // Budget exceeded — broadcast to dashboard for user approval
+    this.agentManager.on('budget-exceeded', (total: CostInfo) => {
+      const costTracker = this.agentManager.getCostTracker();
+      const budget = costTracker.getBudget();
+      this.broadcast({
+        type: 'budget-exceeded',
+        payload: {
+          spent: total.totalUsd,
+          budget: budget ?? 0,
+          message: `Budget limit of $${(budget ?? 0).toFixed(2)} reached (spent: $${total.totalUsd.toFixed(2)}). Increase budget to continue or stop agents.`,
+        },
+      });
     });
   }
 
@@ -616,6 +630,31 @@ export class SwarmWsServer {
             }
           }
         }
+        break;
+      }
+
+      case 'increase-budget': {
+        const amount = (cmd as { amount?: number }).amount ?? 5;
+        const costTracker = this.agentManager.getCostTracker();
+        costTracker.increaseBudget(amount);
+        const newBudget = costTracker.getBudget();
+        console.log(`[ws] Budget increased by $${amount} → new limit: $${newBudget?.toFixed(2)}`);
+        this.broadcast({ type: 'state', payload: this.state.getState() });
+        break;
+      }
+
+      case 'decline-budget': {
+        console.log(`[ws] User declined budget increase — killing all agents`);
+        this.agentManager.killAll();
+        // Mark pipeline as failed
+        const maydayState = this.state.getMayday();
+        if (maydayState?.active) {
+          this.state.updateMayday({
+            active: false,
+            error: `Budget limit reached. User declined to increase budget.`,
+          });
+        }
+        this.broadcast({ type: 'state', payload: this.state.getState() });
         break;
       }
 

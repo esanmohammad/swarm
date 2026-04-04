@@ -10,6 +10,16 @@ export class CostTracker extends EventEmitter {
     this.budgetUsd = usd;
   }
 
+  /** Increase the budget — used when user approves budget increase from dashboard */
+  increaseBudget(additionalUsd: number): void {
+    if (this.budgetUsd === null) return;
+    this.budgetUsd += additionalUsd;
+    // Reset warning flags so they can fire again at new thresholds
+    this.warnedAt80 = false;
+    this.warnedAt90 = false;
+    this.emit('budget-increased', { newBudget: this.budgetUsd, added: additionalUsd });
+  }
+
   isOverBudget(): boolean {
     if (this.budgetUsd === null) return false;
     return this.getTotal().totalUsd >= this.budgetUsd;
