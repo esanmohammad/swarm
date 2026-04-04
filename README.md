@@ -58,21 +58,31 @@ Hivemind:
 - **Node.js** >= 18
 - **Claude Code CLI** installed and authenticated (`claude` command available)
 
-### Install
+### Install from npm
+
+```bash
+npm install -g hivemind-pipeline
+```
+
+Or run without installing:
+
+```bash
+npx hivemind-pipeline "add a login page"
+```
+
+<details>
+<summary><strong>Install from source</strong></summary>
 
 ```bash
 git clone https://github.com/esanmohammad/swarm.git
 cd swarm
 npm install
 npm run build
-```
-
-Add the CLI alias to your shell:
-
-```bash
 echo 'alias hivemind="node '$(pwd)'/packages/cli/dist/bin/swarm.js"' >> ~/.zshrc
 source ~/.zshrc
 ```
+
+</details>
 
 ### First Run
 
