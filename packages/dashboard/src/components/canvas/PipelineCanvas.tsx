@@ -26,6 +26,20 @@ export function PipelineCanvas({ state, agentOutputs, agentActivities, sendComma
   const isError = mayday?.error != null;
   const pendingApproval = mayday?.pendingApproval;
 
+  // Detect stopped/paused state: mayday exists but is not active, not complete, no error
+  // OR any stage has errored
+  const hasStageError = STAGE_ORDER.some((s) => state.stages[s]?.status === 'error');
+  const isStopped = !isRunning && !isComplete && !isError && (
+    (mayday && !mayday.active && mayday.currentStage !== 'complete') || hasStageError
+  );
+  // Can resume if there's a feature request and pipeline is stopped, errored, or complete
+  const canResume = !!mayday?.featureRequest && (isStopped || isError || isComplete);
+
+  // Compute total cost from agents if state.totalCost is 0
+  const totalCost = state.totalCost?.totalUsd > 0
+    ? state.totalCost.totalUsd
+    : state.agents.reduce((sum, a) => sum + (a.cost?.totalUsd ?? 0), 0);
+
   // Determine active stage
   const activeStage = useMemo(() => {
     if (selectedStage) return selectedStage;
@@ -99,39 +113,57 @@ export function PipelineCanvas({ state, agentOutputs, agentActivities, sendComma
               Complete
             </span>
           )}
-          {isError && (
+          {(isError || (isStopped && hasStageError)) && (
             <span className="flex items-center gap-1.5 text-xs font-medium" style={{ color: 'var(--status-error)' }}>
               <XCircle size={12} />
               Failed
-              {mayday?.error && (
+              {mayday?.error ? (
                 <span className="font-normal" style={{ color: 'var(--text-tertiary)' }}>
                   — {mayday.error.slice(0, 80)}
                 </span>
-              )}
+              ) : hasStageError ? (
+                <span className="font-normal" style={{ color: 'var(--text-tertiary)' }}>
+                  — {STAGE_LABELS[STAGE_ORDER.find((s) => state.stages[s]?.status === 'error') || ''] || 'Stage'} step failed
+                </span>
+              ) : null}
             </span>
           )}
-          {!mayday?.active && !isComplete && !isError && (
+          {isStopped && !hasStageError && (
+            <span className="flex items-center gap-1.5 text-xs font-medium" style={{ color: 'var(--status-warning)' }}>
+              <Square size={12} />
+              Stopped
+              <span className="font-normal" style={{ color: 'var(--text-tertiary)' }}>
+                at {STAGE_LABELS[mayday?.currentStage as string] || mayday?.currentStage || 'unknown'} step
+              </span>
+            </span>
+          )}
+          {!isRunning && !isComplete && !isError && !isStopped && (
             <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
               {state.projectName || 'Build'}
             </span>
           )}
 
-          {/* Cost + duration */}
-          {state.totalCost?.totalUsd > 0 && (
+          {/* Cost */}
+          {totalCost > 0 && (
             <span className="text-xs font-code tabular-nums" style={{ color: 'var(--text-secondary)' }}>
-              ${state.totalCost.totalUsd.toFixed(2)}
+              ${totalCost.toFixed(2)}
+            </span>
+          )}
+          {completedStages > 0 && (
+            <span className="text-[10px]" style={{ color: 'var(--text-disabled)' }}>
+              {completedStages}/{STAGE_ORDER.length} steps done
             </span>
           )}
         </div>
 
         {/* Actions */}
         <div className="flex items-center gap-2">
-          {/* Approval required banner */}
+          {/* Approval required */}
           {pendingApproval && (
             <>
               <span className="flex items-center gap-1 text-xs" style={{ color: 'var(--status-warning)' }}>
                 <AlertTriangle size={11} />
-                Waiting for approval to proceed
+                Waiting for approval
               </span>
               <button
                 onClick={() => sendCommand({ action: 'mayday-approve', stage: pendingApproval.stage })}
@@ -152,7 +184,7 @@ export function PipelineCanvas({ state, agentOutputs, agentActivities, sendComma
             </>
           )}
 
-          {/* Stop button */}
+          {/* Stop */}
           {isRunning && (
             <button
               onClick={() => sendCommand({ action: 'mayday-stop' })}
@@ -160,15 +192,14 @@ export function PipelineCanvas({ state, agentOutputs, agentActivities, sendComma
               style={{ backgroundColor: 'var(--status-error-bg)', color: 'var(--status-error)', border: '1px solid var(--border-muted)' }}
             >
               <Square size={10} />
-              Stop Build
+              Stop
             </button>
           )}
 
-          {/* Resume button — for completed/errored pipeline, resumes from failed step */}
-          {(isComplete || isError) && mayday?.featureRequest && (
+          {/* Resume / Retry — visible for stopped, errored, or completed pipelines */}
+          {canResume && (
             <button
               onClick={() => {
-                // Find the failed or first incomplete stage to resume from
                 let fromStage: StageName | undefined;
                 for (const s of STAGE_ORDER) {
                   const st = state.stages[s];
@@ -177,7 +208,7 @@ export function PipelineCanvas({ state, agentOutputs, agentActivities, sendComma
                 }
                 sendCommand({
                   action: 'run-mayday',
-                  prompt: mayday.featureRequest,
+                  prompt: mayday!.featureRequest,
                   resume: true,
                   fromStage,
                 });
@@ -186,7 +217,7 @@ export function PipelineCanvas({ state, agentOutputs, agentActivities, sendComma
               style={{ backgroundColor: 'var(--accent-muted)', color: 'var(--accent)', border: '1px solid var(--border-muted)' }}
             >
               <RotateCcw size={10} />
-              {isError ? 'Retry from Failed Step' : 'Resume'}
+              {hasStageError || isError ? 'Retry from Failed Step' : isComplete ? 'Run Again' : 'Resume'}
             </button>
           )}
         </div>
