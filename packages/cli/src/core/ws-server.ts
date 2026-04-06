@@ -115,6 +115,11 @@ export class SwarmWsServer {
   private authToken: string | null = null;
   private swarmConfig: SwarmConfig;
 
+  /** Broadcast an error message to all connected dashboard clients. */
+  private broadcastError(message: string): void {
+    this.broadcast({ type: 'error' as const, payload: { message } });
+  }
+
   constructor(
     private state: StateManager,
     private agentManager: AgentManager,
@@ -518,6 +523,7 @@ export class SwarmWsServer {
           } catch (err) {
             const errMsg = err instanceof Error ? err.message : String(err);
             console.error(`[ws] Pipeline stage "${cmd.stage}" failed: ${errMsg}`);
+            this.broadcastError(`Stage "${cmd.stage}" failed: ${errMsg}`);
           }
         })();
         break;
@@ -603,6 +609,7 @@ export class SwarmWsServer {
           } catch (err) {
             const errMsg = err instanceof Error ? err.message : String(err);
             console.error(`[ws] MayDay failed: ${errMsg}`);
+            this.broadcastError(`Build failed: ${errMsg}`);
           }
         })();
         break;
@@ -956,6 +963,7 @@ export class SwarmWsServer {
             console.log(`[ws] Fix complete`);
           } catch (err) {
             console.error(`[ws] Fix failed: ${err instanceof Error ? err.message : err}`);
+            this.broadcastError(`Fix failed: ${err instanceof Error ? err.message : err}`);
           }
         })();
         break;
@@ -1027,6 +1035,7 @@ export class SwarmWsServer {
             console.log(`[ws] Spike complete`);
           } catch (err) {
             console.error(`[ws] Spike failed: ${err instanceof Error ? err.message : err}`);
+            this.broadcastError(`Spike failed: ${err instanceof Error ? err.message : err}`);
           }
         })();
         break;
@@ -1136,6 +1145,7 @@ export class SwarmWsServer {
             console.log(`[ws] Review complete`);
           } catch (err) {
             console.error(`[ws] Review failed: ${err instanceof Error ? err.message : err}`);
+            this.broadcastError(`Review failed: ${err instanceof Error ? err.message : err}`);
           }
         })();
         break;
@@ -1219,6 +1229,7 @@ export class SwarmWsServer {
             console.log(`[ws] Refactor complete`);
           } catch (err) {
             console.error(`[ws] Refactor failed: ${err instanceof Error ? err.message : err}`);
+            this.broadcastError(`Refactor failed: ${err instanceof Error ? err.message : err}`);
           }
         })();
         break;
@@ -1370,6 +1381,7 @@ export class SwarmWsServer {
             console.log(`[ws] Migrate complete`);
           } catch (err) {
             console.error(`[ws] Migrate failed: ${err instanceof Error ? err.message : err}`);
+            this.broadcastError(`Migrate failed: ${err instanceof Error ? err.message : err}`);
           }
         })();
         break;
@@ -1470,6 +1482,7 @@ export class SwarmWsServer {
             console.log(`[ws] Explain complete`);
           } catch (err) {
             console.error(`[ws] Explain failed: ${err instanceof Error ? err.message : err}`);
+            this.broadcastError(`Explain failed: ${err instanceof Error ? err.message : err}`);
           }
         })();
         break;
@@ -1501,6 +1514,7 @@ export class SwarmWsServer {
             console.log(`[ws] Test check: ${passed ? 'PASS' : 'FAIL'}`);
           } catch (err) {
             console.error(`[ws] Test check failed: ${err instanceof Error ? err.message : err}`);
+            this.broadcastError(`Test check failed: ${err instanceof Error ? err.message : err}`);
           }
         })();
         break;
@@ -1540,6 +1554,7 @@ export class SwarmWsServer {
             console.log(`[ws] Watch fix complete`);
           } catch (err) {
             console.error(`[ws] Watch fix failed: ${err instanceof Error ? err.message : err}`);
+            this.broadcastError(`Watch fix failed: ${err instanceof Error ? err.message : err}`);
           }
         })();
         break;
@@ -1660,6 +1675,7 @@ export class SwarmWsServer {
             this.broadcast({ type: 'pr-reviews', payload: { reviews: updatedReviews } });
           } catch (err) {
             console.error(`[ws] PR review failed: ${err instanceof Error ? err.message : err}`);
+            this.broadcastError(`PR review failed: ${err instanceof Error ? err.message : err}`);
           }
         })();
         break;
@@ -1699,6 +1715,7 @@ export class SwarmWsServer {
             console.log(`[ws] Conventions saved`);
           } catch (err) {
             console.error(`[ws] Learn failed: ${err instanceof Error ? err.message : err}`);
+            this.broadcastError(`Learn failed: ${err instanceof Error ? err.message : err}`);
             this.broadcast({ type: 'conventions', payload: { content: null, loading: false } });
           }
         })();
@@ -1845,6 +1862,7 @@ export class SwarmWsServer {
             console.log(`[ws] Simplify complete`);
           } catch (err) {
             console.error(`[ws] Simplify failed: ${err instanceof Error ? err.message : err}`);
+            this.broadcastError(`Simplify failed: ${err instanceof Error ? err.message : err}`);
           }
         })();
         break;
@@ -1861,6 +1879,7 @@ export class SwarmWsServer {
             console.log(`[ws] Health check complete: ${report.overall}/100`);
           } catch (err) {
             console.error(`[ws] Health check failed: ${err instanceof Error ? err.message : err}`);
+            this.broadcastError(`Health check failed: ${err instanceof Error ? err.message : err}`);
           }
         })();
         break;
@@ -1878,6 +1897,7 @@ export class SwarmWsServer {
             console.log(`[ws] Security scan complete: ${report.findings.length} findings`);
           } catch (err) {
             console.error(`[ws] Security scan failed: ${err instanceof Error ? err.message : err}`);
+            this.broadcastError(`Security scan failed: ${err instanceof Error ? err.message : err}`);
           }
         })();
         break;
@@ -1896,6 +1916,7 @@ export class SwarmWsServer {
             console.log(`[ws] Secret scan complete: ${findings.length} findings`);
           } catch (err) {
             console.error(`[ws] Secret scan failed: ${err instanceof Error ? err.message : err}`);
+            this.broadcastError(`Secret scan failed: ${err instanceof Error ? err.message : err}`);
           }
         })();
         break;
@@ -1913,6 +1934,7 @@ export class SwarmWsServer {
             console.log(`[ws] Supply chain check complete: ${results.length} packages`);
           } catch (err) {
             console.error(`[ws] Supply chain check failed: ${err instanceof Error ? err.message : err}`);
+            this.broadcastError(`Supply chain check failed: ${err instanceof Error ? err.message : err}`);
           }
         })();
         break;
@@ -1929,6 +1951,7 @@ export class SwarmWsServer {
             _ws.send(JSON.stringify({ type: 'deps-check', payload: { outdated: parsed } }));
           } catch (err) {
             console.error(`[ws] Deps check failed: ${err instanceof Error ? err.message : err}`);
+            this.broadcastError(`Deps check failed: ${err instanceof Error ? err.message : err}`);
           }
         })();
         break;
@@ -1945,6 +1968,7 @@ export class SwarmWsServer {
             _ws.send(JSON.stringify({ type: 'deps-audit', payload: { audit: parsed } }));
           } catch (err) {
             console.error(`[ws] Deps audit failed: ${err instanceof Error ? err.message : err}`);
+            this.broadcastError(`Deps audit failed: ${err instanceof Error ? err.message : err}`);
           }
         })();
         break;
@@ -1961,6 +1985,7 @@ export class SwarmWsServer {
             console.log(`[ws] Deps update complete`);
           } catch (err) {
             console.error(`[ws] Deps update failed: ${err instanceof Error ? err.message : err}`);
+            this.broadcastError(`Deps update failed: ${err instanceof Error ? err.message : err}`);
           }
         })();
         break;
@@ -2002,6 +2027,7 @@ export class SwarmWsServer {
             console.log(`[ws] Incident response complete`);
           } catch (err) {
             console.error(`[ws] Incident response failed: ${err instanceof Error ? err.message : err}`);
+            this.broadcastError(`Incident response failed: ${err instanceof Error ? err.message : err}`);
           }
         })();
         break;
@@ -2030,6 +2056,7 @@ export class SwarmWsServer {
             console.log(`[ws] Benchmark complete`);
           } catch (err) {
             console.error(`[ws] Benchmark failed: ${err instanceof Error ? err.message : err}`);
+            this.broadcastError(`Benchmark failed: ${err instanceof Error ? err.message : err}`);
           }
         })();
         break;
@@ -2057,6 +2084,7 @@ export class SwarmWsServer {
             console.log(`[ws] Risk scoring complete: ${files.length} files`);
           } catch (err) {
             console.error(`[ws] Risk scoring failed: ${err instanceof Error ? err.message : err}`);
+            this.broadcastError(`Risk scoring failed: ${err instanceof Error ? err.message : err}`);
           }
         })();
         break;
@@ -2075,6 +2103,7 @@ export class SwarmWsServer {
             console.log(`[ws] Fingerprint scan complete: ${report.files.length} files`);
           } catch (err) {
             console.error(`[ws] Fingerprint failed: ${err instanceof Error ? err.message : err}`);
+            this.broadcastError(`Fingerprint failed: ${err instanceof Error ? err.message : err}`);
           }
         })();
         break;
@@ -2199,6 +2228,7 @@ export class SwarmWsServer {
           this.broadcast({ type: 'inbox-state', payload: inbox });
         } catch (err) {
           console.error(`[ws] Inbox start failed: ${err instanceof Error ? err.message : err}`);
+          this.broadcastError(`Inbox start failed: ${err instanceof Error ? err.message : err}`);
         }
         break;
       }
@@ -2292,6 +2322,7 @@ export class SwarmWsServer {
           this.broadcast({ type: 'standup-report', payload: parsed });
         } catch (err) {
           console.error(`[ws] Standup failed: ${err instanceof Error ? err.message : err}`);
+          this.broadcastError(`Standup failed: ${err instanceof Error ? err.message : err}`);
         }
         break;
       }
@@ -2306,6 +2337,7 @@ export class SwarmWsServer {
           this.broadcast({ type: 'standup-report', payload: parsed });
         } catch (err) {
           console.error(`[ws] Post standup failed: ${err instanceof Error ? err.message : err}`);
+          this.broadcastError(`Post standup failed: ${err instanceof Error ? err.message : err}`);
         }
         break;
       }
@@ -2332,6 +2364,7 @@ export class SwarmWsServer {
           this.broadcast({ type: 'journal-data', payload: { decisions, rules } });
         } catch (err) {
           console.error(`[ws] Journal analyze failed: ${err instanceof Error ? err.message : err}`);
+          this.broadcastError(`Journal analyze failed: ${err instanceof Error ? err.message : err}`);
         }
         break;
       }
@@ -2347,6 +2380,7 @@ export class SwarmWsServer {
           this.broadcast({ type: 'journal-data', payload: { decisions, rules, calibration } });
         } catch (err) {
           console.error(`[ws] Journal calibrate failed: ${err instanceof Error ? err.message : err}`);
+          this.broadcastError(`Journal calibrate failed: ${err instanceof Error ? err.message : err}`);
         }
         break;
       }
@@ -2360,6 +2394,7 @@ export class SwarmWsServer {
           this.broadcast({ type: 'scope-analysis', payload: { request: cmd.request, ...analysis } });
         } catch (err) {
           console.error(`[ws] Scope analysis failed: ${err instanceof Error ? err.message : err}`);
+          this.broadcastError(`Scope analysis failed: ${err instanceof Error ? err.message : err}`);
         }
         break;
       }
@@ -2388,6 +2423,7 @@ export class SwarmWsServer {
             console.log(`[ws] Codebase index built: ${index.files.length} files`);
           } catch (err) {
             console.error(`[ws] Context build failed: ${err instanceof Error ? err.message : err}`);
+            this.broadcastError(`Context build failed: ${err instanceof Error ? err.message : err}`);
           }
         })();
         break;
@@ -2428,6 +2464,7 @@ export class SwarmWsServer {
           this.broadcast({ type: 'pair-session', payload: session });
         } catch (err) {
           console.error(`[ws] Pair start failed: ${err instanceof Error ? err.message : err}`);
+          this.broadcastError(`Pair start failed: ${err instanceof Error ? err.message : err}`);
         }
         break;
       }
@@ -2470,6 +2507,7 @@ export class SwarmWsServer {
           this.broadcast({ type: 'delegate-state', payload: state });
         } catch (err) {
           console.error(`[ws] Delegate failed: ${err instanceof Error ? err.message : err}`);
+          this.broadcastError(`Delegate failed: ${err instanceof Error ? err.message : err}`);
         }
         break;
       }
@@ -2526,6 +2564,7 @@ export class SwarmWsServer {
           this.broadcast({ type: 'report-data', payload: report });
         } catch (err) {
           console.error(`[ws] Report failed: ${err instanceof Error ? err.message : err}`);
+          this.broadcastError(`Report failed: ${err instanceof Error ? err.message : err}`);
         }
         break;
       }
@@ -2555,6 +2594,7 @@ export class SwarmWsServer {
           _ws.send(JSON.stringify({ type: 'team-activity', payload: { members, swarmActivity: [], conflicts: [] } }));
         } catch (err) {
           console.error(`[ws] Team activity failed: ${err instanceof Error ? err.message : err}`);
+          this.broadcastError(`Team activity failed: ${err instanceof Error ? err.message : err}`);
         }
         break;
       }
@@ -2635,6 +2675,7 @@ export class SwarmWsServer {
             console.log(`[ws] Retrospective complete`);
           } catch (err) {
             console.error(`[ws] Retro failed: ${err instanceof Error ? err.message : err}`);
+            this.broadcastError(`Retro failed: ${err instanceof Error ? err.message : err}`);
           }
         })();
         break;

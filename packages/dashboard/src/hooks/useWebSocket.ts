@@ -58,6 +58,8 @@ interface UseWebSocketReturn {
   providerStatus: ProviderStatus[] | null;
   budgetExceeded: { spent: number; budget: number; message: string } | null;
   clearBudgetExceeded: () => void;
+  lastError: { message: string; timestamp: number } | null;
+  clearLastError: () => void;
   sendCommand: (cmd: WsCommand) => void;
   switchPipeline: (namespace: string) => void;
   listPipelines: () => void;
@@ -101,6 +103,7 @@ export function useWebSocket(): UseWebSocketReturn {
   const [complianceData, setComplianceData] = useState<ComplianceData | null>(null);
   const [pluginRegistry, setPluginRegistry] = useState<PluginRegistryData | null>(null);
   const [budgetExceeded, setBudgetExceeded] = useState<UseWebSocketReturn['budgetExceeded']>(null);
+  const [lastError, setLastError] = useState<UseWebSocketReturn['lastError']>(null);
   const [modelConfig, setModelConfig] = useState<ModelConfig | null>(null);
   const [availableModels, setAvailableModels] = useState<ModelInfo[] | null>(null);
   const [providerStatus, setProviderStatus] = useState<ProviderStatus[] | null>(null);
@@ -368,6 +371,10 @@ export function useWebSocket(): UseWebSocketReturn {
           case 'providers-list':
             setProviderStatus(msg.payload);
             break;
+
+          case 'error':
+            setLastError({ message: msg.payload?.message || 'An unknown error occurred', timestamp: Date.now() });
+            break;
         }
       } catch {
         // ignore malformed messages
@@ -438,6 +445,8 @@ export function useWebSocket(): UseWebSocketReturn {
     pluginRegistry,
     budgetExceeded,
     clearBudgetExceeded: useCallback(() => setBudgetExceeded(null), []),
+    lastError,
+    clearLastError: useCallback(() => setLastError(null), []),
     modelConfig,
     availableModels,
     providerStatus,

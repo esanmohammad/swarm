@@ -46,7 +46,8 @@ function FeedLayoutInner() {
   const addToast = useCallback((message: string, type: Toast['type'] = 'info') => {
     const id = ++toastId;
     setToasts((prev) => [...prev.slice(-4), { id, message, type, timestamp: Date.now() }]);
-    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 4000);
+    const duration = type === 'error' ? 6000 : 4000;
+    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), duration);
   }, []);
 
   // Wrap sendCommand to show action toasts
@@ -67,6 +68,14 @@ function FeedLayoutInner() {
     }
     prevConnectedRef.current = connected;
   }, [connected, addToast]);
+
+  // Command error toasts
+  useEffect(() => {
+    if (ws.lastError) {
+      addToast(ws.lastError.message, 'error');
+      ws.clearLastError();
+    }
+  }, [ws.lastError, addToast, ws.clearLastError]);
 
   // Mayday stage transition notifications
   useEffect(() => {
