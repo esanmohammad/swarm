@@ -56,7 +56,7 @@ if (existsSync(dashboardSrc)) {
 for (const file of ['LICENSE', 'README.md']) {
   const src = join(repoRoot, file);
   const dest = join(cliRoot, file);
-  if (existsSync(src) && !existsSync(dest)) {
+  if (existsSync(src)) {
     cpSync(src, dest);
     console.log(`Copied ${file} to package root`);
   }
