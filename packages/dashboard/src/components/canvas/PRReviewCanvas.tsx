@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   GitPullRequest, Play, RefreshCw, CheckCircle2, XCircle,
-  AlertTriangle, Send, Link,
+  AlertTriangle, Send, Link, ExternalLink,
 } from 'lucide-react';
 import type { WsCommand } from '../../types';
 
@@ -28,6 +28,7 @@ export function PRReviewCanvas({ prReviews, sendCommand }: PRReviewCanvasProps) 
   const [label, setLabel] = useState('');
   const [prLink, setPrLink] = useState('');
   const [scanning, setScanning] = useState(false);
+  const [postToGitHub, setPostToGitHub] = useState(false);
 
   useEffect(() => {
     sendCommand({ action: 'get-pr-reviews' } as WsCommand);
@@ -45,7 +46,7 @@ export function PRReviewCanvas({ prReviews, sendCommand }: PRReviewCanvasProps) 
   const handleReviewSingle = () => {
     const target = prLink.trim();
     if (!target) return;
-    sendCommand({ action: 'run-review', target } as WsCommand);
+    sendCommand({ action: 'run-review', target, post: postToGitHub } as WsCommand);
     setPrLink('');
   };
 
@@ -113,6 +114,44 @@ export function PRReviewCanvas({ prReviews, sendCommand }: PRReviewCanvasProps) 
             Accepts: https://github.com/.../pull/123, PR number, or #123
           </p>
         </div>
+
+        {/* Post to GitHub toggle */}
+        <label
+          className="flex items-center gap-2 cursor-pointer select-none group"
+          title="When enabled, the review will be posted as a comment on the GitHub PR thread"
+        >
+          <button
+            role="switch"
+            aria-checked={postToGitHub}
+            onClick={() => setPostToGitHub(!postToGitHub)}
+            className="relative inline-flex h-4 w-7 shrink-0 rounded-full transition-colors duration-200"
+            style={{
+              backgroundColor: postToGitHub ? 'var(--accent-emphasis)' : 'var(--bg-overlay)',
+              border: '1px solid var(--border-default)',
+            }}
+          >
+            <span
+              className="inline-block h-3 w-3 rounded-full transition-transform duration-200"
+              style={{
+                backgroundColor: '#fff',
+                transform: postToGitHub ? 'translateX(12px)' : 'translateX(1px)',
+                marginTop: '0.5px',
+              }}
+            />
+          </button>
+          <ExternalLink size={11} style={{ color: postToGitHub ? 'var(--accent)' : 'var(--text-disabled)' }} />
+          <span
+            className="text-xs transition-colors"
+            style={{ color: postToGitHub ? 'var(--text-primary)' : 'var(--text-secondary)' }}
+          >
+            Post review to GitHub
+          </span>
+          {postToGitHub && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ backgroundColor: 'var(--accent-muted)', color: 'var(--accent)' }}>
+              Will post as PR comment
+            </span>
+          )}
+        </label>
 
         {/* Scan all PRs */}
         <div className="flex items-center gap-2">

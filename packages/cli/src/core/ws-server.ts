@@ -120,6 +120,69 @@ export class SwarmWsServer {
     this.broadcast({ type: 'error' as const, payload: { message } });
   }
 
+  /** Post a review comment to a GitHub PR and optionally submit a formal review. */
+  private async postReviewToGitHub(reviewOutput: string, prNumber: string, cwd: string): Promise<void> {
+    try {
+      const { execSync } = await import('node:child_process');
+      const output = reviewOutput.trim();
+      if (!output) {
+        this.broadcastError('Review output is empty — nothing to post');
+        return;
+      }
+
+      // Parse verdict from output
+      let verdict = 'COMMENT';
+      if (output.match(/verdict[:\s]*APPROVE/i)) verdict = 'APPROVE';
+      else if (output.match(/verdict[:\s]*REQUEST_CHANGES/i)) verdict = 'REQUEST_CHANGES';
+
+      // Truncate to GitHub's 65536 char limit for comments
+      const maxLen = 65000;
+      const body = output.length > maxLen
+        ? output.slice(0, maxLen) + '\n\n---\n*Review truncated (exceeded GitHub comment limit)*'
+        : output;
+
+      const commentBody = `## Hivemind Code Review\n\n${body}\n\n---\n*Reviewed by [Hivemind](https://github.com/esanmohammad/swarm)*`;
+
+      // Post as a formal GitHub review (shows in Reviews tab)
+      if (verdict === 'APPROVE') {
+        execSync(`gh pr review ${prNumber} --approve --body-file -`, {
+          input: commentBody,
+          cwd,
+          stdio: ['pipe', 'pipe', 'pipe'],
+        });
+      } else if (verdict === 'REQUEST_CHANGES') {
+        execSync(`gh pr review ${prNumber} --request-changes --body-file -`, {
+          input: commentBody,
+          cwd,
+          stdio: ['pipe', 'pipe', 'pipe'],
+        });
+      } else {
+        // Post as a comment for COMMENT verdicts
+        execSync(`gh pr comment ${prNumber} --body-file -`, {
+          input: commentBody,
+          cwd,
+          stdio: ['pipe', 'pipe', 'pipe'],
+        });
+      }
+
+      console.log(`[ws] Review posted to PR #${prNumber} (verdict: ${verdict})`);
+      this.broadcast({
+        type: 'review-posted' as const,
+        payload: { prNumber, verdict },
+      });
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      console.error(`[ws] Failed to post review to GitHub: ${errMsg}`);
+      if (errMsg.includes('not found') || errMsg.includes('ENOENT') || errMsg.includes('command not found')) {
+        this.broadcastError('GitHub CLI (gh) is not installed — cannot post review. Install it from https://cli.github.com');
+      } else if (errMsg.includes('auth') || errMsg.includes('401') || errMsg.includes('403')) {
+        this.broadcastError('GitHub CLI not authenticated — run "gh auth login" in your terminal');
+      } else {
+        this.broadcastError(`Could not post review to PR #${prNumber}: ${errMsg}`);
+      }
+    }
+  }
+
   constructor(
     private state: StateManager,
     private agentManager: AgentManager,
@@ -1141,13 +1204,32 @@ export class SwarmWsServer {
               model: reviewModel,
               agentIds: [reviewAgent.id],
             });
-            // Reviews don't create memories — each review is unique, low reuse value
+
+            // Post review to GitHub if requested
+            if (cmd.post && prTarget && reviewAgent.status === 'done') {
+              await this.postReviewToGitHub(reviewAgent.output, prTarget, cwd);
+            }
+
             console.log(`[ws] Review complete`);
           } catch (err) {
             console.error(`[ws] Review failed: ${err instanceof Error ? err.message : err}`);
             this.broadcastError(`Review failed: ${err instanceof Error ? err.message : err}`);
           }
         })();
+        break;
+      }
+
+      case 'post-review': {
+        // Post a completed review's output to GitHub PR
+        if (!cmd.agentId || !cmd.prNumber) {
+          throw new Error('post-review requires agentId and prNumber');
+        }
+        const postAgent = this.agentManager.getAgent(cmd.agentId);
+        if (!postAgent) {
+          throw new Error(`Agent not found — it may have been cleaned up. Try re-running the review with "Post to GitHub" enabled.`);
+        }
+        const postCwd = this.getEffectiveCwd();
+        await this.postReviewToGitHub(postAgent.output, cmd.prNumber, postCwd);
         break;
       }
 

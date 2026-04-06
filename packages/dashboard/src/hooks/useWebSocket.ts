@@ -60,6 +60,8 @@ interface UseWebSocketReturn {
   clearBudgetExceeded: () => void;
   lastError: { message: string; timestamp: number } | null;
   clearLastError: () => void;
+  reviewPosted: { prNumber: string; verdict: string; url?: string } | null;
+  clearReviewPosted: () => void;
   sendCommand: (cmd: WsCommand) => void;
   switchPipeline: (namespace: string) => void;
   listPipelines: () => void;
@@ -104,6 +106,7 @@ export function useWebSocket(): UseWebSocketReturn {
   const [pluginRegistry, setPluginRegistry] = useState<PluginRegistryData | null>(null);
   const [budgetExceeded, setBudgetExceeded] = useState<UseWebSocketReturn['budgetExceeded']>(null);
   const [lastError, setLastError] = useState<UseWebSocketReturn['lastError']>(null);
+  const [reviewPosted, setReviewPosted] = useState<UseWebSocketReturn['reviewPosted']>(null);
   const [modelConfig, setModelConfig] = useState<ModelConfig | null>(null);
   const [availableModels, setAvailableModels] = useState<ModelInfo[] | null>(null);
   const [providerStatus, setProviderStatus] = useState<ProviderStatus[] | null>(null);
@@ -375,6 +378,10 @@ export function useWebSocket(): UseWebSocketReturn {
           case 'error':
             setLastError({ message: msg.payload?.message || 'An unknown error occurred', timestamp: Date.now() });
             break;
+
+          case 'review-posted':
+            setReviewPosted(msg.payload);
+            break;
         }
       } catch {
         // ignore malformed messages
@@ -447,6 +454,8 @@ export function useWebSocket(): UseWebSocketReturn {
     clearBudgetExceeded: useCallback(() => setBudgetExceeded(null), []),
     lastError,
     clearLastError: useCallback(() => setLastError(null), []),
+    reviewPosted,
+    clearReviewPosted: useCallback(() => setReviewPosted(null), []),
     modelConfig,
     availableModels,
     providerStatus,

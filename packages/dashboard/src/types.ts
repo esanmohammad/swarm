@@ -678,6 +678,7 @@ export type WsMessage =
   | { type: 'conventions'; payload: { content: string | null; loading: boolean } }
   | { type: 'memories'; payload: { entries: Array<{ id: string; kind: string; content: string; createdAt: string; expiresAt: string; confidence: number; source: string; tags: string[] }> } }
   | { type: 'pr-reviews'; payload: { reviews: Array<{ number: number; sha: string; reviewedAt: string; verdict: string; cost: number }> } }
+  | { type: 'review-posted'; payload: { prNumber: string; verdict: string; url?: string } }
   | { type: 'watch-result'; payload: { passed: boolean; output: string; testCmd: string; timestamp: number } }
   | { type: 'bus-messages'; payload: { messages: Array<{ id: string; fromAgentId: string; fromPersona: string; toAgentId: string; toPersona: string; kind: string; content: string; timestamp: number; delivered: boolean }> } }
   | { type: 'deploy-result'; payload: { environment: string; steps: Array<{ name: string; cmd: string; status: 'pass' | 'fail' | 'skip' | 'pending'; output?: string; durationMs: number }>; success: boolean; rolledBack: boolean; timestamp: number } }
@@ -756,7 +757,8 @@ export type WsCommand =
   | { action: 'create-pipeline'; namespace: string }
   | { action: 'run-fix'; prompt?: string; issue?: string; model?: string }
   | { action: 'run-spike'; prompt: string; model?: string }
-  | { action: 'run-review'; target?: string; model?: string }
+  | { action: 'run-review'; target?: string; model?: string; post?: boolean }
+  | { action: 'post-review'; agentId: string; prNumber: string }
   | { action: 'run-refactor'; prompt: string; scope?: string; model?: string }
   | { action: 'run-simplify'; scope?: string; dryRun?: boolean; model?: string }
   | { action: 'run-learn'; refresh?: boolean }

@@ -77,6 +77,14 @@ function FeedLayoutInner() {
     }
   }, [ws.lastError, addToast, ws.clearLastError]);
 
+  // Review posted to GitHub toast
+  useEffect(() => {
+    if (ws.reviewPosted) {
+      addToast(`Review posted to PR #${ws.reviewPosted.prNumber} (${ws.reviewPosted.verdict})`, 'success');
+      ws.clearReviewPosted();
+    }
+  }, [ws.reviewPosted, addToast, ws.clearReviewPosted]);
+
   // Mayday stage transition notifications
   useEffect(() => {
     const currentStage = state?.mayday?.currentStage;
