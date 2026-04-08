@@ -14,7 +14,7 @@ interface PipelineCanvasProps {
   artifactContent: Map<StageName, string>;
 }
 
-const STAGE_ORDER: StageName[] = ['analyze', 'architect', 'plan', 'build', 'test'];
+const STAGE_ORDER: StageName[] = ['analyze', 'architect', 'plan', 'build', 'validate', 'ship'];
 
 export function PipelineCanvas({ state, agentOutputs, agentActivities, sendCommand }: PipelineCanvasProps) {
   const [selectedStage, setSelectedStage] = useState<StageName | null>(null);
@@ -92,7 +92,7 @@ export function PipelineCanvas({ state, agentOutputs, agentActivities, sendComma
   const completedStages = STAGE_ORDER.filter((s) => state.stages[s]?.status === 'done').length;
   const runningStageIdx = STAGE_ORDER.findIndex((s) => state.stages[s]?.status === 'running');
   const currentStageNum = runningStageIdx >= 0 ? runningStageIdx + 1 : completedStages;
-  const STAGE_LABELS: Record<string, string> = { analyze: 'Requirements', architect: 'Design', plan: 'Tasks', build: 'Code', test: 'Test' };
+  const STAGE_LABELS: Record<string, string> = { analyze: 'Requirements', architect: 'Design', plan: 'Tasks', build: 'Code', validate: 'Validate', ship: 'Ship' };
   const currentStageName = runningStageIdx >= 0 ? STAGE_LABELS[STAGE_ORDER[runningStageIdx]] : null;
 
   return (

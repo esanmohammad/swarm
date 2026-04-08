@@ -66,6 +66,7 @@ export function registerDashboard(program: Command): void {
           // Serve injected index.html for root and SPA fallback
           if (url === '/index.html') {
             res.setHeader('Content-Type', 'text/html');
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
             res.end(injectedHtml);
           } else if (existsSync(filePath)) {
             const ext = filePath.split('.').pop();
@@ -78,10 +79,12 @@ export function registerDashboard(program: Command): void {
               png: 'image/png',
             };
             res.setHeader('Content-Type', contentTypes[ext!] || 'application/octet-stream');
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
             res.end(readFileSync(filePath));
           } else {
             // SPA fallback
             res.setHeader('Content-Type', 'text/html');
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
             res.end(injectedHtml);
           }
         });

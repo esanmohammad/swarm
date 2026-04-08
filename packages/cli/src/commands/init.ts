@@ -21,7 +21,7 @@ export function registerInit(program: Command): void {
     .description('Initialize a Swarm project in the current directory')
     .option('-s, --stack <stack>', 'Tech stack (react, node, go)', 'react')
     .option('-m, --model <model>', 'Default model (e.g., sonnet, openai/gpt-4o, ollama/llama3)', 'sonnet')
-    .option('-b, --budget <amount>', 'Max budget per agent in USD (0 = no limit)', '5')
+    .option('-b, --budget <amount>', 'Max budget per agent in USD (0 = no limit)', '0')
     .option('-n, --name <name>', 'Project name')
     .action(async (opts) => {
       const cwd = process.cwd();

@@ -165,6 +165,8 @@ const STAGE_ARTIFACT: Record<StageName, string> = {
   build: '', // no single artifact
   test: 'TESTPLAN.md',
   evaluate: '',
+  validate: '',
+  ship: '',
 };
 
 export class QualityScorer {

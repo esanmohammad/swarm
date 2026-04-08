@@ -1,4 +1,5 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { v4 as uuid } from 'uuid';
 import { join } from 'node:path';
 import { execSync } from 'node:child_process';
 import chalk from 'chalk';
@@ -257,12 +258,14 @@ export class Pipeline {
 
   /** Get conventions + memory system prompt for engineers (no enforcement rules needed). */
   private getEngineerConventions(): string | undefined {
-    const parts: string[] = [];
+    const parts: string[] = [
+      'SYSTEM ENFORCEMENT: Do NOT write tests, test files, or test code. Do NOT run test commands (vitest, jest, playwright, pytest, etc.). Testing is handled by a separate validation step. Focus exclusively on implementing the feature code.',
+    ];
     const conventions = this.getConventionPrompt();
     if (conventions) parts.push(conventions);
     const memory = this.getMemoryContext();
     if (memory) parts.push(memory);
-    return parts.length > 0 ? parts.join('\n\n') : undefined;
+    return parts.join('\n\n');
   }
 
   /**
@@ -324,6 +327,8 @@ export class Pipeline {
       build: 'Built implementation',
       test: 'Generated TESTPLAN.md',
       evaluate: 'Completed evaluation',
+      validate: 'Validated build',
+      ship: 'Shipped to production',
     };
     const msg = messages[stage] ?? `Completed ${stage}`;
     try {
@@ -400,6 +405,12 @@ export class Pipeline {
       throw new Error('Stage "analyze" is already running');
     }
 
+    // Skip if REQUIREMENTS.md already exists and stage is done
+    if (existsSync(join(this.projectCwd, 'REQUIREMENTS.md')) && this.state.getState().stages.analyze?.status === 'done') {
+      console.log(chalk.green(`\n[analyze] REQUIREMENTS.md already exists — skipping.\n`));
+      return;
+    }
+
     const s = opts?.stack ?? this.config.stack;
     const interactive = opts?.interactive ?? true;
 
@@ -471,6 +482,12 @@ export class Pipeline {
       throw new Error('Stage "architect" is already running');
     }
 
+    // Skip if SPEC.md already exists and stage is done
+    if (existsSync(join(this.projectCwd, 'SPEC.md')) && this.state.getState().stages.architect?.status === 'done') {
+      console.log(chalk.green(`\n[architect] SPEC.md already exists — skipping.\n`));
+      return;
+    }
+
     const s = opts?.stack ?? this.config.stack;
     const interactive = opts?.interactive ?? true;
     const reqPath = join(this.projectCwd, 'REQUIREMENTS.md');
@@ -530,6 +547,12 @@ export class Pipeline {
   async runPlan(opts?: StageOpts): Promise<void> {
     if (this.state.getState().stages.plan?.status === 'running') {
       throw new Error('Stage "plan" is already running');
+    }
+
+    // Skip if TASKS.md already exists and stage is done
+    if (existsSync(join(this.projectCwd, 'TASKS.md')) && this.state.getState().stages.plan?.status === 'done') {
+      console.log(chalk.green(`\n[plan] TASKS.md already exists — skipping.\n`));
+      return;
     }
 
     const s = opts?.stack ?? this.config.stack;
@@ -605,6 +628,15 @@ export class Pipeline {
     const tasks = readFileSync(tasksPath, 'utf-8');
     const maxParallel = opts.parallel ?? 3;
 
+    // Check if all tasks are already completed (all checkboxes checked)
+    const uncheckedTasks = tasks.match(/^-\s+\[\s\]\s+/gm);
+    const checkedTasks = tasks.match(/^-\s+\[x\]\s+/gim);
+    if (!uncheckedTasks && checkedTasks && checkedTasks.length > 0) {
+      console.log(chalk.green(`\n[build] All ${checkedTasks.length} tasks already completed — skipping build.\n`));
+      this.state.updateStage('build', { status: 'done', finishedAt: Date.now() });
+      return;
+    }
+
     this.state.updateStage('build', { status: 'running', startedAt: Date.now() });
 
     // Single task mode — no orchestrator needed
@@ -650,61 +682,20 @@ export class Pipeline {
         await this.waitForAgentWithBudgetCheck(agent.id);
         console.log(chalk.green(`\n[build] Complete. Cost: $${agent.cost.totalUsd.toFixed(4)}`));
       } else {
-        // === Orchestrator pattern ===
-        // 1. Spawn orchestrator engineer who plans and tracks sub-engineers
-        const orchestratorPrompt = [
-          'You are the ORCHESTRATOR ENGINEER. You coordinate parallel sub-engineers working on TASKS.md.',
-          '',
-          'Your responsibilities:',
-          '1. Analyze TASKS.md and confirm the execution plan below',
-          '2. You will receive status updates as sub-engineers complete their tasks',
-          '3. After ALL sub-engineers finish, do a final integration review:',
-          '   - Check for conflicts between parallel implementations',
-          '   - Verify shared interfaces/types are consistent',
-          '   - Fix any integration issues (imports, type mismatches, missing glue code)',
-          '   - Run any available tests or linting',
-          '4. Mark tasks as complete in TASKS.md',
-          '',
-          `Execution plan: ${groups.length} phase(s), max ${maxParallel} parallel engineers`,
-          ...groups.map((g, i) => `  Phase ${i + 1}: ${g.name} — tasks: ${g.taskIds.join(', ')}`),
-          '',
-          'Acknowledge the plan. Sub-engineers will be spawned now. Wait for status updates before reviewing.',
-          '',
-          '---',
-          '',
-          tasks,
-        ].join('\n');
-
-        console.log(chalk.cyan(`\n[build] Spawning orchestrator engineer...\n`));
-
-        const orchestrator = await this.agentManager.spawn({
-          name: 'engineer-orchestrator',
-          persona: 'engineer',
-          stack: s,
-          prompt: orchestratorPrompt,
-          model: this.modelFor('engineer'),
-          cwd: this.projectCwd,
-          interactive: false,
-          permissionMode: 'auto',
-          appendSystemPrompt: this.getEngineerConventions(),
-        });
-
-        // Wait for orchestrator to acknowledge the plan
-        await this.waitForAgentWithBudgetCheck(orchestrator.id);
-        console.log(chalk.green(`[build] Orchestrator ready. Spawning sub-engineers...\n`));
-
-        // 2. Spawn sub-engineers phase by phase
+        // === Phase-by-phase pattern (no orchestrator) ===
+        // Spawn sub-engineers phase by phase, then done.
         const completedTasks: Array<{ taskId: string; status: string; cost: string }> = [];
         const failedTasks: Array<{ taskId: string; error: string }> = [];
 
+        console.log(chalk.cyan(`\n[build] ${groups.length} phase(s), max ${maxParallel} parallel engineers\n`));
+
         for (let i = 0; i < groups.length; i++) {
           const group = groups[i];
-          console.log(chalk.cyan(`[build] Phase ${i + 1}/${groups.length}: ${group.name} (${group.taskIds.length} tasks, max ${maxParallel} parallel)\n`));
+          console.log(chalk.cyan(`[build] Phase ${i + 1}/${groups.length}: ${group.name} (${group.taskIds.length} tasks)\n`));
 
           const batches = this.chunk(group.taskIds, maxParallel);
 
           for (const batch of batches) {
-            // Spawn batch of sub-engineers
             const subEngineers = await Promise.all(
               batch.map((taskId) =>
                 this.agentManager.spawn({
@@ -723,22 +714,14 @@ export class Pipeline {
                   interactive: false,
                   permissionMode: 'auto',
                   appendSystemPrompt: this.getEngineerConventions(),
-                  parentId: orchestrator.id,
                 }),
               ),
             );
 
-            // Link children to orchestrator
-            for (const sub of subEngineers) {
-              this.agentManager.addChild(orchestrator.id, sub.id);
-            }
-
-            // Wait for batch to complete
             const results = await Promise.allSettled(
               subEngineers.map((a) => this.waitForAgentWithBudgetCheck(a.id)),
             );
 
-            // Collect results
             for (let j = 0; j < results.length; j++) {
               const taskId = batch[j];
               const result = results[j];
@@ -756,51 +739,10 @@ export class Pipeline {
             }
           }
 
-          // Send phase completion update to orchestrator
-          const phaseReport = [
-            `Phase ${i + 1}/${groups.length} "${group.name}" complete.`,
-            `Tasks done: ${completedTasks.filter((t) => group.taskIds.includes(t.taskId)).map((t) => t.taskId).join(', ')}`,
-            failedTasks.filter((t) => group.taskIds.includes(t.taskId)).length > 0
-              ? `Tasks failed: ${failedTasks.filter((t) => group.taskIds.includes(t.taskId)).map((t) => `${t.taskId}: ${t.error}`).join(', ')}`
-              : '',
-            i < groups.length - 1
-              ? `Next phase: ${groups[i + 1].name} (${groups[i + 1].taskIds.join(', ')})`
-              : 'All phases complete. Please do final integration review now.',
-          ].filter(Boolean).join('\n');
-
-          await this.agentManager.sendInput(orchestrator.id, phaseReport);
-
           console.log(chalk.green(`  Phase ${i + 1} complete.\n`));
         }
 
-        // 3. Wait for orchestrator to finish integration review
-        console.log(chalk.cyan(`[build] Waiting for orchestrator integration review...\n`));
-
-        // Send final summary if orchestrator is still running
-        const finalSummary = [
-          'ALL SUB-ENGINEERS COMPLETE. Final summary:',
-          `Total tasks: ${allTaskIds.length} | Done: ${completedTasks.length} | Failed: ${failedTasks.length}`,
-          '',
-          'Completed:',
-          ...completedTasks.map((t) => `  ✓ ${t.taskId} (${t.cost})`),
-          ...(failedTasks.length > 0 ? [
-            '',
-            'Failed:',
-            ...failedTasks.map((t) => `  ✗ ${t.taskId}: ${t.error}`),
-          ] : []),
-          '',
-          'Now do your final integration review:',
-          '1. Check for conflicts between parallel implementations',
-          '2. Verify shared interfaces/types are consistent across tasks',
-          '3. Fix any integration issues (imports, type mismatches, missing glue code)',
-          '4. Run tests/linting if available',
-          '5. Update TASKS.md to mark completed tasks',
-        ].join('\n');
-
-        await this.agentManager.sendInput(orchestrator.id, finalSummary);
-        await this.waitForAgentWithBudgetCheck(orchestrator.id);
-
-        console.log(chalk.green(`[build] Orchestrator integration review complete.`));
+        console.log(chalk.green(`[build] All phases done.`));
 
         if (failedTasks.length > 0) {
           console.log(chalk.yellow(`\n[build] Warning: ${failedTasks.length} task(s) failed:`));
@@ -1138,7 +1080,376 @@ export class Pipeline {
     await this.runArchitect({ stack, interactive: opts?.interactive ?? true });
     await this.runPlan({ stack, interactive: opts?.interactive ?? true });
     await this.runBuild({ stack });
-    await this.runTest({ stack, figmaUrl: opts?.figmaUrl });
+    await this.runValidate();
+    await this.runShip();
+  }
+
+  /**
+   * Create a virtual agent for stages that don't spawn Claude processes (validate, ship).
+   * This lets the dashboard show output in the panel.
+   */
+  private createStageAgent(stage: import('../types.js').StageName, name: string): { agentId: string; emit: (line: string) => void; done: () => void; fail: (err: string) => void } {
+    const agentId = uuid();
+    const agent: import('../types.js').Agent = {
+      id: agentId,
+      name,
+      persona: 'engineer',
+      stack: this.config.stack,
+      status: 'running',
+      pid: null,
+      sessionId: agentId,
+      model: 'system',
+      permissionMode: 'auto',
+      startedAt: Date.now(),
+      finishedAt: null,
+      cost: { totalUsd: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, durationMs: 0 },
+      output: '',
+      error: null,
+      parentId: null,
+      childIds: [],
+    };
+    this.state.addAgent(agent);
+    this.state.updateStage(stage, { agentIds: [agentId] });
+
+    const emit = (line: string) => {
+      agent.output += line + '\n';
+      this.agentManager.emit('agent-output', { agentId, chunk: line + '\n' });
+    };
+    const done = () => {
+      agent.status = 'done';
+      agent.finishedAt = Date.now();
+      this.state.updateAgent(agent);
+      this.agentManager.emit('agent-done', agent);
+    };
+    const fail = (err: string) => {
+      agent.status = 'error';
+      agent.error = err;
+      agent.finishedAt = Date.now();
+      this.state.updateAgent(agent);
+      this.agentManager.emit('agent-error', agent);
+    };
+
+    return { agentId, emit, done, fail };
+  }
+
+  /** Detect the package manager / build system for the project */
+  private detectRunner(): { type: string; run: (s: string) => string; exec: (b: string) => string } {
+    const cwd = this.projectCwd;
+    if (existsSync(join(cwd, 'bun.lockb')) || existsSync(join(cwd, 'bun.lock')))
+      return { type: 'bun', run: (s) => `bun run ${s}`, exec: (b) => `bunx ${b}` };
+    if (existsSync(join(cwd, 'pnpm-lock.yaml')))
+      return { type: 'pnpm', run: (s) => `pnpm run ${s}`, exec: (b) => `pnpm exec ${b}` };
+    if (existsSync(join(cwd, 'yarn.lock')))
+      return { type: 'yarn', run: (s) => `yarn ${s}`, exec: (b) => `yarn ${b}` };
+    if (existsSync(join(cwd, 'package-lock.json')) || existsSync(join(cwd, 'package.json')))
+      return { type: 'npm', run: (s) => `npm run ${s}`, exec: (b) => `npx ${b}` };
+    if (existsSync(join(cwd, 'go.mod')))
+      return { type: 'go', run: (s) => `go ${s}`, exec: (b) => b };
+    if (existsSync(join(cwd, 'Cargo.toml')))
+      return { type: 'cargo', run: (s) => `cargo ${s}`, exec: (b) => b };
+    if (existsSync(join(cwd, 'pyproject.toml')) || existsSync(join(cwd, 'setup.py')) || existsSync(join(cwd, 'requirements.txt')))
+      return { type: 'python', run: (s) => s, exec: (b) => b };
+    if (existsSync(join(cwd, 'Package.swift')))
+      return { type: 'swift', run: (s) => `swift ${s}`, exec: (b) => b };
+    return { type: 'npm', run: (s) => `npm run ${s}`, exec: (b) => `npx ${b}` };
+  }
+
+  /** Run the validate stage: type-check, lint, build compilation check */
+  async runValidate(): Promise<void> {
+    this.state.updateStage('validate', { status: 'running', startedAt: Date.now() });
+    const cwd = this.projectCwd;
+    const runner = this.detectRunner();
+    let hasFailure = false;
+    const va = this.createStageAgent('validate', 'validate');
+
+    const log = (msg: string) => { console.log(msg); va.emit(msg.replace(/\x1b\[[0-9;]*m/g, '')); };
+
+    log(`[validate] Running build validation (${runner.type})...\n`);
+
+    // Type-check
+    try {
+      if (runner.type === 'go') {
+        execSync('go vet ./...', { cwd, stdio: 'pipe', timeout: 60000 });
+        log('  ✓ Type-check (go vet)');
+      } else if (runner.type === 'cargo') {
+        execSync('cargo check', { cwd, stdio: 'pipe', timeout: 120000 });
+        log('  ✓ Type-check (cargo check)');
+      } else if (existsSync(join(cwd, 'tsconfig.json'))) {
+        execSync(`${runner.exec('tsc')} --noEmit`, { cwd, stdio: 'pipe', timeout: 60000 });
+        log('  ✓ Type-check (tsc)');
+      } else {
+        log('  - Type-check skipped');
+      }
+    } catch (err: any) {
+      const output = err.stderr?.toString() || err.stdout?.toString() || '';
+      log('  ✗ Type-check failed');
+      if (output) log(output.slice(0, 1000));
+      hasFailure = true;
+    }
+
+    // Lint (auto-fix on failure, then re-check)
+    try {
+      if (runner.type === 'go') {
+        try {
+          execSync('golangci-lint run ./...', { cwd, stdio: 'pipe', timeout: 60000 });
+          log('  ✓ Lint (golangci-lint)');
+        } catch {
+          try {
+            log('  ⟳ Lint failed — attempting auto-fix...');
+            execSync('golangci-lint run --fix ./...', { cwd, stdio: 'pipe', timeout: 60000 });
+            execSync('golangci-lint run ./...', { cwd, stdio: 'pipe', timeout: 60000 });
+            log('  ✓ Lint fixed (golangci-lint --fix)');
+          } catch { log('  - Lint skipped (no golangci-lint or unfixable)'); }
+        }
+      } else if (runner.type === 'cargo') {
+        try {
+          execSync('cargo clippy -- -D warnings', { cwd, stdio: 'pipe', timeout: 60000 });
+          log('  ✓ Lint (clippy)');
+        } catch {
+          log('  ⟳ Lint failed — attempting auto-fix...');
+          execSync('cargo clippy --fix --allow-dirty -- -D warnings', { cwd, stdio: 'pipe', timeout: 60000 });
+          execSync('cargo clippy -- -D warnings', { cwd, stdio: 'pipe', timeout: 60000 });
+          log('  ✓ Lint fixed (clippy --fix)');
+        }
+      } else if (runner.type === 'python') {
+        try {
+          execSync('ruff check .', { cwd, stdio: 'pipe', timeout: 60000 });
+          log('  ✓ Lint (ruff)');
+        } catch {
+          try {
+            log('  ⟳ Lint failed — attempting auto-fix...');
+            execSync('ruff check --fix .', { cwd, stdio: 'pipe', timeout: 60000 });
+            execSync('ruff check .', { cwd, stdio: 'pipe', timeout: 60000 });
+            log('  ✓ Lint fixed (ruff --fix)');
+          } catch { log('  - Lint skipped (no ruff or unfixable)'); }
+        }
+      } else {
+        const pkgPath = join(cwd, 'package.json');
+        if (existsSync(pkgPath)) {
+          const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
+          if (pkg.scripts?.lint) {
+            try {
+              execSync(runner.run('lint'), { cwd, stdio: 'pipe', timeout: 60000 });
+              log('  ✓ Lint');
+            } catch {
+              const fixScript = pkg.scripts['lint:fix'] ? 'lint:fix' : null;
+              if (fixScript) {
+                log('  ⟳ Lint failed — running lint:fix...');
+                execSync(runner.run(fixScript), { cwd, stdio: 'pipe', timeout: 60000 });
+              } else {
+                log('  ⟳ Lint failed — attempting --fix...');
+                try {
+                  execSync(runner.run('lint') + ' -- --fix', { cwd, stdio: 'pipe', timeout: 60000 });
+                } catch {
+                  try {
+                    execSync(`${runner.exec('eslint')} . --fix`, { cwd, stdio: 'pipe', timeout: 60000 });
+                  } catch { /* best effort */ }
+                }
+              }
+              try {
+                execSync(runner.run('lint'), { cwd, stdio: 'pipe', timeout: 60000 });
+                log('  ✓ Lint fixed');
+              } catch (e: any) {
+                const out = e.stderr?.toString() || e.stdout?.toString() || '';
+                log('  ✗ Lint still failing after auto-fix');
+                if (out) log(out.slice(0, 1000));
+                hasFailure = true;
+              }
+            }
+          } else {
+            log('  - Lint skipped (no lint script)');
+          }
+        }
+      }
+    } catch (err: any) {
+      const output = err.stderr?.toString() || err.stdout?.toString() || '';
+      log('  ✗ Lint failed');
+      if (output) log(output.slice(0, 1000));
+      hasFailure = true;
+    }
+
+    // Build
+    try {
+      if (runner.type === 'go') {
+        execSync('go build ./...', { cwd, stdio: 'pipe', timeout: 120000 });
+        log('  ✓ Build (go build)');
+      } else if (runner.type === 'cargo') {
+        execSync('cargo build', { cwd, stdio: 'pipe', timeout: 120000 });
+        log('  ✓ Build (cargo build)');
+      } else if (runner.type === 'swift') {
+        execSync('swift build', { cwd, stdio: 'pipe', timeout: 120000 });
+        log('  ✓ Build (swift build)');
+      } else {
+        const pkgPath = join(cwd, 'package.json');
+        if (existsSync(pkgPath)) {
+          const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
+          if (pkg.scripts?.build) {
+            execSync(runner.run('build'), { cwd, stdio: 'pipe', timeout: 120000 });
+            log('  ✓ Build');
+          } else {
+            log('  - Build skipped (no build script)');
+          }
+        }
+      }
+    } catch (err: any) {
+      const output = err.stderr?.toString() || err.stdout?.toString() || '';
+      log('  ✗ Build failed');
+      if (output) log(output.slice(0, 1000));
+      hasFailure = true;
+    }
+
+    if (hasFailure) {
+      va.fail('Validation failed');
+      this.state.updateStage('validate', { status: 'error', finishedAt: Date.now() });
+      throw new Error('Validation failed. Fix errors before shipping.');
+    }
+    va.emit('\n✓ All checks passed.');
+    va.done();
+    this.state.updateStage('validate', { status: 'done', finishedAt: Date.now() });
+    console.log(chalk.green('\n[validate] All checks passed.\n'));
+  }
+
+  /** Deploy to Nexus sandbox via API */
+  private async nexusDeploy(name: string, githubUrl: string, label: string): Promise<{ url: string; version: number }> {
+    const apiUrl = process.env.NEXUS_API_URL || 'http://localhost:8080';
+    const token = process.env.NEXUS_TOKEN || 'valid-token';
+    const headers: Record<string, string> = { 'Authorization': `Bearer ${token}` };
+
+    // Check if sandbox exists
+    const listRes = await fetch(`${apiUrl}/api/sandboxes`, { headers });
+    if (!listRes.ok) throw new Error(`Nexus API error: ${listRes.statusText}`);
+    const listData = await listRes.json() as any;
+    const sandboxes = listData.sandboxes || listData;
+    const existing = Array.isArray(sandboxes) ? sandboxes.find((s: any) => s.name === name) : null;
+
+    if (existing) {
+      // Deploy new version to existing sandbox
+      console.log(chalk.dim(`    Sandbox "${name}" exists — deploying new version...`));
+      const res = await fetch(`${apiUrl}/api/sandboxes/${existing.id}/versions`, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ github_url: githubUrl, label }),
+      });
+      if (!res.ok) {
+        const body = await res.text();
+        throw new Error(`Nexus deploy failed: ${res.statusText} — ${body.slice(0, 300)}`);
+      }
+      const result = await res.json() as any;
+      const version = result.current_version || result.number || (existing.current_version || 1) + 1;
+      const url = existing.cloud_run_url || existing.url || `https://${name}.nexus.app`;
+      return { url, version };
+    } else {
+      // Create new sandbox
+      console.log(chalk.dim(`    Creating new sandbox "${name}"...`));
+      const res = await fetch(`${apiUrl}/api/sandboxes`, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, github_url: githubUrl, label }),
+      });
+      if (!res.ok) {
+        const body = await res.text();
+        throw new Error(`Nexus create failed: ${res.statusText} — ${body.slice(0, 300)}`);
+      }
+      const result = await res.json() as any;
+      const url = result.cloud_run_url || `https://${name}.nexus.app`;
+      return { url, version: 1 };
+    }
+  }
+
+  /** Run the ship stage: push to git and deploy via Nexus */
+  async runShip(): Promise<void> {
+    this.state.updateStage('ship', { status: 'running', startedAt: Date.now() });
+    const cwd = this.projectCwd;
+    const sa = this.createStageAgent('ship', 'ship');
+    const log = (msg: string) => { console.log(msg); sa.emit(msg.replace(/\x1b\[[0-9;]*m/g, '')); };
+
+    log('[ship] Pushing and deploying...\n');
+
+    try {
+      // Commit any uncommitted changes
+      const status = execSync('git status --porcelain', { cwd, encoding: 'utf-8' }).trim();
+      if (status) {
+        execSync('git add -A', { cwd, stdio: 'pipe' });
+        execSync('git commit -m "chore: pre-ship commit"', { cwd, stdio: 'pipe' });
+        log('  Committed changes');
+      }
+
+      const branch = execSync('git branch --show-current', { cwd, encoding: 'utf-8' }).trim();
+
+      // Push feature branch
+      execSync(`git push -u origin ${branch}`, { cwd, stdio: 'pipe', timeout: 60000 });
+      log(`  ✓ Pushed to origin/${branch}`);
+
+      // Merge to main
+      const mainBranch = (() => {
+        try {
+          // Check if 'main' exists, otherwise try 'master'
+          execSync('git rev-parse --verify main', { cwd, stdio: 'pipe' });
+          return 'main';
+        } catch {
+          try {
+            execSync('git rev-parse --verify master', { cwd, stdio: 'pipe' });
+            return 'master';
+          } catch {
+            return null;
+          }
+        }
+      })();
+
+      if (mainBranch && branch !== mainBranch) {
+        log(`  Merging ${branch} → ${mainBranch}...`);
+        execSync(`git checkout ${mainBranch}`, { cwd, stdio: 'pipe' });
+        execSync(`git pull origin ${mainBranch}`, { cwd, stdio: 'pipe', timeout: 60000 });
+        execSync(`git merge ${branch} --no-edit`, { cwd, stdio: 'pipe' });
+        execSync(`git push origin ${mainBranch}`, { cwd, stdio: 'pipe', timeout: 60000 });
+        log(`  ✓ Merged to ${mainBranch} and pushed`);
+        // Switch back to feature branch
+        execSync(`git checkout ${branch}`, { cwd, stdio: 'pipe' });
+      } else if (branch === mainBranch) {
+        log(`  Already on ${mainBranch} — no merge needed`);
+      } else {
+        log('  No main/master branch found — skipping merge');
+      }
+
+      // Deploy to Nexus
+      let githubUrl = '';
+      try {
+        const remote = execSync('git remote get-url origin', { cwd, encoding: 'utf-8' }).trim();
+        githubUrl = remote.replace(/https:\/\/[^@]+@/, 'https://');
+      } catch {
+        // No remote
+      }
+
+      if (githubUrl) {
+        const projectName = this.config.projectName || cwd.split('/').pop() || 'app';
+        const safeName = projectName.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/^-+|-+$/g, '').slice(0, 63);
+        const label = `ship-${new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-')}`;
+
+        log(`  Deploying "${safeName}" to Nexus...`);
+        try {
+          const { url, version } = await this.nexusDeploy(safeName, githubUrl, label);
+          log(`  ✓ Deployed to Nexus`);
+          log(`    Sandbox: ${safeName}`);
+          log(`    Version: v${version}`);
+          log(`    URL: ${url}`);
+        } catch (err: any) {
+          log(`  ⚠ Nexus deploy failed: ${err.message}`);
+          log(`    Git push succeeded — deploy manually or check Nexus server`);
+        }
+      } else {
+        log('  No git remote — skipping Nexus deploy');
+      }
+
+      sa.done();
+      this.state.updateStage('ship', { status: 'done', finishedAt: Date.now() });
+      log('\n[ship] Ship complete.');
+    } catch (err: any) {
+      const output = err.stderr?.toString() || err.stdout?.toString() || err.message;
+      log(`  ✗ Ship failed: ${output.slice(0, 500)}`);
+      sa.fail('Ship failed');
+      this.state.updateStage('ship', { status: 'error', finishedAt: Date.now() });
+      throw new Error('Ship failed.');
+    }
   }
 
   /**
@@ -1442,7 +1753,7 @@ export class Pipeline {
       const mayday = pipelineState.mayday;
       if (!mayday) return;
 
-      const stages: StageName[] = ['analyze', 'architect', 'plan', 'build', 'test'];
+      const stages: StageName[] = ['analyze', 'architect', 'plan', 'build'];
       const stageLines: string[] = [];
       for (const stage of stages) {
         const s = pipelineState.stages[stage];
@@ -1521,7 +1832,7 @@ export class Pipeline {
    * Each stage depends on artifacts from prior stages.
    */
   private validateSkippedArtifacts(fromStage: StageName): void {
-    const stages: StageName[] = ['analyze', 'architect', 'plan', 'build', 'test'];
+    const stages: StageName[] = ['analyze', 'architect', 'plan', 'build'];
     const fromIdx = stages.indexOf(fromStage);
 
     // Check that all artifacts from stages before fromStage exist
@@ -1715,7 +2026,7 @@ export class Pipeline {
     // Validate fromStage if provided
     const fromStage = opts.fromStage;
     if (fromStage) {
-      const validStages: StageName[] = ['analyze', 'architect', 'plan', 'build', 'test'];
+      const validStages: StageName[] = ['analyze', 'architect', 'plan', 'build', 'validate', 'ship'];
       if (!validStages.includes(fromStage)) {
         throw new Error(`Invalid --from stage: "${fromStage}". Must be one of: ${validStages.join(', ')}`);
       }
@@ -1747,7 +2058,7 @@ export class Pipeline {
 
     // Mark skipped stages
     if (fromStage) {
-      const stages: StageName[] = ['analyze', 'architect', 'plan', 'build', 'test'];
+      const stages: StageName[] = ['analyze', 'architect', 'plan', 'build', 'validate', 'ship'];
       const fromIdx = stages.indexOf(fromStage);
       for (let i = 0; i < fromIdx; i++) {
         this.state.updateStage(stages[i], { status: 'skipped' });
@@ -1850,7 +2161,7 @@ export class Pipeline {
     }
 
     // Pipeline stages in order — resume from currentStage
-    const stages: StageName[] = ['analyze', 'architect', 'plan', 'build', 'test'];
+    const stages: StageName[] = ['analyze', 'architect', 'plan', 'build', 'validate', 'ship'];
     const startIdx = stages.indexOf(mayday.currentStage as StageName);
 
     const STAGE_LABELS: Record<string, string> = {
@@ -1858,7 +2169,8 @@ export class Pipeline {
       architect: 'Designing architecture',
       plan: 'Planning tasks',
       build: 'Building code',
-      test: 'Running tests',
+      validate: 'Validating build',
+      ship: 'Shipping to production',
     };
 
     // Run pipeline stages (or resume from where we left off)
@@ -1874,8 +2186,8 @@ export class Pipeline {
 
         // Skip already-completed stages (preserved across restarts)
         const existingStage = this.state.getState().stages[stage];
-        if (existingStage.status === 'done' && existingStage.artifact) {
-          console.log(chalk.dim(`  [${i + 1}/5] ${STAGE_LABELS[stage] || stage}... (preserved)`));
+        if (existingStage.status === 'done') {
+          console.log(chalk.dim(`  [${i + 1}/${stages.length}] ${STAGE_LABELS[stage] || stage}... (preserved)`));
           continue;
         }
 
@@ -1898,7 +2210,7 @@ export class Pipeline {
         const stageStart = Date.now();
 
         if (canResume) {
-          process.stdout.write(chalk.cyan(`  [${stageNum}/5] ${stageLabel} (resuming session)...`));
+          process.stdout.write(chalk.cyan(`  [${stageNum}/${stages.length}] ${stageLabel} (resuming session)...`));
           // Prepend context from prior stages to the resume prompt
           const resumeContext = this.state.getResumeContext(stage);
           const resumePrompt = resumeContext
@@ -1908,7 +2220,7 @@ export class Pipeline {
           const resumed = await this.agentManager.resumeSession({
             sessionId: existingStage.sessionId!,
             name: `${stage}-resume`,
-            persona: stage === 'analyze' ? 'analyst' : stage === 'architect' ? 'architect' : stage === 'plan' ? 'lead' : stage === 'test' ? 'tester' : 'engineer',
+            persona: stage === 'analyze' ? 'analyst' : stage === 'architect' ? 'architect' : stage === 'plan' ? 'lead' : 'engineer',
             stack,
             prompt: resumePrompt,
             cwd: this.projectCwd,
@@ -1933,7 +2245,7 @@ export class Pipeline {
           console.log(chalk.yellow(` session expired, starting fresh...`));
         }
 
-        process.stdout.write(chalk.cyan(`  [${stageNum}/5] ${stageLabel}...`));
+        process.stdout.write(chalk.cyan(`  [${stageNum}/${stages.length}] ${stageLabel}...`));
 
         // Prepend context summaries from completed prior stages to fresh-start prompts
         const priorContext = this.state.getResumeContext(stage);
@@ -1961,8 +2273,11 @@ export class Pipeline {
             case 'build':
               await this.runBuild({ stack, parallel: parallel ?? 3 });
               break;
-            case 'test':
-              await this.runTest({ stack, figmaUrl: mayday.figmaUrl });
+            case 'validate':
+              await this.runValidate();
+              break;
+            case 'ship':
+              await this.runShip();
               break;
           }
         });

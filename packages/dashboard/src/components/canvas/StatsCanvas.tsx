@@ -101,7 +101,7 @@ const ACTIVITY_META: Record<string, { icon: typeof Rocket; color: string; label:
   simplify: { icon: Minimize2, color: 'var(--activity-simplify)', label: 'Simplify' },
 };
 
-const STAGE_ORDER: StageName[] = ['analyze', 'architect', 'plan', 'build', 'test'];
+const STAGE_ORDER: StageName[] = ['analyze', 'architect', 'plan', 'build', 'validate', 'ship'];
 
 export function StatsCanvas({ stats, historyEntries, state }: StatsCanvasProps) {
   const computed = stats ?? computeStats(historyEntries, state);

@@ -1,7 +1,7 @@
 projectName: swarm
 stack: node
 model: sonnet
-maxBudgetUsd: 5
+maxBudgetUsd: null
 promptsDir: bundled
 wsPort: 37453
 dashboardPort: 27176

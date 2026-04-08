@@ -1,4 +1,4 @@
-import { FileText, Blocks, ListChecks, Code2, TestTube2, Wrench } from 'lucide-react';
+import { FileText, Blocks, ListChecks, Code2, ShieldCheck, Rocket, Wrench } from 'lucide-react';
 import type { StageState, StageName, MaydayState } from '../../types';
 
 const STAGES: { name: StageName; label: string; description: string; icon: typeof FileText }[] = [
@@ -6,7 +6,8 @@ const STAGES: { name: StageName; label: string; description: string; icon: typeo
   { name: 'architect', label: 'Design', description: 'Planning the architecture', icon: Blocks },
   { name: 'plan', label: 'Tasks', description: 'Breaking into work items', icon: ListChecks },
   { name: 'build', label: 'Code', description: 'Writing the implementation', icon: Code2 },
-  { name: 'test', label: 'Test', description: 'Validating with tests', icon: TestTube2 },
+  { name: 'validate', label: 'Validate', description: 'Checking build health', icon: ShieldCheck },
+  { name: 'ship', label: 'Ship', description: 'Deploying to production', icon: Rocket },
 ];
 
 const STATUS_STYLES: Record<string, { bg: string; color: string; border: string }> = {

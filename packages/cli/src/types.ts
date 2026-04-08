@@ -11,7 +11,7 @@ export type Persona = 'analyst' | 'architect' | 'lead' | 'engineer' | 'tester';
 export type TechStack = 'react' | 'node' | 'go' | 'python' | 'rust' | 'swift' | 'custom';
 
 // Pipeline stage names
-export type StageName = 'analyze' | 'architect' | 'plan' | 'build' | 'test' | 'evaluate';
+export type StageName = 'analyze' | 'architect' | 'plan' | 'build' | 'test' | 'evaluate' | 'validate' | 'ship';
 
 export interface CostInfo {
   totalUsd: number;
@@ -186,6 +186,8 @@ export function createEmptyPipeline(projectName: string, stack: TechStack): Pipe
       build: emptyStage(),
       test: emptyStage(),
       evaluate: emptyStage(),
+      validate: emptyStage(),
+      ship: emptyStage(),
     },
     agents: [],
     totalCost: emptyCost(),
@@ -297,7 +299,7 @@ export type WsCommand =
   | { action: 'kill'; agentId: string }
   | { action: 'send-input'; agentId: string; text: string }
   | { action: 'get-state' }
-  | { action: 'run-stage'; stage: 'analyze' | 'architect' | 'plan' | 'build' | 'test'; prompt?: string; parallel?: number; taskId?: string; figmaUrl?: string; baseUrl?: string; authStorageState?: string }
+  | { action: 'run-stage'; stage: 'analyze' | 'architect' | 'plan' | 'build' | 'test' | 'validate' | 'ship'; prompt?: string; parallel?: number; taskId?: string; figmaUrl?: string; baseUrl?: string; authStorageState?: string }
   | { action: 'run-mayday'; prompt: string; maxIterations?: number; figmaUrl?: string; parallel?: number; resume?: boolean; model?: string; maxFixBudgetUsd?: number | null; fromStage?: StageName; approvalRequired?: boolean; lean?: boolean }
   | { action: 'mayday-input'; text: string }
   | { action: 'mayday-stop' }
@@ -1564,4 +1566,6 @@ export const STAGE_ARTIFACT_MAP: Record<StageName, string | null> = {
   build: null,
   test: 'TESTPLAN.md',
   evaluate: null,
+  validate: null,
+  ship: null,
 };

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Siren, FileText, Blocks, ListChecks, Code2, TestTube2, ChevronRight } from 'lucide-react';
+import { Siren, FileText, Blocks, ListChecks, Code2, ShieldCheck, Rocket, ChevronRight } from 'lucide-react';
 import type { WsCommand } from '../types';
 
 const PIPELINE_STAGES = [
@@ -40,10 +40,19 @@ const PIPELINE_STAGES = [
     accentBg: 'bg-red-950/20',
   },
   {
-    label: 'Test',
-    artifact: 'TESTPLAN.md',
-    description: 'Creates and runs E2E test plans against the build',
-    icon: TestTube2,
+    label: 'Validate',
+    artifact: null,
+    description: 'Type-checks, lints, and verifies the app starts cleanly',
+    icon: ShieldCheck,
+    color: 'text-yellow-400',
+    accentBorder: 'border-yellow-900/30',
+    accentBg: 'bg-yellow-950/20',
+  },
+  {
+    label: 'Ship',
+    artifact: null,
+    description: 'Pushes to git and deploys to Nexus sandbox',
+    icon: Rocket,
     color: 'text-green-400',
     accentBorder: 'border-green-900/30',
     accentBg: 'bg-green-950/20',

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   Sparkles, GitPullRequest, Minimize2,
-  FileText, Blocks, ListChecks, Code2, TestTube2, ArrowRight,
+  FileText, Blocks, ListChecks, Code2, ShieldCheck, Rocket, ArrowRight,
   ChevronDown, ChevronRight, Settings2, Image, Zap, DollarSign,
 } from 'lucide-react';
 import type { WsCommand } from '../../types';
@@ -20,7 +20,8 @@ const HOW_IT_WORKS = [
   { icon: Blocks, label: 'Design', detail: 'Plans architecture', color: 'var(--accent)' },
   { icon: ListChecks, label: 'Plan', detail: 'Creates task breakdown', color: 'var(--status-warning)' },
   { icon: Code2, label: 'Code', detail: 'Writes implementation', color: 'var(--status-error)' },
-  { icon: TestTube2, label: 'Test', detail: 'Validates with tests', color: 'var(--status-success)' },
+  { icon: ShieldCheck, label: 'Validate', detail: 'Checks build health', color: 'var(--status-warning)' },
+  { icon: Rocket, label: 'Ship', detail: 'Deploys to production', color: 'var(--status-success)' },
 ];
 
 const MODELS = [
@@ -67,7 +68,7 @@ export function EmptyCanvas({ sendCommand }: EmptyCanvasProps) {
             What would you like to build?
           </h1>
           <p className="text-sm leading-relaxed max-w-md mx-auto" style={{ color: 'var(--text-secondary)' }}>
-            Describe a feature in plain English. Hivemind will handle requirements, design, planning, coding, and testing automatically.
+            Describe a feature in plain English. Hivemind will handle requirements, design, planning, coding, validation, and shipping automatically.
           </p>
         </div>
 

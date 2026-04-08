@@ -581,6 +581,12 @@ export class SwarmWsServer {
                 });
                 break;
               }
+              case 'validate':
+                await this.pipeline.runValidate();
+                break;
+              case 'ship':
+                await this.pipeline.runShip();
+                break;
             }
             console.log(`[ws] Pipeline stage "${cmd.stage}" complete`);
           } catch (err) {

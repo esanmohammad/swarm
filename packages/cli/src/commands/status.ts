@@ -31,7 +31,7 @@ export function registerStatus(program: Command): void {
       console.log(chalk.bold(`\nProject: ${pipeline.projectName} (${pipeline.stack})\n`));
 
       console.log(chalk.bold('Pipeline:'));
-      const stages: StageName[] = ['analyze', 'architect', 'plan', 'build', 'test', 'evaluate'];
+      const stages: StageName[] = ['analyze', 'architect', 'plan', 'build', 'validate', 'ship'];
       const stageLabels: Record<StageName, string> = {
         analyze: 'Analyze',
         architect: 'Architect',
@@ -39,6 +39,8 @@ export function registerStatus(program: Command): void {
         build: 'Build',
         test: 'Test',
         evaluate: 'Evaluate',
+        validate: 'Validate',
+        ship: 'Ship',
       };
 
       for (const stage of stages) {

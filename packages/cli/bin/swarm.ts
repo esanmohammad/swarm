@@ -93,6 +93,8 @@ import { registerSpawnCapability } from '../src/commands/spawn-capability.js';
 import { registerFederate } from '../src/commands/federate.js';
 import { registerModels } from '../src/commands/models.js';
 import { registerCheck } from '../src/commands/check.js';
+import { registerValidate } from '../src/commands/validate.js';
+import { registerShip } from '../src/commands/ship.js';
 import { autoDetectStack, autoInit, loadConfig } from '../src/core/config.js';
 import { createContext } from '../src/commands/shared.js';
 
@@ -152,7 +154,9 @@ registerAnalyze(program);
 registerArchitect(program);
 registerPlan(program);
 registerBuild(program);
-registerTest(program);
+// registerTest(program);
+registerValidate(program);
+registerShip(program);
 
 // --- Preset commands (quick workflows) ---
 registerFix(program);
@@ -301,7 +305,7 @@ for (const register of advancedCommands) {
 
 // v0.1 launch set — all other commands are registered but hidden from help
 const V01_COMMANDS = new Set([
-  'mayday', 'analyze', 'architect', 'plan', 'build', 'test',
+  'mayday', 'analyze', 'architect', 'plan', 'build', 'validate', 'ship',
   'fix', 'review', 'pr', 'refactor', 'simplify', 'spike', 'test-gen', 'learn',
   'init', 'doctor', 'status', 'stats', 'memory', 'dashboard', 'check',
 ]);

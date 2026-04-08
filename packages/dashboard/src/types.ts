@@ -2,7 +2,7 @@ export type AgentStatus = 'pending' | 'running' | 'done' | 'error' | 'killed';
 export type PermissionMode = 'default' | 'acceptEdits' | 'bypassPermissions' | 'plan' | 'auto';
 export type Persona = 'analyst' | 'architect' | 'lead' | 'engineer' | 'tester';
 export type TechStack = 'react' | 'node' | 'go' | 'python' | 'rust' | 'swift' | 'custom';
-export type StageName = 'analyze' | 'architect' | 'plan' | 'build' | 'test' | 'evaluate';
+export type StageName = 'analyze' | 'architect' | 'plan' | 'build' | 'test' | 'evaluate' | 'validate' | 'ship';
 
 export interface CostInfo {
   totalUsd: number;
@@ -740,7 +740,7 @@ export type WsCommand =
   | { action: 'kill'; agentId: string }
   | { action: 'send-input'; agentId: string; text: string }
   | { action: 'get-state' }
-  | { action: 'run-stage'; stage: 'analyze' | 'architect' | 'plan' | 'build' | 'test'; prompt?: string; parallel?: number; taskId?: string; figmaUrl?: string; baseUrl?: string; authStorageState?: string }
+  | { action: 'run-stage'; stage: 'analyze' | 'architect' | 'plan' | 'build' | 'test' | 'validate' | 'ship'; prompt?: string; parallel?: number; taskId?: string; figmaUrl?: string; baseUrl?: string; authStorageState?: string }
   | { action: 'run-mayday'; prompt: string; maxIterations?: number; figmaUrl?: string; parallel?: number; resume?: boolean; model?: string; maxFixBudgetUsd?: number | null; fromStage?: StageName; approvalRequired?: boolean; lean?: boolean }
   | { action: 'mayday-input'; text: string }
   | { action: 'mayday-stop' }

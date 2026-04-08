@@ -23,7 +23,7 @@ function isToday(ts: number): boolean {
     d.getDate() === now.getDate();
 }
 
-const STAGE_ORDER: StageName[] = ['analyze', 'architect', 'plan', 'build', 'test'];
+const STAGE_ORDER: StageName[] = ['analyze', 'architect', 'plan', 'build', 'validate', 'ship'];
 
 export function useFeedItems(state: PipelineState, historyEntries: HistoryEntry[]): FeedItemData[] {
   return useMemo(() => {
